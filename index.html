@@ -103,8 +103,15 @@
         <button class="btn clear-toggle" id="asm-clear" aria-pressed="false">투명화</button>
         <span class="hint" id="asm-size"></span>
       </div>
+      <div class="row guide">
+        <span class="hint">대볼 그림</span>
+        <span class="guide-name" id="asm-guide-name">없음</span>
+        <button class="btn small" id="asm-guide-pick">고르기</button>
+        <label class="inline"><input type="checkbox" id="asm-guide-show" disabled>보이기</label>
+        <button class="btn small" id="asm-guide-drop" hidden>빼기</button>
+      </div>
       <div class="stage small"><canvas id="asm-canvas" class="pixels"></canvas></div>
-      <p class="hint">층 번호가 큰 그림이 위에 옵니다. 화살표는 한 칸씩 옮깁니다.</p>
+      <p class="hint">층 번호가 큰 그림이 위에 옵니다. 화살표는 한 칸씩 옮깁니다. 대볼 그림은 맨 위에 반쯤 비쳐 보이고, 합친 그림 내려받기에는 들어가지 않습니다.</p>
       <ol class="layers" id="asm-list"></ol>
     </section>
   </main>

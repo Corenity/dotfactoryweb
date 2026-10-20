@@ -30,6 +30,27 @@ export function compose(items, width, height) {
   return { width, height, data: out };
 }
 
+/**
+ * 대볼 그림을 합친 그림 맨 위에 반쯤 비치게 얹은 새 그림입니다. 화면에서 맞춰 볼 때만 쓰고 저장에는 넣지 않습니다.
+ * 대볼 그림의 칸은 alpha(0~1) 만큼만 덮고, 아래 칸은 나머지만큼 비칩니다.
+ */
+export function overlayGuide(base, guide, alpha = 0.5) {
+  const out = new Uint8ClampedArray(base.data);
+  for (let y = 0; y < Math.min(base.height, guide.height); y++) {
+    for (let x = 0; x < Math.min(base.width, guide.width); x++) {
+      const s = (y * guide.width + x) * 4;
+      const ga = guide.data[s + 3] / 255 * alpha;
+      if (!ga) continue;
+      const d = (y * base.width + x) * 4;
+      const ua = out[d + 3] / 255 * (1 - ga);
+      const a = ga + ua;
+      for (let c = 0; c < 3; c++) out[d + c] = Math.round((guide.data[s + c] * ga + out[d + c] * ua) / a);
+      out[d + 3] = Math.round(a * 255);
+    }
+  }
+  return { width: base.width, height: base.height, data: out };
+}
+
 /** 그림판 크기는 가장 큰 그림에 맞춥니다(보통 72×64). */
 export function canvasSizeFor(items) {
   let w = 0, h = 0;
@@ -43,11 +64,13 @@ export function nextLayer(items) {
 }
 
 /** 저장 파일(JSON) 내용입니다. 그림은 PNG data URL 로 같이 담아 파일 하나로 다시 열 수 있습니다. */
-export function toProject(items, width, height, pngOf) {
+// 대볼 그림(guide)은 조립할 부위(items)와 따로 담습니다. 읽는 쪽이 부위로 오해하지 않게 하려는 것입니다.
+export function toProject(items, width, height, pngOf, guide = null) {
   return {
     schema: SCHEMA,
     canvas: [width, height],
     items: items.map(i => ({ name: i.name, layer: i.layer, visible: i.visible !== false, dx: i.dx || 0, dy: i.dy || 0, png: pngOf(i.image) })),
+    ...(guide ? { guide: { name: guide.name, visible: guide.visible !== false, png: pngOf(guide.image) } } : {}),
   };
 }
 
@@ -62,5 +85,9 @@ export function parseProject(json) {
       return { name: String(i.name || `그림 ${n + 1}`), layer: Number(i.layer) || 0, visible: i.visible !== false,
         dx: Math.trunc(Number(i.dx) || 0), dy: Math.trunc(Number(i.dy) || 0), png: i.png };
     }),
+    // 대볼 그림이 없거나 그림이 깨진 옛 파일은 대볼 그림 없이 엽니다.
+    guide: typeof json.guide?.png === 'string' && json.guide.png.startsWith('data:image/png')
+      ? { name: String(json.guide.name || '대볼 그림'), visible: json.guide.visible !== false, png: json.guide.png }
+      : null,
   };
 }

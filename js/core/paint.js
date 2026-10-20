@@ -70,11 +70,35 @@ export function clearColor(img, rgba) {
 /** PC 도트 공장이 배경으로 까는 초록입니다. 세 화면 모두 이 초록을 배경으로 깔아 보여 줍니다. */
 export const KEY = [3, 192, 55, 255];
 
-/** 불러온 그림의 배경 초록 칸을 투명으로 바꾼 새 그림입니다. 화면 안의 그림은 늘 배경이 투명입니다. */
+/**
+ * 불러온 그림의 배경 칸을 투명으로 바꾼 새 그림입니다. 화면 안의 그림은 늘 배경이 투명입니다.
+ * 배경은 초록 KEY 와, 가장자리를 채운 색입니다. 지피티 등이 초록을 3,203,47 처럼 조금 다르게 칠해 오기 때문입니다.
+ */
 export function dropKey(img) {
   const out = clone(img);
   clearColor(out, KEY);
+  const edge = edgeBackground(out);
+  if (edge) clearColor(out, edge);
   return out;
+}
+
+/** 가장자리 칸에서 가장 많이 쓴 불투명 색입니다. 가장자리의 절반 이상을 차지할 때만 배경으로 보고, 아니면 null 입니다. */
+export function edgeBackground(img) {
+  const { width: w, height: h } = img;
+  const counts = new Map();
+  let total = 0;
+  const count = (x, y) => {
+    total++;
+    const p = getPixel(img, x, y);
+    if (!p[3]) return;
+    const key = p.join(',');
+    counts.set(key, (counts.get(key) || 0) + 1);
+  };
+  for (let x = 0; x < w; x++) { count(x, 0); if (h > 1) count(x, h - 1); }
+  for (let y = 1; y < h - 1; y++) { count(0, y); if (w > 1) count(w - 1, y); }
+  let best = null, most = 0;
+  for (const [key, n] of counts) if (n > most) { best = key; most = n; }
+  return best && most * 2 >= total ? best.split(',').map(Number) : null;
 }
 
 /** 투명 칸을 배경 초록으로 채운 새 그림입니다. 초록 배경으로 내려받을 때 씁니다. */
