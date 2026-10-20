@@ -1,0 +1,12 @@
+{
+  "name": "도트 공장",
+  "short_name": "도트 공장",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#16161a",
+  "theme_color": "#16161a",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

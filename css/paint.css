@@ -1,0 +1,36 @@
+/* 다듬기 · 합치기 화면 */
+
+.tools .btn[aria-pressed="true"] { border-color: var(--accent); background: #26304a; }
+
+input[type="color"] {
+  width: 52px; height: 44px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+}
+
+/* 그림에 쓰인 색은 한 줄로 두고 옆으로 밀어 봅니다. 그림판이 아래로 밀리지 않게 합니다. */
+.palette { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+.palette:empty { display: none; }
+.swatch { flex: 0 0 36px; width: 36px; height: 36px; border: 1px solid #0006; border-radius: 6px; padding: 0; }
+
+.stage {
+  position: relative; height: 62vh; min-height: 300px; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 10px; background: #111114;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+
+.stage canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.stage canvas[hidden] { display: none; }
+.stage .empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--muted); padding: 16px; text-align: center; }
+.stage .empty[hidden] { display: none; }
+
+.stage.small { height: auto; min-height: 0; display: grid; place-items: center; padding: 8px; touch-action: auto; }
+.stage.small canvas { position: static; max-width: 100%; }
+
+.layers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
+.layer { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: var(--panel); display: flex; flex-direction: column; gap: 6px; }
+.layer-top, .layer-bottom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.layer .thumb { width: 54px; height: 48px; border-radius: 4px; }
+.layer .name { flex: 1; min-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layer-number { width: 72px; }
+.arrows { display: flex; gap: 4px; }
+.item-tools { display: flex; gap: 4px; margin-left: auto; }

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#16161a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="도트 공장">
+  <title>도트 공장</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/paint.css">
+</head>
+<body>
+  <header class="top">
+    <h1>도트 공장</h1>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="shrink" aria-selected="true">축소</button>
+      <button role="tab" data-tab="paint" aria-selected="false">다듬기</button>
+      <button role="tab" data-tab="assemble" aria-selected="false">합치기</button>
+    </nav>
+  </header>
+
+  <main>
+    <section id="shrink" class="view" data-view="shrink">
+      <div class="row">
+        <button class="btn primary" id="shrink-pick">큰 그림 고르기</button>
+        <span class="hint" id="shrink-name">고른 그림 없음</span>
+      </div>
+      <div class="fields">
+        <label>목표 키(칸)<input id="shrink-height" type="number" inputmode="decimal" min="1" step="0.1" value="56"></label>
+        <label class="check"><input id="shrink-transparent" type="checkbox" checked>배경 투명</label>
+      </div>
+      <details>
+        <summary>그림판 세부 설정</summary>
+        <div class="fields">
+          <label>너비<input id="shrink-w" type="number" inputmode="numeric" min="1" value="72"></label>
+          <label>높이<input id="shrink-h" type="number" inputmode="numeric" min="1" value="64"></label>
+          <label>몸 중심 X<input id="shrink-cx" type="number" inputmode="decimal" min="0" step="0.5" value="36"></label>
+          <label>발 위치 Y<input id="shrink-fy" type="number" inputmode="numeric" min="0" value="60"></label>
+        </div>
+      </details>
+      <div class="row">
+        <button class="btn primary" id="shrink-run" disabled>축소</button>
+        <span class="status" id="shrink-status" aria-live="polite"></span>
+      </div>
+      <div class="shrink-result" id="shrink-result" hidden>
+        <figure><canvas id="shrink-guide"></canvas><figcaption><b class="blue">몸 중심</b> <b class="yellow">발 위치</b> <b class="white">잘라 낸 범위</b> <b class="green">캐릭터</b> <b class="red">뺀 장식</b></figcaption></figure>
+        <figure><canvas id="shrink-out" class="pixels"></canvas><figcaption id="shrink-info"></figcaption></figure>
+        <div class="row">
+          <button class="btn" id="shrink-save">PNG 내려받기</button>
+          <button class="btn primary" id="shrink-to-paint">다듬기로</button>
+          <button class="btn" id="shrink-to-assemble">합치기에 더하기</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="paint" class="view" data-view="paint" hidden>
+      <div class="row tools" role="toolbar">
+        <button class="btn tool" data-tool="pen" aria-pressed="true">펜</button>
+        <button class="btn tool" data-tool="eraser" aria-pressed="false">지우개</button>
+        <button class="btn tool" data-tool="fill" aria-pressed="false">채우기</button>
+        <button class="btn tool" data-tool="picker" aria-pressed="false">스포이드</button>
+        <input type="color" id="paint-color" value="#000000" aria-label="칠할 색">
+        <button class="btn" id="paint-undo" disabled>되돌리기</button>
+        <button class="btn" id="paint-redo" disabled>다시</button>
+      </div>
+      <div class="palette" id="paint-palette" aria-label="그림에 쓰인 색"></div>
+      <div class="stage" id="paint-stage">
+        <canvas id="paint-canvas" class="pixels"></canvas>
+        <p class="empty" id="paint-empty">축소한 그림을 보내거나 PNG 를 여세요.</p>
+      </div>
+      <div class="row">
+        <button class="btn" id="paint-fit">화면에 맞추기</button>
+        <label class="inline">바탕<select id="paint-backdrop">
+          <option value="checker">체크무늬</option><option value="#ffffff">흰색</option><option value="#808080">회색</option><option value="#000000">검정</option>
+        </select></label>
+        <span class="hint" id="paint-pos"></span>
+      </div>
+      <div class="row">
+        <button class="btn" id="paint-open">PNG 열기</button>
+        <button class="btn" id="paint-new">새 그림</button>
+        <button class="btn primary" id="paint-save">PNG 내려받기</button>
+        <button class="btn" id="paint-to-assemble">합치기에 더하기</button>
+      </div>
+    </section>
+
+    <section id="assemble" class="view" data-view="assemble" hidden>
+      <div class="row">
+        <button class="btn primary" id="asm-add">그림 더하기</button>
+        <button class="btn" id="asm-open">설정 열기</button>
+        <button class="btn" id="asm-save-json">설정 저장</button>
+        <button class="btn primary" id="asm-save-png">합친 그림 내려받기</button>
+      </div>
+      <div class="row">
+        <label class="inline">바탕<select id="asm-backdrop">
+          <option value="checker">체크무늬</option><option value="#ffffff">흰색</option><option value="#808080">회색</option><option value="#000000">검정</option>
+        </select></label>
+        <span class="hint" id="asm-size"></span>
+      </div>
+      <div class="stage small"><canvas id="asm-canvas" class="pixels"></canvas></div>
+      <p class="hint">층 번호가 큰 그림이 위에 옵니다. 화살표는 한 칸씩 옮깁니다.</p>
+      <ol class="layers" id="asm-list"></ol>
+    </section>
+  </main>
+
+  <p class="toast" id="toast" role="status" hidden></p>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
