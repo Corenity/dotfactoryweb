@@ -10,7 +10,7 @@
 .tools .btn { min-height: 36px; padding: 0 6px; border-radius: 8px; font-size: 14px; }
 .tools .tool { flex: 1 1 auto; min-width: 0; }
 .tools .icon { flex: 0 0 36px; width: 36px; padding: 0; display: grid; place-items: center; }
-.tools .btn[aria-pressed="true"] { border-color: var(--accent); background: #26304a; }
+.tools .btn[aria-pressed="true"], .clear-toggle[aria-pressed="true"] { border-color: var(--accent); background: #26304a; }
 .tools .color-btn { border: 2px solid var(--text); }
 
 /* 색 단추를 누르면 그림에 쓰인 색과 다른 색 고르기가 도구 줄 아래 팝업으로 열립니다. */

@@ -32,7 +32,6 @@
       </div>
       <div class="fields">
         <label>목표 키(칸)<input id="shrink-height" type="number" inputmode="decimal" min="1" step="0.1" value="56"></label>
-        <label class="check"><input id="shrink-transparent" type="checkbox" checked>배경 투명</label>
       </div>
       <details>
         <summary>그림판 세부 설정</summary>
@@ -51,6 +50,7 @@
         <figure><canvas id="shrink-guide"></canvas><figcaption><b class="blue">몸 중심</b> <b class="yellow">발 위치</b> <b class="white">잘라 낸 범위</b> <b class="green">캐릭터</b> <b class="red">뺀 장식</b></figcaption></figure>
         <figure><canvas id="shrink-out" class="pixels"></canvas><figcaption id="shrink-info"></figcaption></figure>
         <div class="row">
+          <button class="btn clear-toggle" id="shrink-clear" aria-pressed="false">투명화</button>
           <button class="btn" id="shrink-save">PNG 내려받기</button>
           <button class="btn primary" id="shrink-to-paint">다듬기로</button>
           <button class="btn" id="shrink-to-assemble">합치기에 더하기</button>
@@ -81,10 +81,7 @@
         <span class="hint" id="paint-zoom"></span>
         <button class="btn" id="paint-zoom-in" aria-label="크게 보기">+</button>
         <button class="btn" id="paint-fit">화면에 맞추기</button>
-        <label class="inline">바탕<select id="paint-backdrop">
-          <option value="checker">체크무늬</option><option value="#ffffff">흰색</option><option value="#808080">회색</option><option value="#000000">검정</option>
-        </select></label>
-        <button class="btn" id="paint-clear-bg">배경색 투명</button>
+        <button class="btn clear-toggle" id="paint-clear" aria-pressed="false">투명화</button>
         <span class="hint" id="paint-pos"></span>
       </div>
       <div class="row">
@@ -103,9 +100,7 @@
         <button class="btn primary" id="asm-save-png">합친 그림 내려받기</button>
       </div>
       <div class="row">
-        <label class="inline">바탕<select id="asm-backdrop">
-          <option value="checker">체크무늬</option><option value="#ffffff">흰색</option><option value="#808080">회색</option><option value="#000000">검정</option>
-        </select></label>
+        <button class="btn clear-toggle" id="asm-clear" aria-pressed="false">투명화</button>
         <span class="hint" id="asm-size"></span>
       </div>
       <div class="stage small"><canvas id="asm-canvas" class="pixels"></canvas></div>

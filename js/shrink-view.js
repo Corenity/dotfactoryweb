@@ -1,10 +1,13 @@
 // 축소 화면 — 큰 그림을 골라 도트 칸 그림으로 줄이고, 잰 기준(몸 중심 · 발 위치 · 범위)을 함께 보여 줍니다.
 import { readImageFile, toCanvas, drawPixels, pickFiles, savePng, baseName } from './io.js';
+import { backdropToggle } from './backdrop.js';
 
 const $ = sel => document.querySelector(sel);
 
 export function mountShrink(app) {
   let source = null, sourceName = '', result = null, busy = false;
+  // 축소 결과의 배경은 늘 투명 칸으로 받고, 초록은 보여 줄 때와 내려받을 때만 깝니다.
+  const bg = backdropToggle($('#shrink-clear'), () => result && drawOut());
 
   const status = text => { $('#shrink-status').textContent = text; };
 
@@ -28,7 +31,7 @@ export function mountShrink(app) {
     if (!source || busy) return;
     const options = {
       targetHeight: Number($('#shrink-height').value) || 56,
-      transparent: $('#shrink-transparent').checked,
+      transparent: true,
       canvasW: Number($('#shrink-w').value) || 72,
       canvasH: Number($('#shrink-h').value) || 64,
       centerX: Number($('#shrink-cx').value),
@@ -61,10 +64,12 @@ export function mountShrink(app) {
   function showResult(details) {
     $('#shrink-result').hidden = false;
     drawGuide(details);
-    drawPixels($('#shrink-out'), result, 4);
+    drawOut();
     const [w, h] = details.canvas;
     $('#shrink-info').textContent = `${w}×${h} 칸 · 원본 ${details.perCell.toFixed(1)}px 가 한 칸`;
   }
+
+  function drawOut() { drawPixels($('#shrink-out'), result, 4, bg.backdrop); }
 
   // PC 「기준 보기」와 같은 색으로 잰 기준을 원본 위에 그립니다.
   function drawGuide(d) {
@@ -85,7 +90,7 @@ export function mountShrink(app) {
     ctx.beginPath(); ctx.moveTo(d.crop[0] * scale, d.foot * scale); ctx.lineTo(d.crop[2] * scale, d.foot * scale); ctx.stroke();
   }
 
-  $('#shrink-save').addEventListener('click', () => result && savePng(`${sourceName}_도트.png`, result));
+  $('#shrink-save').addEventListener('click', () => result && savePng(`${sourceName}_도트.png`, bg.forSave(result)));
   $('#shrink-to-paint').addEventListener('click', () => result && app.sendToPaint(result, `${sourceName}_도트`));
   $('#shrink-to-assemble').addEventListener('click', () => result && app.addToAssemble(result, `${sourceName}_도트`));
 

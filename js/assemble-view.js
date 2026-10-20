@@ -1,11 +1,15 @@
 // 합치기 화면 — 그림 여러 장을 층 번호 · 보이기 · 칸 이동으로 겹쳐 보고 저장합니다.
 import { compose, canvasSizeFor, nextLayer, toProject, parseProject } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, saveJson, toPngDataUrl, baseName } from './io.js';
+import { dropKey } from './core/paint.js';
+import { backdropToggle } from './backdrop.js';
 
 const $ = sel => document.querySelector(sel);
 
 export function mountAssemble(app) {
   let items = [];
+  // 맨 아래에 초록을 깔아 보여 줍니다. 넣는 그림은 초록 칸을 투명으로 바꿔 받아 아래를 가리지 않습니다.
+  const bg = backdropToggle($('#asm-clear'), render);
 
   function size() { return canvasSizeFor(items); }
 
@@ -13,7 +17,7 @@ export function mountAssemble(app) {
     const [w, h] = size();
     const stage = $('#asm-canvas').parentElement;
     const scale = Math.max(1, Math.floor(Math.min(stage.clientWidth || 360, 480) / w));
-    drawPixels($('#asm-canvas'), compose(items, w, h), scale, $('#asm-backdrop').value);
+    drawPixels($('#asm-canvas'), compose(items, w, h), scale, bg.backdrop);
     $('#asm-size').textContent = items.length ? `${w}×${h} 칸 · 그림 ${items.length}장` : '그림을 더하세요';
     renderList();
   }
@@ -28,7 +32,7 @@ export function mountAssemble(app) {
       li.className = 'layer';
       const thumb = document.createElement('canvas');
       thumb.className = 'pixels thumb';
-      drawPixels(thumb, item.image, 1, 'checker');
+      drawPixels(thumb, item.image, 1, bg.backdrop);
       const title = document.createElement('span');
       title.className = 'name';
       title.textContent = item.name;
@@ -76,7 +80,7 @@ export function mountAssemble(app) {
   }
 
   function add(image, name) {
-    items.push({ image, name, layer: nextLayer(items), visible: true, dx: 0, dy: 0 });
+    items.push({ image: dropKey(image), name, layer: nextLayer(items), visible: true, dx: 0, dy: 0 });
     changed();
   }
 
@@ -86,11 +90,10 @@ export function mountAssemble(app) {
       try { add(await readImageFile(file), baseName(file.name)); } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
     }
   });
-  $('#asm-backdrop').addEventListener('change', render);
   $('#asm-save-png').addEventListener('click', () => {
     if (!items.length) return;
     const [w, h] = size();
-    savePng('합친그림.png', compose(items, w, h));
+    savePng('합친그림.png', bg.forSave(compose(items, w, h)));
   });
   $('#asm-save-json').addEventListener('click', () => {
     if (!items.length) return;
@@ -112,7 +115,7 @@ export function mountAssemble(app) {
   async function restore(json) {
     const project = parseProject(json);
     const loaded = [];
-    for (const i of project.items) loaded.push({ ...i, image: await readDataUrl(i.png), png: undefined });
+    for (const i of project.items) loaded.push({ ...i, image: dropKey(await readDataUrl(i.png)), png: undefined });
     items = loaded;
     render();
   }

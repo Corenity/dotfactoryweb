@@ -67,6 +67,23 @@ export function clearColor(img, rgba) {
   return cleared;
 }
 
+/** PC 도트 공장이 배경으로 까는 초록입니다. 세 화면 모두 이 초록을 배경으로 깔아 보여 줍니다. */
+export const KEY = [3, 192, 55, 255];
+
+/** 불러온 그림의 배경 초록 칸을 투명으로 바꾼 새 그림입니다. 화면 안의 그림은 늘 배경이 투명입니다. */
+export function dropKey(img) {
+  const out = clone(img);
+  clearColor(out, KEY);
+  return out;
+}
+
+/** 투명 칸을 배경 초록으로 채운 새 그림입니다. 초록 배경으로 내려받을 때 씁니다. */
+export function fillKey(img) {
+  const out = clone(img);
+  for (let i = 0; i < out.data.length; i += 4) if (!out.data[i + 3]) out.data.set(KEY, i);
+  return out;
+}
+
 /** 그림에 쓰인 불투명 색을 많이 쓴 순으로 돌려줍니다(#rrggbb). */
 export function usedColors(img) {
   const counts = new Map();

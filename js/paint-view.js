@@ -1,6 +1,7 @@
 // 다듬기 화면 — 한 손가락으로 칠하고, 두 손가락으로 옮기고, + · − 단추로 확대 · 축소합니다.
-import { blank, clone, getPixel, setPixel, floodFill, clearColor, usedColors, toHex, fromHex, History } from './core/paint.js';
+import { blank, clone, getPixel, setPixel, floodFill, usedColors, toHex, fromHex, History, KEY, dropKey } from './core/paint.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName } from './io.js';
+import { backdropToggle } from './backdrop.js';
 
 const $ = sel => document.querySelector(sel);
 // 한 칸을 화면에서 몇 픽셀로 그릴지 고르는 단계입니다. + · − 는 이 단계를 하나씩 오갑니다.
@@ -15,8 +16,13 @@ export function mountPaint(app) {
   let strokeBefore = null, last = null;
   const pointers = new Map();
   let pan = null;
+  const bg = backdropToggle($('#paint-clear'), render);
 
-  function color() { return fromHex($('#paint-color').value); }
+  // 배경 초록으로 칠하면 그 칸은 배경(투명)이 됩니다. 불러올 때 초록을 배경으로 보는 것과 같게 둡니다.
+  function color() {
+    const c = fromHex($('#paint-color').value);
+    return c.every((v, i) => v === KEY[i]) ? [0, 0, 0, 0] : c;
+  }
   // 칠할 색을 바꾸고 도구 줄의 색 단추에도 같은 색을 칠합니다.
   function setColor(hex) { $('#paint-color').value = hex; showColor(); }
   function showColor() { colorBtn.style.background = $('#paint-color').value; }
@@ -26,7 +32,7 @@ export function mountPaint(app) {
     $('#paint-empty').hidden = !!image;
     canvas.hidden = !image;
     if (!image) return;
-    drawPixels(canvas, image, cell, $('#paint-backdrop').value);
+    drawPixels(canvas, image, cell, bg.backdrop);
     if (cell >= 8) drawGrid();
     canvas.style.transform = `translate(${panX}px, ${panY}px)`;
     $('#paint-zoom').textContent = `${cell}배`;
@@ -207,18 +213,6 @@ export function mountPaint(app) {
   $('#paint-undo').addEventListener('click', () => { const prev = history.undo(image); if (prev) { image = prev; changed(); } });
   $('#paint-redo').addEventListener('click', () => { const next = history.redo(image); if (next) { image = next; changed(); } });
   $('#paint-fit').addEventListener('click', fit);
-  $('#paint-backdrop').addEventListener('change', render);
-  // 왼쪽 위 모서리 칸의 색을 배경색으로 보고, 그림 전체에서 같은 색을 투명하게 합니다. 되돌리기로 돌릴 수 있습니다.
-  $('#paint-clear-bg').addEventListener('click', () => {
-    if (!image) { app.toast('먼저 그림을 여세요.'); return; }
-    const corner = getPixel(image, 0, 0);
-    if (!corner[3]) { app.toast('왼쪽 위 모서리가 이미 투명합니다.'); return; }
-    const before = clone(image);
-    const cleared = clearColor(image, corner);
-    history.push(before);
-    changed();
-    app.toast(`${toHex(corner)} ${cleared}칸을 투명하게 했습니다.`);
-  });
   $('#paint-open').addEventListener('click', async () => {
     const [file] = await pickFiles({ accept: 'image/png' });
     if (!file) return;
@@ -228,7 +222,7 @@ export function mountPaint(app) {
     if (image && !confirm('지금 그림을 비우고 72×64 새 그림을 만들까요? 내려받지 않은 고침은 사라집니다.')) return;
     load(blank(72, 64), '새 그림');
   });
-  $('#paint-save').addEventListener('click', () => image && savePng(`${name}.png`, image));
+  $('#paint-save').addEventListener('click', () => image && savePng(`${name}.png`, bg.forSave(image)));
   $('#paint-to-assemble').addEventListener('click', () => image && app.addToAssemble(clone(image), name));
   // 아이폰은 주소창이 숨거나 나올 때마다 높이가 바뀝니다. 너비가 바뀔 때(가로 · 세로 돌림)만 다시 맞춰 확대를 지킵니다.
   let fittedWidth = 0;
@@ -237,8 +231,9 @@ export function mountPaint(app) {
     fit();
   });
 
+  // 어디서 온 그림이든 배경 초록 칸은 투명으로 바꿔 받습니다.
   function load(next, nextName) {
-    image = clone(next);
+    image = dropKey(next);
     name = nextName || '그림';
     history = new History();
     requestAnimationFrame(fit);
@@ -252,7 +247,7 @@ export function mountPaint(app) {
     snapshot: () => (image ? { name, png: toPngDataUrl(image) } : null),
     async restore(saved) {
       if (!saved?.png) return;
-      image = await readDataUrl(saved.png);
+      image = dropKey(await readDataUrl(saved.png));
       name = saved.name || '그림';
       fit();
       renderPalette();
