@@ -200,7 +200,7 @@ export function mountPaint(app) {
   $('#paint-backdrop').addEventListener('change', render);
   // 왼쪽 위 모서리 칸의 색을 배경색으로 보고, 그림 전체에서 같은 색을 투명하게 합니다. 되돌리기로 돌릴 수 있습니다.
   $('#paint-clear-bg').addEventListener('click', () => {
-    if (!image) return;
+    if (!image) { app.toast('먼저 그림을 여세요.'); return; }
     const corner = getPixel(image, 0, 0);
     if (!corner[3]) { app.toast('왼쪽 위 모서리가 이미 투명합니다.'); return; }
     const before = clone(image);

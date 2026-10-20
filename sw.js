@@ -1,6 +1,6 @@
 // 오프라인에서도 열리게 화면 파일을 휴대폰에 담아 둡니다. VERSION 은 손으로 올리지 않습니다 —
 // 공개판 복사(tools/publish.mjs)가 화면 파일 내용으로 정한 값으로 바꿔 넣습니다.
-const VERSION = 'dotfactory-web-17e0684fe347';
+const VERSION = 'dotfactory-web-83bc12d29da1';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'icon.svg',
   'css/app.css', 'css/paint.css',
@@ -9,7 +9,10 @@ const FILES = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
+  // 휴대폰 HTTP 보관본(GitHub Pages 는 10분)을 건너뛰고 서버에서 받아 담습니다. 판이 섞이지 않게 합니다.
+  event.waitUntil(caches.open(VERSION)
+    .then(cache => cache.addAll(FILES.map(file => new Request(file, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {
@@ -18,10 +21,12 @@ self.addEventListener('activate', event => {
     .then(() => self.clients.claim()));
 });
 
-// 인터넷이 되면 새 파일을 받아 담고, 안 되면 담아 둔 파일을 씁니다.
+// 인터넷이 되면 새 파일을 받아 담고, 안 되면 담아 둔 파일을 씁니다. 받을 때는 휴대폰 HTTP 보관본을 그대로 쓰지 않고
+// 서버에 바뀌었는지 물어봅니다(no-cache) — 안 바뀌었으면 짧은 답만 옵니다. 새 판을 올린 뒤 다시 열면 모든 파일이 새 것이 됩니다.
+// 주소만 넘겨 새 요청을 만듭니다. 페이지 열기(navigate) 요청은 설정을 덧붙여 다시 만들 수 없습니다.
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || new URL(event.request.url).origin !== location.origin) return;
-  event.respondWith(fetch(event.request)
+  event.respondWith(fetch(event.request.url, { cache: 'no-cache' })
     .then(response => {
       if (response.ok) { const copy = response.clone(); caches.open(VERSION).then(cache => cache.put(event.request, copy)); }
       return response;
