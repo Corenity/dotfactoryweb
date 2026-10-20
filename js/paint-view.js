@@ -1,8 +1,10 @@
-// 다듬기 화면 — 한 손가락으로 칠하고, 두 손가락으로 확대 · 이동합니다.
-import { blank, clone, getPixel, setPixel, floodFill, usedColors, toHex, fromHex, History } from './core/paint.js';
+// 다듬기 화면 — 한 손가락으로 칠하고, 두 손가락으로 옮기고, + · − 단추로 확대 · 축소합니다.
+import { blank, clone, getPixel, setPixel, floodFill, clearColor, usedColors, toHex, fromHex, History } from './core/paint.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName } from './io.js';
 
 const $ = sel => document.querySelector(sel);
+// 한 칸을 화면에서 몇 픽셀로 그릴지 고르는 단계입니다. + · − 는 이 단계를 하나씩 오갑니다.
+const ZOOM_STEPS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
 
 export function mountPaint(app) {
   const stage = $('#paint-stage');
@@ -11,7 +13,7 @@ export function mountPaint(app) {
   let tool = 'pen', cell = 8, panX = 0, panY = 0;
   let strokeBefore = null, last = null;
   const pointers = new Map();
-  let pinch = null;
+  let pan = null;
 
   function color() { return fromHex($('#paint-color').value); }
 
@@ -22,6 +24,9 @@ export function mountPaint(app) {
     drawPixels(canvas, image, cell, $('#paint-backdrop').value);
     if (cell >= 8) drawGrid();
     canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+    $('#paint-zoom').textContent = `${cell}배`;
+    $('#paint-zoom-out').disabled = cell <= ZOOM_STEPS[0];
+    $('#paint-zoom-in').disabled = cell >= ZOOM_STEPS.at(-1);
     $('#paint-undo').disabled = !history.canUndo;
     $('#paint-redo').disabled = !history.canRedo;
   }
@@ -59,6 +64,22 @@ export function mountPaint(app) {
     panX = Math.round((w - image.width * cell) / 2);
     panY = Math.round((h - image.height * cell) / 2);
     render();
+  }
+
+  // 화면의 (x, y) 아래 칸이 그 자리에 머물게 확대를 바꿉니다.
+  function zoomAt(next, x, y) {
+    if (!image || next === cell) return;
+    const ux = (x - panX) / cell, uy = (y - panY) / cell;
+    cell = next;
+    panX = Math.round(x - ux * cell);
+    panY = Math.round(y - uy * cell);
+    render();
+  }
+
+  // 가운데를 기준으로 다음 단계로 키우거나(+1) 줄입니다(-1). 화면에 맞추기로 생긴 단계 밖 값에서도 바로 옆 단계로 갑니다.
+  function zoomStep(direction) {
+    const next = direction > 0 ? ZOOM_STEPS.find(s => s > cell) : ZOOM_STEPS.findLast(s => s < cell);
+    if (next) zoomAt(next, stage.clientWidth / 2, stage.clientHeight / 2);
   }
 
   function changed() {
@@ -123,34 +144,26 @@ export function mountPaint(app) {
     if (!image) return;
     stage.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (e.pointerType === 'mouse' && e.button !== 0) { pinch = { mousePan: true, x: e.clientX, y: e.clientY, panX, panY }; return; }
+    if (e.pointerType === 'mouse' && e.button !== 0) { pan = { x: e.clientX, y: e.clientY, panX, panY }; return; }
     if (pointers.size === 1) {
       const at = cellAt(e.clientX, e.clientY);
       $('#paint-pos').textContent = inside(at) ? `x ${at[0]} · y ${at[1]}` : '';
       strokeStart(at);
     } else if (pointers.size === 2) {
-      // 두 번째 손가락이 닿으면 칠하던 것을 되돌리고 확대 · 이동으로 바꿉니다.
+      // 두 번째 손가락이 닿으면 칠하던 것을 되돌리고 옮기기로 바꿉니다. 손가락 간격으로는 확대하지 않습니다.
       strokeCancel();
       const [a, b] = [...pointers.values()];
-      pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, cell, panX, panY };
+      pan = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, panX, panY };
     }
   });
 
   stage.addEventListener('pointermove', e => {
     if (!pointers.has(e.pointerId)) return;
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pinch?.mousePan) { panX = pinch.panX + e.clientX - pinch.x; panY = pinch.panY + e.clientY - pinch.y; render(); return; }
-    if (pinch && pointers.size >= 2) {
-      const [a, b] = [...pointers.values()];
-      const dist = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
-      const next = Math.max(1, Math.min(64, Math.round(pinch.cell * dist / pinch.dist)));
-      const r = stage.getBoundingClientRect();
-      // 두 손가락 가운데 아래의 칸이 손가락을 따라오게 맞춥니다.
-      const ux = (pinch.cx - r.left - pinch.panX) / pinch.cell, uy = (pinch.cy - r.top - pinch.panY) / pinch.cell;
-      cell = next;
-      panX = Math.round(cx - r.left - ux * cell);
-      panY = Math.round(cy - r.top - uy * cell);
-      render();
+    if (pan) {
+      const list = [...pointers.values()];
+      const x = list.reduce((s, p) => s + p.x, 0) / list.length, y = list.reduce((s, p) => s + p.y, 0) / list.length;
+      if (list.length >= 2 || e.pointerType === 'mouse') { panX = pan.panX + Math.round(x - pan.x); panY = pan.panY + Math.round(y - pan.y); render(); }
       return;
     }
     if (pointers.size === 1 && strokeBefore) {
@@ -163,7 +176,7 @@ export function mountPaint(app) {
   const up = e => {
     if (!pointers.has(e.pointerId)) return;
     pointers.delete(e.pointerId);
-    if (pinch) { if (!pointers.size) pinch = null; return; }
+    if (pan) { if (!pointers.size) pan = null; return; }
     if (e.type === 'pointercancel') { strokeCancel(); return; }
     strokeEnd(cellAt(e.clientX, e.clientY));
   };
@@ -174,18 +187,28 @@ export function mountPaint(app) {
     if (!image) return;
     e.preventDefault();
     const r = stage.getBoundingClientRect();
-    const ux = (e.clientX - r.left - panX) / cell, uy = (e.clientY - r.top - panY) / cell;
-    cell = Math.max(1, Math.min(64, cell + (e.deltaY < 0 ? 1 : -1) * Math.max(1, Math.round(cell / 6))));
-    panX = Math.round(e.clientX - r.left - ux * cell);
-    panY = Math.round(e.clientY - r.top - uy * cell);
-    render();
+    zoomAt(Math.max(1, Math.min(64, cell + (e.deltaY < 0 ? 1 : -1) * Math.max(1, Math.round(cell / 6)))), e.clientX - r.left, e.clientY - r.top);
   }, { passive: false });
+
+  $('#paint-zoom-in').addEventListener('click', () => zoomStep(1));
+  $('#paint-zoom-out').addEventListener('click', () => zoomStep(-1));
 
   for (const b of document.querySelectorAll('[data-tool]')) b.addEventListener('click', () => setTool(b.dataset.tool));
   $('#paint-undo').addEventListener('click', () => { const prev = history.undo(image); if (prev) { image = prev; changed(); } });
   $('#paint-redo').addEventListener('click', () => { const next = history.redo(image); if (next) { image = next; changed(); } });
   $('#paint-fit').addEventListener('click', fit);
   $('#paint-backdrop').addEventListener('change', render);
+  // 왼쪽 위 모서리 칸의 색을 배경색으로 보고, 그림 전체에서 같은 색을 투명하게 합니다. 되돌리기로 돌릴 수 있습니다.
+  $('#paint-clear-bg').addEventListener('click', () => {
+    if (!image) return;
+    const corner = getPixel(image, 0, 0);
+    if (!corner[3]) { app.toast('왼쪽 위 모서리가 이미 투명합니다.'); return; }
+    const before = clone(image);
+    const cleared = clearColor(image, corner);
+    history.push(before);
+    changed();
+    app.toast(`${toHex(corner)} ${cleared}칸을 투명하게 했습니다.`);
+  });
   $('#paint-open').addEventListener('click', async () => {
     const [file] = await pickFiles({ accept: 'image/png' });
     if (!file) return;

@@ -55,6 +55,18 @@ export function floodFill(img, x, y, rgba) {
   return painted;
 }
 
+/** 이어졌는지와 상관없이 그림 전체에서 rgba 와 똑같은 칸을 모두 투명하게 합니다. 바꾼 칸 수를 돌려줍니다. */
+export function clearColor(img, rgba) {
+  if (rgba[3] === 0) return 0;
+  let cleared = 0;
+  for (let i = 0; i < img.data.length; i += 4) {
+    if (!sameColor(img.data, i, rgba)) continue;
+    img.data.fill(0, i, i + 4);
+    cleared++;
+  }
+  return cleared;
+}
+
 /** 그림에 쓰인 불투명 색을 많이 쓴 순으로 돌려줍니다(#rrggbb). */
 export function usedColors(img) {
   const counts = new Map();

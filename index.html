@@ -74,10 +74,14 @@
         <p class="empty" id="paint-empty">축소한 그림을 보내거나 PNG 를 여세요.</p>
       </div>
       <div class="row">
+        <button class="btn" id="paint-zoom-out" aria-label="작게 보기">−</button>
+        <span class="hint" id="paint-zoom"></span>
+        <button class="btn" id="paint-zoom-in" aria-label="크게 보기">+</button>
         <button class="btn" id="paint-fit">화면에 맞추기</button>
         <label class="inline">바탕<select id="paint-backdrop">
           <option value="checker">체크무늬</option><option value="#ffffff">흰색</option><option value="#808080">회색</option><option value="#000000">검정</option>
         </select></label>
+        <button class="btn" id="paint-clear-bg">배경색 투명</button>
         <span class="hint" id="paint-pos"></span>
       </div>
       <div class="row">
