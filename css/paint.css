@@ -1,15 +1,32 @@
 /* 다듬기 · 합치기 화면 */
 
+/* 도구 줄은 아이폰 XS 너비(375px)에서도 한 줄이고, 화면을 내려도 위쪽 머리 바로 아래에 붙어 있습니다.
+   머리 높이는 app.js 가 --top-h 로 넣습니다. 사용자가 작게 해 달라고 해 이 줄만 36px 입니다. */
+.tools {
+  position: sticky; top: var(--top-h, 61px); z-index: 1;
+  display: flex; align-items: center; gap: 4px;
+  margin: -6px -12px 0; padding: 6px 12px; background: var(--bg);
+}
+.tools .btn { min-height: 36px; padding: 0 6px; border-radius: 8px; font-size: 14px; }
+.tools .tool { flex: 1 1 auto; min-width: 0; }
+.tools .icon { flex: 0 0 36px; width: 36px; padding: 0; display: grid; place-items: center; }
 .tools .btn[aria-pressed="true"] { border-color: var(--accent); background: #26304a; }
+.tools .color-btn { border: 2px solid var(--text); }
+
+/* 색 단추를 누르면 그림에 쓰인 색과 다른 색 고르기가 도구 줄 아래 팝업으로 열립니다. */
+.color-pop {
+  position: absolute; top: calc(100% + 2px); right: 12px; z-index: 1; width: min(320px, calc(100% - 24px));
+  display: flex; flex-direction: column; gap: 10px; padding: 10px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: 0 6px 24px #0008;
+}
+.color-pop[hidden] { display: none; }
+.palette { display: grid; grid-template-columns: repeat(auto-fill, 36px); gap: 6px; max-height: 40vh; overflow-y: auto; }
+.palette:empty::before { content: '그림을 열면 그림에 쓰인 색이 여기 나옵니다.'; grid-column: 1 / -1; color: var(--muted); font-size: 14px; }
+.swatch { width: 36px; height: 36px; border: 1px solid #0006; border-radius: 6px; padding: 0; }
 
 input[type="color"] {
-  width: 52px; height: 44px; padding: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+  width: 52px; height: 36px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
 }
-
-/* 그림에 쓰인 색은 한 줄로 두고 옆으로 밀어 봅니다. 그림판이 아래로 밀리지 않게 합니다. */
-.palette { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-.palette:empty { display: none; }
-.swatch { flex: 0 0 36px; width: 36px; height: 36px; border: 1px solid #0006; border-radius: 6px; padding: 0; }
 
 .stage {
   position: relative; height: 62vh; min-height: 300px; overflow: hidden;

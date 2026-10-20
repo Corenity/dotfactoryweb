@@ -59,16 +59,19 @@
     </section>
 
     <section id="paint" class="view" data-view="paint" hidden>
-      <div class="row tools" role="toolbar">
+      <div class="tools" role="toolbar">
         <button class="btn tool" data-tool="pen" aria-pressed="true">펜</button>
         <button class="btn tool" data-tool="eraser" aria-pressed="false">지우개</button>
         <button class="btn tool" data-tool="fill" aria-pressed="false">채우기</button>
         <button class="btn tool" data-tool="picker" aria-pressed="false">스포이드</button>
-        <input type="color" id="paint-color" value="#000000" aria-label="칠할 색">
-        <button class="btn" id="paint-undo" disabled>되돌리기</button>
-        <button class="btn" id="paint-redo" disabled>다시</button>
+        <button class="btn icon color-btn" id="paint-color-btn" aria-label="칠할 색 고르기" aria-expanded="false" aria-controls="paint-color-pop"></button>
+        <button class="btn icon" id="paint-undo" aria-label="되돌리기" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button class="btn icon" id="paint-redo" aria-label="다시" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="color-pop" id="paint-color-pop" hidden>
+          <div class="palette" id="paint-palette" aria-label="그림에 쓰인 색"></div>
+          <label class="inline">다른 색<input type="color" id="paint-color" value="#000000"></label>
+        </div>
       </div>
-      <div class="palette" id="paint-palette" aria-label="그림에 쓰인 색"></div>
       <div class="stage" id="paint-stage">
         <canvas id="paint-canvas" class="pixels"></canvas>
         <p class="empty" id="paint-empty">축소한 그림을 보내거나 PNG 를 여세요.</p>

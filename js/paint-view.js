@@ -9,6 +9,7 @@ const ZOOM_STEPS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
 export function mountPaint(app) {
   const stage = $('#paint-stage');
   const canvas = $('#paint-canvas');
+  const colorBtn = $('#paint-color-btn'), colorPop = $('#paint-color-pop');
   let image = null, name = '그림', history = new History();
   let tool = 'pen', cell = 8, panX = 0, panY = 0;
   let strokeBefore = null, last = null;
@@ -16,6 +17,10 @@ export function mountPaint(app) {
   let pan = null;
 
   function color() { return fromHex($('#paint-color').value); }
+  // 칠할 색을 바꾸고 도구 줄의 색 단추에도 같은 색을 칠합니다.
+  function setColor(hex) { $('#paint-color').value = hex; showColor(); }
+  function showColor() { colorBtn.style.background = $('#paint-color').value; }
+  function closeColors() { colorPop.hidden = true; colorBtn.setAttribute('aria-expanded', 'false'); }
 
   function render() {
     $('#paint-empty').hidden = !!image;
@@ -51,7 +56,7 @@ export function mountPaint(app) {
       b.style.background = hex;
       b.title = hex;
       b.setAttribute('aria-label', hex);
-      b.addEventListener('click', () => { $('#paint-color').value = hex; if (tool === 'eraser' || tool === 'picker') setTool('pen'); });
+      b.addEventListener('click', () => { setColor(hex); closeColors(); if (tool === 'eraser' || tool === 'picker') setTool('pen'); });
       box.append(b);
     }
   }
@@ -129,7 +134,7 @@ export function mountPaint(app) {
     if (tool === 'fill' && inside(at)) floodFill(image, at[0], at[1], color());
     if (tool === 'picker' && inside(at)) {
       const px = getPixel(image, at[0], at[1]);
-      if (px[3]) { $('#paint-color').value = toHex(px); app.toast(`색을 골랐습니다 ${toHex(px)}`); setTool('pen'); }
+      if (px[3]) { setColor(toHex(px)); app.toast(`색을 골랐습니다 ${toHex(px)}`); setTool('pen'); }
     }
     if (!sameImage(strokeBefore, image)) { history.push(strokeBefore); changed(); }
     strokeBefore = null;
@@ -194,6 +199,11 @@ export function mountPaint(app) {
   $('#paint-zoom-out').addEventListener('click', () => zoomStep(-1));
 
   for (const b of document.querySelectorAll('[data-tool]')) b.addEventListener('click', () => setTool(b.dataset.tool));
+  // 색 단추는 그림에 쓰인 색과 다른 색 고르기를 팝업으로 엽니다. 팝업 밖을 누르면 닫힙니다.
+  colorBtn.addEventListener('click', () => { colorPop.hidden = !colorPop.hidden; colorBtn.setAttribute('aria-expanded', String(!colorPop.hidden)); });
+  document.addEventListener('pointerdown', e => { if (!colorPop.hidden && !colorPop.contains(e.target) && !colorBtn.contains(e.target)) closeColors(); });
+  $('#paint-color').addEventListener('input', showColor);
+  showColor();
   $('#paint-undo').addEventListener('click', () => { const prev = history.undo(image); if (prev) { image = prev; changed(); } });
   $('#paint-redo').addEventListener('click', () => { const next = history.redo(image); if (next) { image = next; changed(); } });
   $('#paint-fit').addEventListener('click', fit);
