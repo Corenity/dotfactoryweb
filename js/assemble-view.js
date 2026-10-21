@@ -1,6 +1,6 @@
 // 합치기 화면 — 그림 여러 장을 층 번호 · 보이기 · 칸 이동으로 겹쳐 보고 저장합니다.
 // 대볼 그림 한 장은 합친 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 합친 그림 내려받기에는 넣지 않습니다.
-import { compose, overlayGuide, guideOpacity, GUIDE_OPACITY, canvasSizeFor, nextLayer, MIN_LAYER, clampLayer, toProject, parseProject } from './core/assemble.js';
+import { compose, overlayGuide, guideOpacity, layerOpacity, GUIDE_OPACITY, canvasSizeFor, nextLayer, MIN_LAYER, clampLayer, toProject, parseProject } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, saveJson, toPngDataUrl, baseName } from './io.js';
 import { dropKey } from './core/paint.js';
 import { backdropToggle } from './backdrop.js';
@@ -17,14 +17,19 @@ export function mountAssemble(app) {
   function size() { return canvasSizeFor(guide ? [...items, guide] : items); }
 
   function render() {
+    drawStage();
+    renderGuide();
+    renderList();
+  }
+
+  // 화면에서는 그림마다 진하기만큼 비쳐 보입니다(fade). 진하기 밀대를 끄는 동안은 목록을 다시 만들지 않고 이것만 다시 그립니다.
+  function drawStage() {
     const [w, h] = size();
     const stage = $('#asm-canvas').parentElement;
     const scale = Math.max(1, Math.floor(Math.min(stage.clientWidth || 360, 480) / w));
-    const shown = compose(items, w, h);
+    const shown = compose(items, w, h, { fade: true });
     drawPixels($('#asm-canvas'), guide?.visible ? overlayGuide(shown, guide.image, guide.opacity) : shown, scale, bg.backdrop);
     $('#asm-size').textContent = items.length ? `${w}×${h} 칸 · 그림 ${items.length}장` : '그림을 더하세요';
-    renderGuide();
-    renderList();
   }
 
   function renderGuide() {
@@ -93,9 +98,32 @@ export function mountAssemble(app) {
       const bottom = document.createElement('div');
       bottom.className = 'layer-bottom';
       bottom.append(arrows, pos, tools);
-      li.append(top, bottom);
+      li.append(top, opacityRow(item), bottom);
       list.append(li);
     }
+  }
+
+  // 그림마다 진하기 밀대(0~100%, 10% 단위)입니다. 화면에서만 비치고, 합친 그림 내려받기는 늘 100% 입니다.
+  function opacityRow(item) {
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = '0';
+    slider.max = '100';
+    slider.step = '10';
+    slider.value = String(Math.round(layerOpacity(item.opacity) * 100));
+    slider.setAttribute('aria-label', `${item.name} 진하기`);
+    const value = document.createElement('span');
+    value.textContent = `${slider.value}%`;
+    slider.addEventListener('input', () => {
+      item.opacity = layerOpacity(slider.value / 100);
+      value.textContent = `${Math.round(item.opacity * 100)}%`;
+      drawStage();
+    });
+    slider.addEventListener('change', () => app.changed());
+    const label = document.createElement('label');
+    label.className = 'inline guide-opacity layer-opacity';
+    label.append('진하기', slider, value);
+    return label;
   }
 
   function changed() {
@@ -104,7 +132,7 @@ export function mountAssemble(app) {
   }
 
   function add(image, name) {
-    items.push({ image: dropKey(image), name, layer: nextLayer(items), visible: true, dx: 0, dy: 0 });
+    items.push({ image: dropKey(image), name, layer: nextLayer(items), visible: true, dx: 0, dy: 0, opacity: 1 });
     changed();
   }
 
@@ -129,6 +157,7 @@ export function mountAssemble(app) {
   $('#asm-save-png').addEventListener('click', () => {
     if (!items.length) return;
     const [w, h] = size();
+    // 진하기는 넣지 않습니다(fade 없음) — 받는 그림에 반투명 칸이 생기지 않게 늘 100% 로 겹칩니다.
     savePng('합친그림.png', bg.forSave(compose(items, w, h)));
   });
   $('#asm-save-json').addEventListener('click', () => {
