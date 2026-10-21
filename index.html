@@ -13,6 +13,7 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/app.css">
   <link rel="stylesheet" href="css/paint.css">
+  <link rel="stylesheet" href="css/play.css">
 </head>
 <body>
   <header class="top">
@@ -21,6 +22,7 @@
       <button role="tab" data-tab="shrink" aria-selected="true">축소</button>
       <button role="tab" data-tab="paint" aria-selected="false">다듬기</button>
       <button role="tab" data-tab="assemble" aria-selected="false">합치기</button>
+      <button role="tab" data-tab="play" aria-selected="false">재생</button>
     </nav>
   </header>
 
@@ -131,6 +133,30 @@
       <div class="stage small"><canvas id="asm-canvas" class="pixels"></canvas></div>
       <p class="hint">층 번호가 큰 그림이 위에 옵니다. 화살표는 한 칸씩 옮깁니다. 대볼 그림은 맨 위에 진하기만큼 비쳐 보이고, 합친 그림 내려받기에는 들어가지 않습니다.</p>
       <ol class="layers" id="asm-list"></ol>
+    </section>
+
+    <section id="play" class="view" data-view="play" hidden>
+      <div class="row">
+        <button class="btn primary" id="play-add">그림 더하기</button>
+        <button class="btn primary" id="play-save-gif" disabled>GIF 내려받기</button>
+        <button class="btn" id="play-drop-all" disabled>모두 빼기</button>
+      </div>
+      <div class="stage small play-stage">
+        <canvas id="play-canvas" class="pixels" hidden></canvas>
+        <p class="empty" id="play-empty">움직임 순서대로 PNG 를 여러 장 고르세요.</p>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="play-toggle" disabled>▶ 재생</button>
+        <select id="play-loop" aria-label="재생 방식"><option value="loop">반복 재생</option><option value="once">한 번 재생</option></select>
+        <button class="btn clear-toggle" id="play-clear" aria-pressed="false">투명화</button>
+        <span class="hint" id="play-at"></span>
+      </div>
+      <div class="row">
+        <label class="inline">새 그림 시간<input id="play-default-ms" type="number" inputmode="numeric" min="20" max="10000" step="10" value="130">ms</label>
+        <span class="hint" id="play-count"></span>
+      </div>
+      <p class="hint">위에서부터 차례로 넘어갑니다. 크기가 다른 그림은 가장 큰 판의 바닥 가운데에 세웁니다. 한 번에 고른 그림은 이름 순서로 붙습니다.</p>
+      <ol class="layers" id="play-list"></ol>
     </section>
   </main>
 

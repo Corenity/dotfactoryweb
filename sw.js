@@ -1,11 +1,11 @@
 // 오프라인에서도 열리게 화면 파일을 휴대폰에 담아 둡니다. VERSION 은 손으로 올리지 않습니다 —
 // 공개판 복사(tools/publish.mjs)가 화면 파일 내용으로 정한 값으로 바꿔 넣습니다.
-const VERSION = 'dotfactory-web-e87bcd7091e8';
+const VERSION = 'dotfactory-web-9d42fa1da049';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'icon.svg',
-  'css/app.css', 'css/paint.css',
-  'js/app.js', 'js/store.js', 'js/io.js', 'js/shrink-view.js', 'js/paint-view.js', 'js/assemble-view.js', 'js/backdrop.js', 'js/restore-worker.js',
-  'js/core/numeric.js', 'js/core/background.js', 'js/core/resample.js', 'js/core/restore.js', 'js/core/paint.js', 'js/core/assemble.js',
+  'css/app.css', 'css/paint.css', 'css/play.css',
+  'js/app.js', 'js/store.js', 'js/io.js', 'js/shrink-view.js', 'js/paint-view.js', 'js/assemble-view.js', 'js/play-view.js', 'js/backdrop.js', 'js/restore-worker.js',
+  'js/core/numeric.js', 'js/core/background.js', 'js/core/resample.js', 'js/core/restore.js', 'js/core/paint.js', 'js/core/assemble.js', 'js/core/frames.js', 'js/core/gif.js',
 ];
 
 self.addEventListener('install', event => {
