@@ -82,30 +82,24 @@
         <canvas id="paint-canvas" class="pixels"></canvas>
         <p class="empty" id="paint-empty">축소한 그림을 보내거나 PNG 를 여세요.</p>
       </div>
-      <div class="row">
+      <p class="hint paint-pos" id="paint-pos"></p>
+      <div class="row paint-controls">
         <button class="btn" id="paint-zoom-out" aria-label="작게 보기">−</button>
         <span class="hint" id="paint-zoom"></span>
         <button class="btn" id="paint-zoom-in" aria-label="크게 보기">+</button>
-        <button class="btn" id="paint-fit">화면에 맞추기</button>
-        <button class="btn clear-toggle" id="paint-clear" aria-pressed="false">투명화</button>
-        <span class="hint" id="paint-pos"></span>
-      </div>
-      <div class="row guide">
-        <span class="hint">대볼 그림</span>
-        <span class="guide-name" id="paint-guide-name">없음</span>
-        <button class="btn small" id="paint-guide-pick">고르기</button>
-        <label class="inline"><input type="checkbox" id="paint-guide-show" disabled>보이기</label>
-        <button class="btn small" id="paint-guide-drop" hidden>빼기</button>
-        <label class="inline guide-opacity">진하기<input type="range" id="paint-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="paint-guide-opacity-value">50%</span></label>
-      </div>
-      <div class="row">
-        <span class="hint">그림 옮기기</span>
+        <button class="btn" id="paint-fit">맞춤</button>
         <span class="arrows">
-          <button class="btn small" data-move="-1,0" aria-label="그림을 왼쪽으로 한 칸" disabled>←</button>
-          <button class="btn small" data-move="1,0" aria-label="그림을 오른쪽으로 한 칸" disabled>→</button>
-          <button class="btn small" data-move="0,-1" aria-label="그림을 위로 한 칸" disabled>↑</button>
-          <button class="btn small" data-move="0,1" aria-label="그림을 아래로 한 칸" disabled>↓</button>
+          <button class="btn small" data-move="-1,0" aria-label="왼쪽으로 한 칸 옮기기" disabled>←</button>
+          <button class="btn small" data-move="1,0" aria-label="오른쪽으로 한 칸 옮기기" disabled>→</button>
+          <button class="btn small" data-move="0,-1" aria-label="위로 한 칸 옮기기" disabled>↑</button>
+          <button class="btn small" data-move="0,1" aria-label="아래로 한 칸 옮기기" disabled>↓</button>
         </span>
+      </div>
+      <div class="row guide" id="paint-guide-row">
+        <span class="hint">대볼 그림</span>
+        <button type="button" class="guide-name" id="paint-guide-name" aria-pressed="false" disabled>없음</button>
+        <button class="btn small" id="paint-guide-pick">고르기</button>
+        <label class="inline guide-opacity">진하기<input type="range" id="paint-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="paint-guide-opacity-value">50%</span></label>
       </div>
       <div class="row">
         <button class="btn" id="paint-open">PNG 열기</button>
@@ -130,8 +124,6 @@
         <span class="hint">대볼 그림</span>
         <span class="guide-name" id="asm-guide-name">없음</span>
         <button class="btn small" id="asm-guide-pick">고르기</button>
-        <label class="inline"><input type="checkbox" id="asm-guide-show" disabled>보이기</label>
-        <button class="btn small" id="asm-guide-drop" hidden>빼기</button>
         <label class="inline guide-opacity">진하기<input type="range" id="asm-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="asm-guide-opacity-value">50%</span></label>
       </div>
       <div class="stage small"><canvas id="asm-canvas" class="pixels"></canvas></div>

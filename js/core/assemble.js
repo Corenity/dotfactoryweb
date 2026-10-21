@@ -66,12 +66,16 @@ function blendOver(out, d, src, s, ga) {
  * 대볼 그림을 합친 그림 맨 위에 비치게 얹은 새 그림입니다. 화면에서 맞춰 볼 때만 쓰고 저장에는 넣지 않습니다.
  * 대볼 그림의 칸은 alpha(0~1, 진하기) 만큼만 덮고, 아래 칸은 나머지만큼 비칩니다.
  */
-export function overlayGuide(base, guide, alpha = GUIDE_OPACITY) {
+export function overlayGuide(base, guide, alpha = GUIDE_OPACITY, dx = 0, dy = 0) {
   const out = new Uint8ClampedArray(base.data);
-  for (let y = 0; y < Math.min(base.height, guide.height); y++) {
-    for (let x = 0; x < Math.min(base.width, guide.width); x++) {
+  for (let y = 0; y < guide.height; y++) {
+    const ty = y + dy;
+    if (ty < 0 || ty >= base.height) continue;
+    for (let x = 0; x < guide.width; x++) {
+      const tx = x + dx;
+      if (tx < 0 || tx >= base.width) continue;
       const s = (y * guide.width + x) * 4;
-      blendOver(out, (y * base.width + x) * 4, guide.data, s, guide.data[s + 3] / 255 * alpha);
+      blendOver(out, (ty * base.width + tx) * 4, guide.data, s, guide.data[s + 3] / 255 * alpha);
     }
   }
   return { width: base.width, height: base.height, data: out };
@@ -123,7 +127,8 @@ export function parseProject(json) {
     }),
     // 대볼 그림이 없거나 그림이 깨진 옛 파일은 대볼 그림 없이 엽니다.
     guide: typeof json.guide?.png === 'string' && json.guide.png.startsWith('data:image/png')
-      ? { name: String(json.guide.name || '대볼 그림'), visible: json.guide.visible !== false, opacity: guideOpacity(json.guide.opacity), png: json.guide.png }
+      ? { name: String(json.guide.name || '대볼 그림'), visible: true,
+        opacity: json.guide.visible === false ? 0 : guideOpacity(json.guide.opacity), png: json.guide.png }
       : null,
   };
 }

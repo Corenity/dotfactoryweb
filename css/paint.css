@@ -47,7 +47,21 @@ input[type="color"] {
 .stage.small { height: auto; min-height: 0; display: grid; place-items: center; padding: 8px; touch-action: auto; }
 .stage.small canvas { position: static; max-width: 100%; }
 
+.paint-pos { min-height: 17px; margin: -8px 0 0; }
+.paint-controls { flex-wrap: nowrap; gap: 4px; }
+.paint-controls .btn { min-width: 36px; min-height: 36px; height: 36px; padding: 0 7px; border-radius: 8px; }
+.paint-controls #paint-zoom { min-width: 34px; text-align: center; white-space: nowrap; }
+.paint-controls .arrows { gap: 4px; margin-left: auto; }
+.paint-controls .arrows .btn { width: 36px; padding: 0; }
+
+.guide { padding: 4px; border: 1px solid transparent; border-radius: 10px; }
+.guide.is-target { border-color: var(--accent); background: #26304a; }
 .guide .guide-name { flex: 1; min-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guide button.guide-name {
+  min-height: 44px;
+  padding: 0 6px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; text-align: left;
+}
+.guide button.guide-name:disabled { color: var(--muted); }
 .btn[hidden] { display: none; }
 /* 진하기 밀대는 대볼 그림 줄 아래에 한 줄을 다 써서 손가락으로 끌기 쉽게 합니다. */
 .guide .guide-opacity { flex: 1 1 100%; }

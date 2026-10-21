@@ -1,11 +1,10 @@
 // 다듬기 화면 — 한 손가락으로 칠하고, 두 손가락으로 옮기고, + · − 단추로 확대 · 축소합니다.
 // 대볼 그림 한 장은 합치기와 같이 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 내려받기 · 합치기에 더하기에는 넣지 않습니다.
-import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey } from './core/paint.js';
+import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
 import { overlayGuide, guideOpacity, GUIDE_OPACITY } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName } from './io.js';
 import { selectRect, insideRect, lift, place } from './core/select.js';
 import { loadColors, saveColors } from './store.js';
-import { backdropToggle } from './backdrop.js';
 
 const $ = sel => document.querySelector(sel);
 // 한 칸을 화면에서 몇 픽셀로 그릴지 고르는 단계입니다. + · − 는 이 단계를 하나씩 오갑니다.
@@ -20,7 +19,8 @@ export function mountPaint(app) {
   const canvas = $('#paint-canvas');
   const colorBtn = $('#paint-color-btn'), colorPop = $('#paint-color-pop');
   let image = null, name = '그림', history = new History();
-  let guide = null; // { image, name, visible, opacity }
+  let guide = null; // { image, name, opacity, dx, dy }
+  let guideTarget = false;
   let mine = loadColors(); // 내 색: 다른 색에서 고른 색. 그림을 바꿔도 남습니다.
   let tool = 'pen', cell = 8, panX = 0, panY = 0;
   let strokeBefore = null, last = null;
@@ -29,7 +29,6 @@ export function mountPaint(app) {
   let marquee = null, sel = null;
   const pointers = new Map();
   let pan = null;
-  const bg = backdropToggle($('#paint-clear'), render);
 
   // 배경 초록으로 칠하면 그 칸은 배경(투명)이 됩니다. 불러올 때 초록을 배경으로 보는 것과 같게 둡니다.
   function color() {
@@ -47,7 +46,7 @@ export function mountPaint(app) {
     $('#paint-empty').hidden = !!image;
     canvas.hidden = !image;
     if (!image) return;
-    drawPixels(canvas, guide?.visible ? overlayGuide(image, guide.image, guide.opacity) : image, cell, bg.backdrop);
+    drawPixels(canvas, guide ? overlayGuide(image, guide.image, guide.opacity, guide.dx, guide.dy) : image, cell, toHex(KEY));
     if (cell >= 8) drawGrid();
     drawSelection();
     canvas.style.transform = `translate(${panX}px, ${panY}px)`;
@@ -146,10 +145,10 @@ export function mountPaint(app) {
 
   function renderGuide() {
     $('#paint-guide-name').textContent = guide ? guide.name : '없음';
+    $('#paint-guide-name').disabled = !guide;
+    $('#paint-guide-name').setAttribute('aria-pressed', String(guideTarget));
+    $('#paint-guide-row').classList.toggle('is-target', guideTarget);
     $('#paint-guide-pick').textContent = guide ? '바꾸기' : '고르기';
-    $('#paint-guide-show').checked = !!guide?.visible;
-    $('#paint-guide-show').disabled = !guide;
-    $('#paint-guide-drop').hidden = !guide;
     const opacity = guide ? guide.opacity : GUIDE_OPACITY;
     $('#paint-guide-opacity').value = String(Math.round(opacity * 100));
     $('#paint-guide-opacity').disabled = !guide;
@@ -361,19 +360,20 @@ export function mountPaint(app) {
     const [file] = await pickFiles({ accept: 'image/png' });
     if (!file) return;
     try {
-      // 바꾸기로 다른 그림을 골라도 맞춰 둔 진하기는 그대로 둡니다.
-      guide = { image: dropKey(await readImageFile(file)), name: baseName(file.name), visible: true, opacity: guide?.opacity ?? GUIDE_OPACITY };
+      // 바꾸기로 다른 그림을 골라도 맞춰 둔 진하기와 위치는 그대로 둡니다.
+      guide = { image: dropKey(await readImageFile(file)), name: baseName(file.name), opacity: guide?.opacity ?? GUIDE_OPACITY,
+        dx: guide?.dx ?? 0, dy: guide?.dy ?? 0 };
       changed();
     } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
   });
-  $('#paint-guide-show').addEventListener('change', () => { if (guide) { guide.visible = $('#paint-guide-show').checked; changed(); } });
+  $('#paint-guide-name').addEventListener('click', () => { if (guide) { guideTarget = !guideTarget; render(); } });
   $('#paint-guide-opacity').addEventListener('input', () => { if (guide) { guide.opacity = guideOpacity($('#paint-guide-opacity').value / 100); changed(); } });
-  $('#paint-guide-drop').addEventListener('click', () => { guide = null; changed(); });
-  // 화살표는 그림 전체를 한 칸씩 옮깁니다. 판 밖으로 나간 칸은 잘리니, 되돌리기로 한 번에 한 칸씩 되돌릴 수 있게 기록합니다.
-  // 선택 중이면 떼어 낸 칸만 한 칸씩 옮기고, 되돌리기는 내려놓을 때 한 단계로 기록합니다.
+  // 대볼 그림 이름을 고른 동안은 대볼 그림만 옮깁니다. 아니면 선택 영역, 그림 전체 순서로 대상을 정합니다.
+  // 그림 전체가 판 밖으로 나간 칸은 잘리며 한 칸씩 되돌릴 수 있고, 선택 영역은 내려놓을 때 한 단계로 기록합니다.
   for (const b of document.querySelectorAll('[data-move]')) b.addEventListener('click', () => {
     if (!image) return;
     const [dx, dy] = b.dataset.move.split(',').map(Number);
+    if (guideTarget && guide) { guide.dx += dx; guide.dy += dy; changed(); return; }
     if (sel) { if (moveSelection(sel.x + dx, sel.y + dy)) changed(); return; }
     const next = shiftPixels(image, dx, dy);
     if (sameImage(image, next)) return;
@@ -381,7 +381,7 @@ export function mountPaint(app) {
     image = next;
     changed();
   });
-  $('#paint-save').addEventListener('click', () => image && savePng(`${name}.png`, bg.forSave(image)));
+  $('#paint-save').addEventListener('click', () => image && savePng(`${name}.png`, fillKey(image)));
   $('#paint-to-assemble').addEventListener('click', () => image && app.addToAssemble(clone(image), name));
   // 아이폰은 주소창이 숨거나 나올 때마다 높이가 바뀝니다. 너비가 바뀔 때(가로 · 세로 돌림)만 다시 맞춰 확대를 지킵니다.
   let fittedWidth = 0;
@@ -406,11 +406,13 @@ export function mountPaint(app) {
     shown() { if (image) requestAnimationFrame(fit); },
     snapshot: () => (image || guide ? {
       ...(image ? { name, png: toPngDataUrl(image) } : {}),
-      ...(guide ? { guide: { name: guide.name, visible: guide.visible, opacity: guide.opacity, png: toPngDataUrl(guide.image) } } : {}),
+      ...(guide ? { guide: { name: guide.name, visible: true, opacity: guide.opacity, dx: guide.dx, dy: guide.dy, png: toPngDataUrl(guide.image) } } : {}),
     } : null),
     async restore(saved) {
       const g = saved?.guide;
-      if (typeof g?.png === 'string') guide = { name: g.name || '대볼 그림', visible: g.visible !== false, opacity: guideOpacity(g.opacity), image: dropKey(await readDataUrl(g.png)) };
+      if (typeof g?.png === 'string') guide = { name: g.name || '대볼 그림',
+        opacity: g.visible === false ? 0 : guideOpacity(g.opacity), dx: Math.trunc(Number(g.dx) || 0), dy: Math.trunc(Number(g.dy) || 0),
+        image: dropKey(await readDataUrl(g.png)) };
       if (!saved?.png) { render(); return; }
       sel = marquee = null;
       image = dropKey(await readDataUrl(saved.png));

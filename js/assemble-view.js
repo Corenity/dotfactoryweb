@@ -9,7 +9,7 @@ const $ = sel => document.querySelector(sel);
 
 export function mountAssemble(app) {
   let items = [];
-  let guide = null; // { image, name, visible, opacity }
+  let guide = null; // { image, name, opacity }
   // 맨 아래에 초록을 깔아 보여 줍니다. 넣는 그림은 초록 칸을 투명으로 바꿔 받아 아래를 가리지 않습니다.
   const bg = backdropToggle($('#asm-clear'), render);
 
@@ -28,16 +28,13 @@ export function mountAssemble(app) {
     const stage = $('#asm-canvas').parentElement;
     const scale = Math.max(1, Math.floor(Math.min(stage.clientWidth || 360, 480) / w));
     const shown = compose(items, w, h, { fade: true });
-    drawPixels($('#asm-canvas'), guide?.visible ? overlayGuide(shown, guide.image, guide.opacity) : shown, scale, bg.backdrop);
+    drawPixels($('#asm-canvas'), guide ? overlayGuide(shown, guide.image, guide.opacity) : shown, scale, bg.backdrop);
     $('#asm-size').textContent = items.length ? `${w}×${h} 칸 · 그림 ${items.length}장` : '그림을 더하세요';
   }
 
   function renderGuide() {
     $('#asm-guide-name').textContent = guide ? guide.name : '없음';
     $('#asm-guide-pick').textContent = guide ? '바꾸기' : '고르기';
-    $('#asm-guide-show').checked = !!guide?.visible;
-    $('#asm-guide-show').disabled = !guide;
-    $('#asm-guide-drop').hidden = !guide;
     const opacity = guide ? guide.opacity : GUIDE_OPACITY;
     $('#asm-guide-opacity').value = String(Math.round(opacity * 100));
     $('#asm-guide-opacity').disabled = !guide;
@@ -147,13 +144,11 @@ export function mountAssemble(app) {
     if (!file) return;
     try {
       // 바꾸기로 다른 그림을 골라도 맞춰 둔 진하기는 그대로 둡니다.
-      guide = { image: dropKey(await readImageFile(file)), name: baseName(file.name), visible: true, opacity: guide?.opacity ?? GUIDE_OPACITY };
+      guide = { image: dropKey(await readImageFile(file)), name: baseName(file.name), opacity: guide?.opacity ?? GUIDE_OPACITY };
       changed();
     } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
   });
-  $('#asm-guide-show').addEventListener('change', () => { if (guide) { guide.visible = $('#asm-guide-show').checked; changed(); } });
   $('#asm-guide-opacity').addEventListener('input', () => { if (guide) { guide.opacity = guideOpacity($('#asm-guide-opacity').value / 100); changed(); } });
-  $('#asm-guide-drop').addEventListener('click', () => { guide = null; changed(); });
   $('#asm-save-png').addEventListener('click', () => {
     if (!items.length) return;
     const [w, h] = size();
