@@ -90,6 +90,7 @@
         <button class="btn small" id="paint-guide-pick">고르기</button>
         <label class="inline"><input type="checkbox" id="paint-guide-show" disabled>보이기</label>
         <button class="btn small" id="paint-guide-drop" hidden>빼기</button>
+        <label class="inline guide-opacity">진하기<input type="range" id="paint-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="paint-guide-opacity-value">50%</span></label>
       </div>
       <div class="row">
         <span class="hint">그림 옮기기</span>
@@ -125,9 +126,10 @@
         <button class="btn small" id="asm-guide-pick">고르기</button>
         <label class="inline"><input type="checkbox" id="asm-guide-show" disabled>보이기</label>
         <button class="btn small" id="asm-guide-drop" hidden>빼기</button>
+        <label class="inline guide-opacity">진하기<input type="range" id="asm-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="asm-guide-opacity-value">50%</span></label>
       </div>
       <div class="stage small"><canvas id="asm-canvas" class="pixels"></canvas></div>
-      <p class="hint">층 번호가 큰 그림이 위에 옵니다. 화살표는 한 칸씩 옮깁니다. 대볼 그림은 맨 위에 반쯤 비쳐 보이고, 합친 그림 내려받기에는 들어가지 않습니다.</p>
+      <p class="hint">층 번호가 큰 그림이 위에 옵니다. 화살표는 한 칸씩 옮깁니다. 대볼 그림은 맨 위에 진하기만큼 비쳐 보이고, 합친 그림 내려받기에는 들어가지 않습니다.</p>
       <ol class="layers" id="asm-list"></ol>
     </section>
   </main>

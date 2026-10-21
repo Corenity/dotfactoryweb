@@ -30,11 +30,20 @@ export function compose(items, width, height) {
   return { width, height, data: out };
 }
 
+/** 대볼 그림 진하기의 처음 값입니다. 0 이면 안 보이고 1 이면 아래 칸을 다 덮습니다. */
+export const GUIDE_OPACITY = 0.5;
+
+/** 진하기를 0~1 의 0.1 단위로 맞춥니다. 값이 없거나 숫자가 아니면(옛 파일) 처음 값입니다. */
+export function guideOpacity(value) {
+  const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
+  return Number.isFinite(n) ? Math.round(Math.min(1, Math.max(0, n)) * 10) / 10 : GUIDE_OPACITY;
+}
+
 /**
- * 대볼 그림을 합친 그림 맨 위에 반쯤 비치게 얹은 새 그림입니다. 화면에서 맞춰 볼 때만 쓰고 저장에는 넣지 않습니다.
- * 대볼 그림의 칸은 alpha(0~1) 만큼만 덮고, 아래 칸은 나머지만큼 비칩니다.
+ * 대볼 그림을 합친 그림 맨 위에 비치게 얹은 새 그림입니다. 화면에서 맞춰 볼 때만 쓰고 저장에는 넣지 않습니다.
+ * 대볼 그림의 칸은 alpha(0~1, 진하기) 만큼만 덮고, 아래 칸은 나머지만큼 비칩니다.
  */
-export function overlayGuide(base, guide, alpha = 0.5) {
+export function overlayGuide(base, guide, alpha = GUIDE_OPACITY) {
   const out = new Uint8ClampedArray(base.data);
   for (let y = 0; y < Math.min(base.height, guide.height); y++) {
     for (let x = 0; x < Math.min(base.width, guide.width); x++) {
@@ -70,7 +79,7 @@ export function toProject(items, width, height, pngOf, guide = null) {
     schema: SCHEMA,
     canvas: [width, height],
     items: items.map(i => ({ name: i.name, layer: i.layer, visible: i.visible !== false, dx: i.dx || 0, dy: i.dy || 0, png: pngOf(i.image) })),
-    ...(guide ? { guide: { name: guide.name, visible: guide.visible !== false, png: pngOf(guide.image) } } : {}),
+    ...(guide ? { guide: { name: guide.name, visible: guide.visible !== false, opacity: guideOpacity(guide.opacity), png: pngOf(guide.image) } } : {}),
   };
 }
 
@@ -87,7 +96,7 @@ export function parseProject(json) {
     }),
     // 대볼 그림이 없거나 그림이 깨진 옛 파일은 대볼 그림 없이 엽니다.
     guide: typeof json.guide?.png === 'string' && json.guide.png.startsWith('data:image/png')
-      ? { name: String(json.guide.name || '대볼 그림'), visible: json.guide.visible !== false, png: json.guide.png }
+      ? { name: String(json.guide.name || '대볼 그림'), visible: json.guide.visible !== false, opacity: guideOpacity(json.guide.opacity), png: json.guide.png }
       : null,
   };
 }

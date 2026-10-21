@@ -1,7 +1,7 @@
 // 다듬기 화면 — 한 손가락으로 칠하고, 두 손가락으로 옮기고, + · − 단추로 확대 · 축소합니다.
 // 대볼 그림 한 장은 합치기와 같이 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 내려받기 · 합치기에 더하기에는 넣지 않습니다.
 import { blank, clone, getPixel, setPixel, floodFill, usedColors, shiftPixels, toHex, fromHex, History, KEY, dropKey } from './core/paint.js';
-import { overlayGuide } from './core/assemble.js';
+import { overlayGuide, guideOpacity, GUIDE_OPACITY } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName } from './io.js';
 import { backdropToggle } from './backdrop.js';
 
@@ -14,7 +14,7 @@ export function mountPaint(app) {
   const canvas = $('#paint-canvas');
   const colorBtn = $('#paint-color-btn'), colorPop = $('#paint-color-pop');
   let image = null, name = '그림', history = new History();
-  let guide = null; // { image, name, visible }
+  let guide = null; // { image, name, visible, opacity }
   let tool = 'pen', cell = 8, panX = 0, panY = 0;
   let strokeBefore = null, last = null;
   const pointers = new Map();
@@ -37,7 +37,7 @@ export function mountPaint(app) {
     $('#paint-empty').hidden = !!image;
     canvas.hidden = !image;
     if (!image) return;
-    drawPixels(canvas, guide?.visible ? overlayGuide(image, guide.image) : image, cell, bg.backdrop);
+    drawPixels(canvas, guide?.visible ? overlayGuide(image, guide.image, guide.opacity) : image, cell, bg.backdrop);
     if (cell >= 8) drawGrid();
     canvas.style.transform = `translate(${panX}px, ${panY}px)`;
     $('#paint-zoom').textContent = `${cell}배`;
@@ -63,6 +63,10 @@ export function mountPaint(app) {
     $('#paint-guide-show').checked = !!guide?.visible;
     $('#paint-guide-show').disabled = !guide;
     $('#paint-guide-drop').hidden = !guide;
+    const opacity = guide ? guide.opacity : GUIDE_OPACITY;
+    $('#paint-guide-opacity').value = String(Math.round(opacity * 100));
+    $('#paint-guide-opacity').disabled = !guide;
+    $('#paint-guide-opacity-value').textContent = `${Math.round(opacity * 100)}%`;
   }
 
   function renderPalette() {
@@ -239,11 +243,13 @@ export function mountPaint(app) {
     const [file] = await pickFiles({ accept: 'image/png' });
     if (!file) return;
     try {
-      guide = { image: dropKey(await readImageFile(file)), name: baseName(file.name), visible: true };
+      // 바꾸기로 다른 그림을 골라도 맞춰 둔 진하기는 그대로 둡니다.
+      guide = { image: dropKey(await readImageFile(file)), name: baseName(file.name), visible: true, opacity: guide?.opacity ?? GUIDE_OPACITY };
       changed();
     } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
   });
   $('#paint-guide-show').addEventListener('change', () => { if (guide) { guide.visible = $('#paint-guide-show').checked; changed(); } });
+  $('#paint-guide-opacity').addEventListener('input', () => { if (guide) { guide.opacity = guideOpacity($('#paint-guide-opacity').value / 100); changed(); } });
   $('#paint-guide-drop').addEventListener('click', () => { guide = null; changed(); });
   // 화살표는 그림 전체를 한 칸씩 옮깁니다. 판 밖으로 나간 칸은 잘리니, 되돌리기로 한 번에 한 칸씩 되돌릴 수 있게 기록합니다.
   for (const b of document.querySelectorAll('[data-move]')) b.addEventListener('click', () => {
@@ -279,11 +285,11 @@ export function mountPaint(app) {
     shown() { if (image) requestAnimationFrame(fit); },
     snapshot: () => (image || guide ? {
       ...(image ? { name, png: toPngDataUrl(image) } : {}),
-      ...(guide ? { guide: { name: guide.name, visible: guide.visible, png: toPngDataUrl(guide.image) } } : {}),
+      ...(guide ? { guide: { name: guide.name, visible: guide.visible, opacity: guide.opacity, png: toPngDataUrl(guide.image) } } : {}),
     } : null),
     async restore(saved) {
       const g = saved?.guide;
-      if (typeof g?.png === 'string') guide = { name: g.name || '대볼 그림', visible: g.visible !== false, image: dropKey(await readDataUrl(g.png)) };
+      if (typeof g?.png === 'string') guide = { name: g.name || '대볼 그림', visible: g.visible !== false, opacity: guideOpacity(g.opacity), image: dropKey(await readDataUrl(g.png)) };
       if (!saved?.png) { render(); return; }
       image = dropKey(await readDataUrl(saved.png));
       name = saved.name || '그림';

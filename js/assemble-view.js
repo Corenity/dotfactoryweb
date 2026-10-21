@@ -1,6 +1,6 @@
 // 합치기 화면 — 그림 여러 장을 층 번호 · 보이기 · 칸 이동으로 겹쳐 보고 저장합니다.
 // 대볼 그림 한 장은 합친 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 합친 그림 내려받기에는 넣지 않습니다.
-import { compose, overlayGuide, canvasSizeFor, nextLayer, toProject, parseProject } from './core/assemble.js';
+import { compose, overlayGuide, guideOpacity, GUIDE_OPACITY, canvasSizeFor, nextLayer, toProject, parseProject } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, saveJson, toPngDataUrl, baseName } from './io.js';
 import { dropKey } from './core/paint.js';
 import { backdropToggle } from './backdrop.js';
@@ -9,7 +9,7 @@ const $ = sel => document.querySelector(sel);
 
 export function mountAssemble(app) {
   let items = [];
-  let guide = null; // { image, name, visible }
+  let guide = null; // { image, name, visible, opacity }
   // 맨 아래에 초록을 깔아 보여 줍니다. 넣는 그림은 초록 칸을 투명으로 바꿔 받아 아래를 가리지 않습니다.
   const bg = backdropToggle($('#asm-clear'), render);
 
@@ -21,7 +21,7 @@ export function mountAssemble(app) {
     const stage = $('#asm-canvas').parentElement;
     const scale = Math.max(1, Math.floor(Math.min(stage.clientWidth || 360, 480) / w));
     const shown = compose(items, w, h);
-    drawPixels($('#asm-canvas'), guide?.visible ? overlayGuide(shown, guide.image) : shown, scale, bg.backdrop);
+    drawPixels($('#asm-canvas'), guide?.visible ? overlayGuide(shown, guide.image, guide.opacity) : shown, scale, bg.backdrop);
     $('#asm-size').textContent = items.length ? `${w}×${h} 칸 · 그림 ${items.length}장` : '그림을 더하세요';
     renderGuide();
     renderList();
@@ -33,6 +33,10 @@ export function mountAssemble(app) {
     $('#asm-guide-show').checked = !!guide?.visible;
     $('#asm-guide-show').disabled = !guide;
     $('#asm-guide-drop').hidden = !guide;
+    const opacity = guide ? guide.opacity : GUIDE_OPACITY;
+    $('#asm-guide-opacity').value = String(Math.round(opacity * 100));
+    $('#asm-guide-opacity').disabled = !guide;
+    $('#asm-guide-opacity-value').textContent = `${Math.round(opacity * 100)}%`;
   }
 
   function renderList() {
@@ -107,11 +111,13 @@ export function mountAssemble(app) {
     const [file] = await pickFiles({ accept: 'image/png' });
     if (!file) return;
     try {
-      guide = { image: dropKey(await readImageFile(file)), name: baseName(file.name), visible: true };
+      // 바꾸기로 다른 그림을 골라도 맞춰 둔 진하기는 그대로 둡니다.
+      guide = { image: dropKey(await readImageFile(file)), name: baseName(file.name), visible: true, opacity: guide?.opacity ?? GUIDE_OPACITY };
       changed();
     } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
   });
   $('#asm-guide-show').addEventListener('change', () => { if (guide) { guide.visible = $('#asm-guide-show').checked; changed(); } });
+  $('#asm-guide-opacity').addEventListener('input', () => { if (guide) { guide.opacity = guideOpacity($('#asm-guide-opacity').value / 100); changed(); } });
   $('#asm-guide-drop').addEventListener('click', () => { guide = null; changed(); });
   $('#asm-save-png').addEventListener('click', () => {
     if (!items.length) return;
@@ -140,7 +146,7 @@ export function mountAssemble(app) {
     const loaded = [];
     for (const i of project.items) loaded.push({ ...i, image: dropKey(await readDataUrl(i.png)), png: undefined });
     const g = project.guide;
-    guide = g ? { name: g.name, visible: g.visible, image: dropKey(await readDataUrl(g.png)) } : null;
+    guide = g ? { name: g.name, visible: g.visible, opacity: g.opacity, image: dropKey(await readDataUrl(g.png)) } : null;
     items = loaded;
     render();
   }

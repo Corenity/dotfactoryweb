@@ -44,6 +44,10 @@ input[type="color"] {
 
 .guide .guide-name { flex: 1; min-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .btn[hidden] { display: none; }
+/* 진하기 밀대는 대볼 그림 줄 아래에 한 줄을 다 써서 손가락으로 끌기 쉽게 합니다. */
+.guide .guide-opacity { flex: 1 1 100%; }
+.guide-opacity input[type="range"] { flex: 1; min-height: 44px; }
+.guide-opacity span { min-width: 3em; text-align: right; }
 
 .layers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 
