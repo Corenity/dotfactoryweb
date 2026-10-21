@@ -8,7 +8,8 @@
   margin: -6px -12px 0; padding: 6px 12px; background: var(--bg);
 }
 .tools .btn { min-height: 36px; padding: 0 6px; border-radius: 8px; font-size: 14px; }
-.tools .tool { flex: 1 1 auto; min-width: 0; }
+/* 도구 단추 다섯 개(펜 · 지우개 · 채우기 · 스포이드 · 선택)가 375px 한 줄에 글자 꺾임 없이 들어가게 조금 작게 둡니다. */
+.tools .tool { flex: 1 1 auto; min-width: 0; padding: 0 4px; font-size: 13px; white-space: nowrap; }
 .tools .icon { flex: 0 0 36px; width: 36px; padding: 0; display: grid; place-items: center; }
 .tools .btn[aria-pressed="true"], .clear-toggle[aria-pressed="true"] { border-color: var(--accent); background: #26304a; }
 .tools .color-btn { border: 2px solid var(--text); }

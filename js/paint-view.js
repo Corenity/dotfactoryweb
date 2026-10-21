@@ -3,6 +3,7 @@
 import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey } from './core/paint.js';
 import { overlayGuide, guideOpacity, GUIDE_OPACITY } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName } from './io.js';
+import { selectRect, insideRect, lift, place } from './core/select.js';
 import { loadColors, saveColors } from './store.js';
 import { backdropToggle } from './backdrop.js';
 
@@ -21,6 +22,9 @@ export function mountPaint(app) {
   let mine = loadColors(); // 내 색: 다른 색에서 고른 색. 그림을 바꿔도 남습니다.
   let tool = 'pen', cell = 8, panX = 0, panY = 0;
   let strokeBefore = null, last = null;
+  // 선택: marquee 는 네모를 긋는 중({ from, rect }), sel 은 떼어 낸 칸({ x, y, w, h, base, piece, before, drag }).
+  // 선택 중 image 는 늘 base 위에 piece 를 얹은 모습이라 내려받기 · 자동 보관은 보이는 그대로 담습니다.
+  let marquee = null, sel = null;
   const pointers = new Map();
   let pan = null;
   const bg = backdropToggle($('#paint-clear'), render);
@@ -43,6 +47,7 @@ export function mountPaint(app) {
     if (!image) return;
     drawPixels(canvas, guide?.visible ? overlayGuide(image, guide.image, guide.opacity) : image, cell, bg.backdrop);
     if (cell >= 8) drawGrid();
+    drawSelection();
     canvas.style.transform = `translate(${panX}px, ${panY}px)`;
     $('#paint-zoom').textContent = `${cell}배`;
     $('#paint-zoom-out').disabled = cell <= ZOOM_STEPS[0];
@@ -59,6 +64,82 @@ export function mountPaint(app) {
     for (let x = 0; x <= image.width; x++) { ctx.moveTo(x * cell + 0.5, 0); ctx.lineTo(x * cell + 0.5, canvas.height); }
     for (let y = 0; y <= image.height; y++) { ctx.moveTo(0, y * cell + 0.5); ctx.lineTo(canvas.width, y * cell + 0.5); }
     ctx.stroke();
+  }
+
+  // 고른 네모를 흰 점선과 검은 점선을 엇갈려 그려 어느 배경에서도 보이게 합니다.
+  function drawSelection() {
+    const r = sel || marquee?.rect;
+    if (!r) return;
+    const ctx = canvas.getContext('2d');
+    const box = [r.x * cell + 1, r.y * cell + 1, r.w * cell - 2, r.h * cell - 2];
+    ctx.save();
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = '#fff';
+    ctx.strokeRect(...box);
+    ctx.lineDashOffset = 4;
+    ctx.strokeStyle = '#000';
+    ctx.strokeRect(...box);
+    ctx.restore();
+  }
+
+  // 떼어 낸 칸을 지금 자리에 내려놓고 선택을 끝냅니다. 고른 때부터 놓을 때까지가 되돌리기 한 단계입니다.
+  function dropSelection() {
+    marquee = null;
+    if (!sel) return;
+    const { before } = sel;
+    sel = null;
+    $('#paint-pos').textContent = '';
+    if (!sameImage(before, image)) { history.push(before); changed(); } else render();
+  }
+
+  function moveSelection(x, y) {
+    if (x === sel.x && y === sel.y) return false;
+    sel.x = x;
+    sel.y = y;
+    image = place(sel.base, sel.piece, x, y);
+    $('#paint-pos').textContent = `선택 ${sel.w}×${sel.h} · x ${x} · y ${y}`;
+    return true;
+  }
+
+  // 선택 안을 누르면 옮기기, 밖을 누르면 지금 선택을 내려놓고 새 네모를 긋습니다.
+  function selectStart(at) {
+    if (sel && insideRect(sel, at)) { sel.drag = { from: at, x: sel.x, y: sel.y }; return; }
+    dropSelection();
+    marquee = { from: at, rect: selectRect(at, at, image.width, image.height) };
+    render();
+  }
+
+  function selectMove(at) {
+    if (sel?.drag) {
+      if (moveSelection(sel.drag.x + at[0] - sel.drag.from[0], sel.drag.y + at[1] - sel.drag.from[1])) render();
+    } else if (marquee) {
+      marquee.rect = selectRect(marquee.from, at, image.width, image.height);
+      render();
+    }
+  }
+
+  function selectEnd() {
+    if (sel?.drag) {
+      const moved = sel.x !== sel.drag.x || sel.y !== sel.drag.y;
+      sel.drag = null;
+      if (moved) changed();
+      return;
+    }
+    const rect = marquee?.rect;
+    marquee = null;
+    if (rect) {
+      sel = { ...rect, ...lift(image, rect), before: clone(image), drag: null };
+      $('#paint-pos').textContent = `선택 ${rect.w}×${rect.h} · 안을 끌어 옮기기`;
+    }
+    render();
+  }
+
+  // 두 번째 손가락이 닿으면 긋던 네모는 버리고, 옮기던 선택은 끌기 전 자리로 돌립니다.
+  function selectCancel() {
+    if (sel?.drag) { moveSelection(sel.drag.x, sel.drag.y); sel.drag = null; }
+    marquee = null;
+    render();
   }
 
   function renderGuide() {
@@ -139,6 +220,7 @@ export function mountPaint(app) {
   }
 
   function setTool(next) {
+    if (next !== 'select') dropSelection();
     tool = next;
     for (const b of document.querySelectorAll('[data-tool]')) b.setAttribute('aria-pressed', String(b.dataset.tool === tool));
   }
@@ -165,17 +247,20 @@ export function mountPaint(app) {
   function strokeStart(at) {
     strokeBefore = clone(image);
     last = at;
+    if (tool === 'select') { selectStart(at); return; }
     if (tool === 'pen' || tool === 'eraser') { line(at, at, tool === 'pen' ? color() : [0, 0, 0, 0]); render(); }
   }
 
   function strokeMove(at) {
     if (!strokeBefore || !last) return;
+    if (tool === 'select') { selectMove(at); return; }
     if (tool === 'pen' || tool === 'eraser') { line(last, at, tool === 'pen' ? color() : [0, 0, 0, 0]); render(); }
     last = at;
   }
 
   function strokeEnd(at) {
     if (!strokeBefore) return;
+    if (tool === 'select') { selectMove(at); selectEnd(); strokeBefore = null; last = null; return; }
     if (tool === 'fill' && inside(at)) floodFill(image, at[0], at[1], color());
     if (tool === 'picker' && inside(at)) {
       const px = getPixel(image, at[0], at[1]);
@@ -187,6 +272,7 @@ export function mountPaint(app) {
   }
 
   function strokeCancel() {
+    if (strokeBefore && tool === 'select') { strokeBefore = null; last = null; selectCancel(); return; }
     if (strokeBefore) { image = strokeBefore; strokeBefore = null; last = null; render(); }
   }
 
@@ -252,8 +338,9 @@ export function mountPaint(app) {
   $('#paint-color').addEventListener('change', () => { mine = rememberColor(mine, $('#paint-color').value); saveColors(mine); renderMine(); });
   showColor();
   renderMine();
-  $('#paint-undo').addEventListener('click', () => { const prev = history.undo(image); if (prev) { image = prev; changed(); } });
-  $('#paint-redo').addEventListener('click', () => { const next = history.redo(image); if (next) { image = next; changed(); } });
+  // 선택 중에 되돌리면 먼저 내려놓으니, 옮긴 것 전체가 한 번에 되돌아갑니다.
+  $('#paint-undo').addEventListener('click', () => { dropSelection(); const prev = history.undo(image); if (prev) { image = prev; changed(); } });
+  $('#paint-redo').addEventListener('click', () => { dropSelection(); const next = history.redo(image); if (next) { image = next; changed(); } });
   $('#paint-fit').addEventListener('click', fit);
   $('#paint-open').addEventListener('click', async () => {
     const [file] = await pickFiles({ accept: 'image/png' });
@@ -277,9 +364,11 @@ export function mountPaint(app) {
   $('#paint-guide-opacity').addEventListener('input', () => { if (guide) { guide.opacity = guideOpacity($('#paint-guide-opacity').value / 100); changed(); } });
   $('#paint-guide-drop').addEventListener('click', () => { guide = null; changed(); });
   // 화살표는 그림 전체를 한 칸씩 옮깁니다. 판 밖으로 나간 칸은 잘리니, 되돌리기로 한 번에 한 칸씩 되돌릴 수 있게 기록합니다.
+  // 선택 중이면 떼어 낸 칸만 한 칸씩 옮기고, 되돌리기는 내려놓을 때 한 단계로 기록합니다.
   for (const b of document.querySelectorAll('[data-move]')) b.addEventListener('click', () => {
     if (!image) return;
     const [dx, dy] = b.dataset.move.split(',').map(Number);
+    if (sel) { if (moveSelection(sel.x + dx, sel.y + dy)) changed(); return; }
     const next = shiftPixels(image, dx, dy);
     if (sameImage(image, next)) return;
     history.push(image);
@@ -297,6 +386,7 @@ export function mountPaint(app) {
 
   // 어디서 온 그림이든 배경 초록 칸은 투명으로 바꿔 받습니다.
   function load(next, nextName) {
+    sel = marquee = null;
     image = dropKey(next);
     name = nextName || '그림';
     history = new History();
@@ -316,6 +406,7 @@ export function mountPaint(app) {
       const g = saved?.guide;
       if (typeof g?.png === 'string') guide = { name: g.name || '대볼 그림', visible: g.visible !== false, opacity: guideOpacity(g.opacity), image: dropKey(await readDataUrl(g.png)) };
       if (!saved?.png) { render(); return; }
+      sel = marquee = null;
       image = dropKey(await readDataUrl(saved.png));
       name = saved.name || '그림';
       fit();
