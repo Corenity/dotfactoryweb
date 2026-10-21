@@ -129,6 +129,22 @@ export function fromHex(hex) {
   return [n >> 16, (n >> 8) & 255, n & 255, 255];
 }
 
+/** 그림 전체를 (dx, dy) 칸 옮긴 새 그림입니다. 크기는 그대로이고, 판 밖으로 나간 칸은 잘리고 빈 자리는 투명입니다. */
+export function shiftPixels(img, dx, dy) {
+  const out = blank(img.width, img.height);
+  for (let y = 0; y < img.height; y++) {
+    const ty = y + dy;
+    if (ty < 0 || ty >= img.height) continue;
+    for (let x = 0; x < img.width; x++) {
+      const tx = x + dx;
+      if (tx < 0 || tx >= img.width) continue;
+      const s = (y * img.width + x) * 4, d = (ty * img.width + tx) * 4;
+      for (let c = 0; c < 4; c++) out.data[d + c] = img.data[s + c];
+    }
+  }
+  return out;
+}
+
 /** 되돌리기 · 다시하기. 한 번의 붓질(손가락을 뗄 때까지)을 한 단계로 담습니다. */
 export class History {
   constructor(limit = 100) { this.limit = limit; this.undoStack = []; this.redoStack = []; }

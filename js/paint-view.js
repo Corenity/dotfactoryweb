@@ -1,5 +1,7 @@
 // 다듬기 화면 — 한 손가락으로 칠하고, 두 손가락으로 옮기고, + · − 단추로 확대 · 축소합니다.
-import { blank, clone, getPixel, setPixel, floodFill, usedColors, toHex, fromHex, History, KEY, dropKey } from './core/paint.js';
+// 대볼 그림 한 장은 합치기와 같이 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 내려받기 · 합치기에 더하기에는 넣지 않습니다.
+import { blank, clone, getPixel, setPixel, floodFill, usedColors, shiftPixels, toHex, fromHex, History, KEY, dropKey } from './core/paint.js';
+import { overlayGuide } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName } from './io.js';
 import { backdropToggle } from './backdrop.js';
 
@@ -12,6 +14,7 @@ export function mountPaint(app) {
   const canvas = $('#paint-canvas');
   const colorBtn = $('#paint-color-btn'), colorPop = $('#paint-color-pop');
   let image = null, name = '그림', history = new History();
+  let guide = null; // { image, name, visible }
   let tool = 'pen', cell = 8, panX = 0, panY = 0;
   let strokeBefore = null, last = null;
   const pointers = new Map();
@@ -29,10 +32,12 @@ export function mountPaint(app) {
   function closeColors() { colorPop.hidden = true; colorBtn.setAttribute('aria-expanded', 'false'); }
 
   function render() {
+    renderGuide();
+    for (const b of document.querySelectorAll('[data-move]')) b.disabled = !image;
     $('#paint-empty').hidden = !!image;
     canvas.hidden = !image;
     if (!image) return;
-    drawPixels(canvas, image, cell, bg.backdrop);
+    drawPixels(canvas, guide?.visible ? overlayGuide(image, guide.image) : image, cell, bg.backdrop);
     if (cell >= 8) drawGrid();
     canvas.style.transform = `translate(${panX}px, ${panY}px)`;
     $('#paint-zoom').textContent = `${cell}배`;
@@ -50,6 +55,14 @@ export function mountPaint(app) {
     for (let x = 0; x <= image.width; x++) { ctx.moveTo(x * cell + 0.5, 0); ctx.lineTo(x * cell + 0.5, canvas.height); }
     for (let y = 0; y <= image.height; y++) { ctx.moveTo(0, y * cell + 0.5); ctx.lineTo(canvas.width, y * cell + 0.5); }
     ctx.stroke();
+  }
+
+  function renderGuide() {
+    $('#paint-guide-name').textContent = guide ? guide.name : '없음';
+    $('#paint-guide-pick').textContent = guide ? '바꾸기' : '고르기';
+    $('#paint-guide-show').checked = !!guide?.visible;
+    $('#paint-guide-show').disabled = !guide;
+    $('#paint-guide-drop').hidden = !guide;
   }
 
   function renderPalette() {
@@ -222,6 +235,26 @@ export function mountPaint(app) {
     if (image && !confirm('지금 그림을 비우고 72×64 새 그림을 만들까요? 내려받지 않은 고침은 사라집니다.')) return;
     load(blank(72, 64), '새 그림');
   });
+  $('#paint-guide-pick').addEventListener('click', async () => {
+    const [file] = await pickFiles({ accept: 'image/png' });
+    if (!file) return;
+    try {
+      guide = { image: dropKey(await readImageFile(file)), name: baseName(file.name), visible: true };
+      changed();
+    } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
+  });
+  $('#paint-guide-show').addEventListener('change', () => { if (guide) { guide.visible = $('#paint-guide-show').checked; changed(); } });
+  $('#paint-guide-drop').addEventListener('click', () => { guide = null; changed(); });
+  // 화살표는 그림 전체를 한 칸씩 옮깁니다. 판 밖으로 나간 칸은 잘리니, 되돌리기로 한 번에 한 칸씩 되돌릴 수 있게 기록합니다.
+  for (const b of document.querySelectorAll('[data-move]')) b.addEventListener('click', () => {
+    if (!image) return;
+    const [dx, dy] = b.dataset.move.split(',').map(Number);
+    const next = shiftPixels(image, dx, dy);
+    if (sameImage(image, next)) return;
+    history.push(image);
+    image = next;
+    changed();
+  });
   $('#paint-save').addEventListener('click', () => image && savePng(`${name}.png`, bg.forSave(image)));
   $('#paint-to-assemble').addEventListener('click', () => image && app.addToAssemble(clone(image), name));
   // 아이폰은 주소창이 숨거나 나올 때마다 높이가 바뀝니다. 너비가 바뀔 때(가로 · 세로 돌림)만 다시 맞춰 확대를 지킵니다.
@@ -244,9 +277,14 @@ export function mountPaint(app) {
   return {
     load,
     shown() { if (image) requestAnimationFrame(fit); },
-    snapshot: () => (image ? { name, png: toPngDataUrl(image) } : null),
+    snapshot: () => (image || guide ? {
+      ...(image ? { name, png: toPngDataUrl(image) } : {}),
+      ...(guide ? { guide: { name: guide.name, visible: guide.visible, png: toPngDataUrl(guide.image) } } : {}),
+    } : null),
     async restore(saved) {
-      if (!saved?.png) return;
+      const g = saved?.guide;
+      if (typeof g?.png === 'string') guide = { name: g.name || '대볼 그림', visible: g.visible !== false, image: dropKey(await readDataUrl(g.png)) };
+      if (!saved?.png) { render(); return; }
       image = dropKey(await readDataUrl(saved.png));
       name = saved.name || '그림';
       fit();

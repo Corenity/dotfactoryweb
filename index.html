@@ -84,6 +84,22 @@
         <button class="btn clear-toggle" id="paint-clear" aria-pressed="false">투명화</button>
         <span class="hint" id="paint-pos"></span>
       </div>
+      <div class="row guide">
+        <span class="hint">대볼 그림</span>
+        <span class="guide-name" id="paint-guide-name">없음</span>
+        <button class="btn small" id="paint-guide-pick">고르기</button>
+        <label class="inline"><input type="checkbox" id="paint-guide-show" disabled>보이기</label>
+        <button class="btn small" id="paint-guide-drop" hidden>빼기</button>
+      </div>
+      <div class="row">
+        <span class="hint">그림 옮기기</span>
+        <span class="arrows">
+          <button class="btn small" data-move="-1,0" aria-label="그림을 왼쪽으로 한 칸" disabled>←</button>
+          <button class="btn small" data-move="1,0" aria-label="그림을 오른쪽으로 한 칸" disabled>→</button>
+          <button class="btn small" data-move="0,-1" aria-label="그림을 위로 한 칸" disabled>↑</button>
+          <button class="btn small" data-move="0,1" aria-label="그림을 아래로 한 칸" disabled>↓</button>
+        </span>
+      </div>
       <div class="row">
         <button class="btn" id="paint-open">PNG 열기</button>
         <button class="btn" id="paint-new">새 그림</button>
