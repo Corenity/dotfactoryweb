@@ -12,6 +12,8 @@ const $ = sel => document.querySelector(sel);
 const ZOOM_STEPS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
 // 내 색 칸을 이만큼 누르고 있으면 그 색을 뺍니다.
 const LONG_PRESS_MS = 500;
+// 화면에 맞춘 그림 위아래에 남길 빈 곳(px)입니다.
+const FIT_PAD = 12;
 
 export function mountPaint(app) {
   const stage = $('#paint-stage');
@@ -187,13 +189,17 @@ export function mountPaint(app) {
     })));
   }
 
+  // 맞춘 그림보다 그림판이 높으면 그림판을 그림 높이 + 위아래 FIT_PAD 로 줄여 빈 곳을 없앱니다. 한도는 CSS 높이(62vh)입니다.
   function fit() {
     if (!image) return;
+    stage.style.height = stage.style.minHeight = '';
     const w = stage.clientWidth, h = stage.clientHeight;
     fittedWidth = w;
     cell = Math.max(1, Math.floor(Math.min(w / image.width, h / image.height)));
+    const fitted = image.height * cell + FIT_PAD * 2;
+    if (fitted < h) { stage.style.height = `${fitted + stage.offsetHeight - h}px`; stage.style.minHeight = '0'; }
     panX = Math.round((w - image.width * cell) / 2);
-    panY = Math.round((h - image.height * cell) / 2);
+    panY = Math.round((stage.clientHeight - image.height * cell) / 2);
     render();
   }
 
