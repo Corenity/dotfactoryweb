@@ -35,6 +35,7 @@ export function mountAssemble(app) {
   function renderGuide() {
     $('#asm-guide-name').textContent = guide ? guide.name : '없음';
     $('#asm-guide-pick').textContent = guide ? '바꾸기' : '고르기';
+    $('#asm-guide-drop').hidden = !guide;
     const opacity = guide ? guide.opacity : GUIDE_OPACITY;
     $('#asm-guide-opacity').value = String(Math.round(opacity * 100));
     $('#asm-guide-opacity').disabled = !guide;
@@ -148,6 +149,7 @@ export function mountAssemble(app) {
       changed();
     } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
   });
+  $('#asm-guide-drop').addEventListener('click', () => { guide = null; changed(); });
   $('#asm-guide-opacity').addEventListener('input', () => { if (guide) { guide.opacity = guideOpacity($('#asm-guide-opacity').value / 100); changed(); } });
   $('#asm-save-png').addEventListener('click', () => {
     if (!items.length) return;

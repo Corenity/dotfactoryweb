@@ -82,7 +82,14 @@
         <canvas id="paint-canvas" class="pixels"></canvas>
         <p class="empty" id="paint-empty">축소한 그림을 보내거나 PNG 를 여세요.</p>
       </div>
-      <p class="hint paint-pos" id="paint-pos"></p>
+      <div class="paint-pos">
+        <span class="hint" id="paint-pos"></span>
+        <span class="selection-actions" id="paint-selection-actions" hidden>
+          <button class="btn selection-color" id="paint-selection-color" aria-label="선택을 칠할 색 고르기" aria-expanded="false" aria-controls="paint-color-pop"><span id="paint-selection-color-chip"></span>색</button>
+          <button class="btn" id="paint-selection-fill">칠하기</button>
+          <button class="btn" id="paint-selection-erase">지우기</button>
+        </span>
+      </div>
       <div class="row paint-controls">
         <button class="btn" id="paint-zoom-out" aria-label="작게 보기">−</button>
         <span class="hint" id="paint-zoom"></span>
@@ -99,6 +106,7 @@
         <span class="hint">대볼 그림</span>
         <button type="button" class="guide-name" id="paint-guide-name" aria-pressed="false" disabled>없음</button>
         <button class="btn small" id="paint-guide-pick">고르기</button>
+        <button class="btn small" id="paint-guide-drop" hidden>빼기</button>
         <label class="inline guide-opacity">진하기<input type="range" id="paint-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="paint-guide-opacity-value">50%</span></label>
       </div>
       <div class="row">
@@ -124,6 +132,7 @@
         <span class="hint">대볼 그림</span>
         <span class="guide-name" id="asm-guide-name">없음</span>
         <button class="btn small" id="asm-guide-pick">고르기</button>
+        <button class="btn small" id="asm-guide-drop" hidden>빼기</button>
         <label class="inline guide-opacity">진하기<input type="range" id="asm-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="asm-guide-opacity-value">50%</span></label>
       </div>
       <div class="stage small"><canvas id="asm-canvas" class="pixels"></canvas></div>

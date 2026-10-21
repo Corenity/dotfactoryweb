@@ -47,7 +47,13 @@ input[type="color"] {
 .stage.small { height: auto; min-height: 0; display: grid; place-items: center; padding: 8px; touch-action: auto; }
 .stage.small canvas { position: static; max-width: 100%; }
 
-.paint-pos { min-height: 17px; margin: -8px 0 0; }
+.paint-pos { min-height: 32px; margin: -8px 0 0; display: flex; align-items: center; gap: 4px; overflow: hidden; }
+.paint-pos > .hint { flex: 1 1 auto; min-width: 0; white-space: nowrap; font-size: 12px; }
+.selection-actions { flex: none; display: flex; gap: 4px; }
+.selection-actions[hidden] { display: none; }
+.selection-actions .btn { min-height: 32px; height: 32px; padding: 0 7px; border-radius: 7px; font-size: 12px; }
+.selection-actions .selection-color { display: flex; align-items: center; gap: 3px; padding: 0 6px; }
+#paint-selection-color-chip { width: 13px; height: 13px; border: 1px solid #fff9; border-radius: 3px; }
 .paint-controls { flex-wrap: nowrap; gap: 4px; }
 .paint-controls .btn { min-width: 36px; min-height: 36px; height: 36px; padding: 0 7px; border-radius: 8px; }
 .paint-controls #paint-zoom { min-width: 34px; text-align: center; white-space: nowrap; }

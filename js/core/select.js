@@ -23,6 +23,14 @@ export function lift(img, rect) {
   return { base, piece };
 }
 
+/** 선택 조각의 모든 칸을 한 색으로 칠한 새 조각입니다. 투명색이면 색 값도 0으로 맞춥니다. */
+export function fillPiece(piece, rgba) {
+  const out = blank(piece.width, piece.height);
+  const fill = rgba[3] === 0 ? [0, 0, 0, 0] : rgba;
+  for (let i = 0; i < out.data.length; i += 4) out.data.set(fill, i);
+  return out;
+}
+
 /** base 위 (x, y) 에 piece 를 얹은 새 그림입니다. piece 의 투명 칸은 아래를 가리지 않고, 그림판 밖으로 나간 칸은 그리지 않습니다. */
 export function place(base, piece, x, y) {
   const out = clone(base);

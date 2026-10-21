@@ -3,7 +3,7 @@
 import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
 import { overlayGuide, guideOpacity, GUIDE_OPACITY } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName } from './io.js';
-import { selectRect, insideRect, lift, place } from './core/select.js';
+import { selectRect, insideRect, lift, fillPiece, place } from './core/select.js';
 import { loadColors, saveColors } from './store.js';
 
 const $ = sel => document.querySelector(sel);
@@ -17,7 +17,7 @@ const FIT_PAD = 12;
 export function mountPaint(app) {
   const stage = $('#paint-stage');
   const canvas = $('#paint-canvas');
-  const colorBtn = $('#paint-color-btn'), colorPop = $('#paint-color-pop');
+  const colorBtn = $('#paint-color-btn'), selectionColorBtn = $('#paint-selection-color'), colorPop = $('#paint-color-pop');
   let image = null, name = '그림', history = new History();
   let guide = null; // { image, name, opacity, dx, dy }
   let guideTarget = false;
@@ -37,11 +37,16 @@ export function mountPaint(app) {
   }
   // 칠할 색을 바꾸고 도구 줄의 색 단추에도 같은 색을 칠합니다.
   function setColor(hex) { $('#paint-color').value = hex; showColor(); }
-  function showColor() { colorBtn.style.background = $('#paint-color').value; }
-  function closeColors() { colorPop.hidden = true; colorBtn.setAttribute('aria-expanded', 'false'); }
+  function showColor() { colorBtn.style.background = $('#paint-color').value; $('#paint-selection-color-chip').style.background = $('#paint-color').value; }
+  function closeColors() {
+    colorPop.hidden = true;
+    colorBtn.setAttribute('aria-expanded', 'false');
+    selectionColorBtn.setAttribute('aria-expanded', 'false');
+  }
 
   function render() {
     renderGuide();
+    renderSelectionBar();
     for (const b of document.querySelectorAll('[data-move]')) b.disabled = !image;
     $('#paint-empty').hidden = !!image;
     canvas.hidden = !image;
@@ -84,6 +89,11 @@ export function mountPaint(app) {
     ctx.restore();
   }
 
+  function renderSelectionBar() {
+    $('#paint-selection-actions').hidden = !sel;
+    if (sel) $('#paint-pos').textContent = `선택 ${sel.w}×${sel.h} · x ${sel.x} · y ${sel.y}`;
+  }
+
   // 떼어 낸 칸을 지금 자리에 내려놓고 선택을 끝냅니다. 고른 때부터 놓을 때까지가 되돌리기 한 단계입니다.
   function dropSelection() {
     marquee = null;
@@ -99,8 +109,22 @@ export function mountPaint(app) {
     sel.x = x;
     sel.y = y;
     image = place(sel.base, sel.piece, x, y);
-    $('#paint-pos').textContent = `선택 ${sel.w}×${sel.h} · x ${x} · y ${y}`;
     return true;
+  }
+
+  // 옮긴 선택은 먼저 한 단계로 확정한 뒤 칠하기·지우기 직전 모습을 다시 담습니다.
+  // 새 조각을 같은 자리에서 다시 보여 주고 기준(before)을 갱신해, 선택은 남지만 각 편집은 되돌리기 한 단계가 됩니다.
+  function editSelection(rgba) {
+    if (!sel) return;
+    const before = clone(image), piece = fillPiece(sel.piece, rgba);
+    const next = place(sel.base, piece, sel.x, sel.y);
+    if (sameImage(before, next)) return;
+    if (!sameImage(sel.before, before)) history.push(sel.before);
+    history.push(before);
+    sel.piece = piece;
+    image = next;
+    sel.before = clone(image);
+    changed();
   }
 
   // 선택 안을 누르면 옮기기, 밖을 누르면 지금 선택을 내려놓고 새 네모를 긋습니다.
@@ -131,7 +155,6 @@ export function mountPaint(app) {
     marquee = null;
     if (rect) {
       sel = { ...rect, ...lift(image, rect), before: clone(image), drag: null };
-      $('#paint-pos').textContent = `선택 ${rect.w}×${rect.h} · 안을 끌어 옮기기`;
     }
     render();
   }
@@ -149,6 +172,7 @@ export function mountPaint(app) {
     $('#paint-guide-name').setAttribute('aria-pressed', String(guideTarget));
     $('#paint-guide-row').classList.toggle('is-target', guideTarget);
     $('#paint-guide-pick').textContent = guide ? '바꾸기' : '고르기';
+    $('#paint-guide-drop').hidden = !guide;
     const opacity = guide ? guide.opacity : GUIDE_OPACITY;
     $('#paint-guide-opacity').value = String(Math.round(opacity * 100));
     $('#paint-guide-opacity').disabled = !guide;
@@ -335,14 +359,25 @@ export function mountPaint(app) {
   $('#paint-zoom-out').addEventListener('click', () => zoomStep(-1));
 
   for (const b of document.querySelectorAll('[data-tool]')) b.addEventListener('click', () => setTool(b.dataset.tool));
-  // 색 단추는 그림에 쓰인 색과 다른 색 고르기를 팝업으로 엽니다. 팝업 밖을 누르면 닫힙니다.
-  colorBtn.addEventListener('click', () => { colorPop.hidden = !colorPop.hidden; colorBtn.setAttribute('aria-expanded', String(!colorPop.hidden)); });
-  document.addEventListener('pointerdown', e => { if (!colorPop.hidden && !colorPop.contains(e.target) && !colorBtn.contains(e.target)) closeColors(); });
+  // 위쪽 색 단추와 선택 줄의 색 단추는 같은 팝업을 엽니다. 팝업 밖을 누르면 닫힙니다.
+  function toggleColors(button) {
+    const opening = colorPop.hidden;
+    closeColors();
+    colorPop.hidden = !opening;
+    button.setAttribute('aria-expanded', String(opening));
+  }
+  colorBtn.addEventListener('click', () => toggleColors(colorBtn));
+  selectionColorBtn.addEventListener('click', () => toggleColors(selectionColorBtn));
+  document.addEventListener('pointerdown', e => {
+    if (!colorPop.hidden && !colorPop.contains(e.target) && !colorBtn.contains(e.target) && !selectionColorBtn.contains(e.target)) closeColors();
+  });
   $('#paint-color').addEventListener('input', showColor);
   // 다른 색 고르기를 마치면(change) 그 색을 내 색 맨 앞에 남깁니다. 고르는 도중(input)의 색은 남기지 않습니다.
   $('#paint-color').addEventListener('change', () => { mine = rememberColor(mine, $('#paint-color').value); saveColors(mine); renderMine(); });
   showColor();
   renderMine();
+  $('#paint-selection-fill').addEventListener('click', () => editSelection(color()));
+  $('#paint-selection-erase').addEventListener('click', () => editSelection([0, 0, 0, 0]));
   // 선택 중에 되돌리면 먼저 내려놓으니, 옮긴 것 전체가 한 번에 되돌아갑니다.
   $('#paint-undo').addEventListener('click', () => { dropSelection(); const prev = history.undo(image); if (prev) { image = prev; changed(); } });
   $('#paint-redo').addEventListener('click', () => { dropSelection(); const next = history.redo(image); if (next) { image = next; changed(); } });
@@ -367,6 +402,7 @@ export function mountPaint(app) {
     } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
   });
   $('#paint-guide-name').addEventListener('click', () => { if (guide) { guideTarget = !guideTarget; render(); } });
+  $('#paint-guide-drop').addEventListener('click', () => { guide = null; guideTarget = false; changed(); });
   $('#paint-guide-opacity').addEventListener('input', () => { if (guide) { guide.opacity = guideOpacity($('#paint-guide-opacity').value / 100); changed(); } });
   // 대볼 그림 이름을 고른 동안은 대볼 그림만 옮깁니다. 아니면 선택 영역, 그림 전체 순서로 대상을 정합니다.
   // 그림 전체가 판 밖으로 나간 칸은 잘리며 한 칸씩 되돌릴 수 있고, 선택 영역은 내려놓을 때 한 단계로 기록합니다.
