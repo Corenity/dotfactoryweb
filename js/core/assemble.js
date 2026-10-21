@@ -67,9 +67,17 @@ export function canvasSizeFor(items) {
   return [w || 72, h || 64];
 }
 
-/** 새 그림의 층 번호 — 지금 가장 위보다 10 큰 수입니다. */
+/** 층 번호의 가장 작은 값입니다. 첫 그림이 이 층에 들어가고, 내리기 · 직접 쓰기도 이 아래로 가지 않습니다. */
+export const MIN_LAYER = 1;
+
+/** 층 번호를 MIN_LAYER 이상의 정수로 맞춥니다. 숫자가 아니면 MIN_LAYER 입니다. */
+export function clampLayer(value) {
+  return Math.max(MIN_LAYER, Math.trunc(Number(value) || 0));
+}
+
+/** 새 그림의 층 번호 — 지금 가장 위보다 1 큰 수입니다. */
 export function nextLayer(items) {
-  return items.length ? Math.max(...items.map(i => i.layer)) + 10 : 10;
+  return items.length ? Math.max(...items.map(i => i.layer)) + 1 : MIN_LAYER;
 }
 
 /** 저장 파일(JSON) 내용입니다. 그림은 PNG data URL 로 같이 담아 파일 하나로 다시 열 수 있습니다. */
@@ -91,7 +99,7 @@ export function parseProject(json) {
     canvas: [w, h],
     items: json.items.map((i, n) => {
       if (typeof i.png !== 'string' || !i.png.startsWith('data:image/png')) throw new Error(`${n + 1}번째 그림이 없습니다`);
-      return { name: String(i.name || `그림 ${n + 1}`), layer: Number(i.layer) || 0, visible: i.visible !== false,
+      return { name: String(i.name || `그림 ${n + 1}`), layer: clampLayer(i.layer), visible: i.visible !== false,
         dx: Math.trunc(Number(i.dx) || 0), dy: Math.trunc(Number(i.dy) || 0), png: i.png };
     }),
     // 대볼 그림이 없거나 그림이 깨진 옛 파일은 대볼 그림 없이 엽니다.

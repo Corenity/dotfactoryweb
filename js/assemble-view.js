@@ -1,6 +1,6 @@
 // 합치기 화면 — 그림 여러 장을 층 번호 · 보이기 · 칸 이동으로 겹쳐 보고 저장합니다.
 // 대볼 그림 한 장은 합친 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 합친 그림 내려받기에는 넣지 않습니다.
-import { compose, overlayGuide, guideOpacity, GUIDE_OPACITY, canvasSizeFor, nextLayer, toProject, parseProject } from './core/assemble.js';
+import { compose, overlayGuide, guideOpacity, GUIDE_OPACITY, canvasSizeFor, nextLayer, MIN_LAYER, clampLayer, toProject, parseProject } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, saveJson, toPngDataUrl, baseName } from './io.js';
 import { dropKey } from './core/paint.js';
 import { backdropToggle } from './backdrop.js';
@@ -55,6 +55,13 @@ export function mountAssemble(app) {
       title.textContent = item.name;
       const layer = numberInput(item.layer, v => { item.layer = v; changed(); });
       layer.setAttribute('aria-label', `${item.name} 층 번호`);
+      const layerUp = button('▲', () => { item.layer++; changed(); }, `${item.name} 한 층 올리기`);
+      const layerDown = button('▼', () => { item.layer = clampLayer(item.layer - 1); changed(); }, `${item.name} 한 층 내리기`);
+      layerDown.disabled = item.layer <= MIN_LAYER;
+      // 좁은 화면에서 줄이 넘어가도 ▲ ▼ 가 갈라지지 않게 한 묶음으로 둡니다.
+      const layerSteps = document.createElement('span');
+      layerSteps.className = 'arrows';
+      layerSteps.append(layerUp, layerDown);
       const visible = document.createElement('input');
       visible.type = 'checkbox';
       visible.checked = item.visible;
@@ -82,7 +89,7 @@ export function mountAssemble(app) {
       const visibleLabel = document.createElement('label');
       visibleLabel.className = 'inline';
       visibleLabel.append(visible, '보이기');
-      top.append(thumb, title, layerLabel, visibleLabel);
+      top.append(thumb, title, layerLabel, layerSteps, visibleLabel);
       const bottom = document.createElement('div');
       bottom.className = 'layer-bottom';
       bottom.append(arrows, pos, tools);
@@ -174,7 +181,8 @@ function numberInput(value, onChange) {
   input.type = 'number';
   input.inputMode = 'numeric';
   input.value = String(value);
+  input.min = String(MIN_LAYER);
   input.className = 'layer-number';
-  input.addEventListener('change', () => onChange(Math.trunc(Number(input.value) || 0)));
+  input.addEventListener('change', () => onChange(clampLayer(input.value)));
   return input;
 }
