@@ -120,6 +120,27 @@ export function usedColors(img) {
   return [...counts.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([hex]) => hex);
 }
 
+/** 내 색은 그림을 바꿔도 남는 색 목록입니다. 이만큼을 넘으면 가장 오래 전에 고른 색부터 밀려납니다. */
+export const MY_COLORS_MAX = 16;
+
+/** 고른 색을 내 색 맨 앞에 둔 새 목록입니다. 이미 있던 색은 맨 앞으로 옮깁니다. */
+export function rememberColor(list, hex, max = MY_COLORS_MAX) {
+  const h = String(hex).toLowerCase();
+  if (!/^#[0-9a-f]{6}$/.test(h)) return list;
+  return [h, ...list.filter(c => c !== h)].slice(0, max);
+}
+
+export function forgetColor(list, hex) {
+  const h = String(hex).toLowerCase();
+  return list.filter(c => c !== h);
+}
+
+/** 저장소에서 읽은 값을 내 색 목록으로 고릅니다. 색이 아닌 값과 겹친 색은 버리고 순서는 지킵니다. */
+export function cleanColors(value) {
+  if (!Array.isArray(value)) return [];
+  return value.reduceRight((list, hex) => rememberColor(list, hex), []);
+}
+
 export function toHex(rgb) {
   return '#' + rgb.slice(0, 3).map(v => v.toString(16).padStart(2, '0')).join('');
 }

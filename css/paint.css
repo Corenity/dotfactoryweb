@@ -22,7 +22,11 @@
 .color-pop[hidden] { display: none; }
 .palette { display: grid; grid-template-columns: repeat(auto-fill, 36px); gap: 6px; max-height: 40vh; overflow-y: auto; }
 .palette:empty::before { content: '그림을 열면 그림에 쓰인 색이 여기 나옵니다.'; grid-column: 1 / -1; color: var(--muted); font-size: 14px; }
-.swatch { width: 36px; height: 36px; border: 1px solid #0006; border-radius: 6px; padding: 0; }
+.palette.mine:empty::before { content: '다른 색에서 고른 색이 여기 남습니다.'; }
+.pop-label { margin: 0 0 -4px; font-size: 13px; color: var(--muted); }
+.pop-label span { margin-left: 6px; font-size: 12px; }
+/* 길게 누를 때 아이폰이 글자 고르기 · 메뉴를 띄우지 않게 합니다. */
+.swatch { width: 36px; height: 36px; border: 1px solid #0006; border-radius: 6px; padding: 0; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
 
 input[type="color"] {
   width: 52px; height: 36px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel);

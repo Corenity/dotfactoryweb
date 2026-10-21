@@ -1,13 +1,16 @@
 // 다듬기 화면 — 한 손가락으로 칠하고, 두 손가락으로 옮기고, + · − 단추로 확대 · 축소합니다.
 // 대볼 그림 한 장은 합치기와 같이 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 내려받기 · 합치기에 더하기에는 넣지 않습니다.
-import { blank, clone, getPixel, setPixel, floodFill, usedColors, shiftPixels, toHex, fromHex, History, KEY, dropKey } from './core/paint.js';
+import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey } from './core/paint.js';
 import { overlayGuide, guideOpacity, GUIDE_OPACITY } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName } from './io.js';
+import { loadColors, saveColors } from './store.js';
 import { backdropToggle } from './backdrop.js';
 
 const $ = sel => document.querySelector(sel);
 // 한 칸을 화면에서 몇 픽셀로 그릴지 고르는 단계입니다. + · − 는 이 단계를 하나씩 오갑니다.
 const ZOOM_STEPS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
+// 내 색 칸을 이만큼 누르고 있으면 그 색을 뺍니다.
+const LONG_PRESS_MS = 500;
 
 export function mountPaint(app) {
   const stage = $('#paint-stage');
@@ -15,6 +18,7 @@ export function mountPaint(app) {
   const colorBtn = $('#paint-color-btn'), colorPop = $('#paint-color-pop');
   let image = null, name = '그림', history = new History();
   let guide = null; // { image, name, visible, opacity }
+  let mine = loadColors(); // 내 색: 다른 색에서 고른 색. 그림을 바꿔도 남습니다.
   let tool = 'pen', cell = 8, panX = 0, panY = 0;
   let strokeBefore = null, last = null;
   const pointers = new Map();
@@ -69,19 +73,37 @@ export function mountPaint(app) {
     $('#paint-guide-opacity-value').textContent = `${Math.round(opacity * 100)}%`;
   }
 
+  // 색 칸을 누르면 그 색으로 칠합니다. onLongPress 가 있으면 길게 눌렀을 때 그것만 하고 색은 고르지 않습니다.
+  function swatch(hex, onLongPress) {
+    const b = document.createElement('button');
+    b.className = 'swatch';
+    b.style.background = hex;
+    b.title = hex;
+    b.setAttribute('aria-label', hex);
+    let timer = 0, long = false;
+    if (onLongPress) {
+      b.addEventListener('pointerdown', () => { long = false; timer = setTimeout(() => { long = true; onLongPress(); }, LONG_PRESS_MS); });
+      for (const type of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(type, () => clearTimeout(timer));
+      b.addEventListener('contextmenu', e => e.preventDefault());
+    }
+    b.addEventListener('click', () => { if (long) return; setColor(hex); closeColors(); if (tool === 'eraser' || tool === 'picker') setTool('pen'); });
+    return b;
+  }
+
   function renderPalette() {
     const box = $('#paint-palette');
     box.replaceChildren();
     if (!image) return;
-    for (const hex of usedColors(image).slice(0, 32)) {
-      const b = document.createElement('button');
-      b.className = 'swatch';
-      b.style.background = hex;
-      b.title = hex;
-      b.setAttribute('aria-label', hex);
-      b.addEventListener('click', () => { setColor(hex); closeColors(); if (tool === 'eraser' || tool === 'picker') setTool('pen'); });
-      box.append(b);
-    }
+    for (const hex of usedColors(image).slice(0, 32)) box.append(swatch(hex));
+  }
+
+  function renderMine() {
+    $('#paint-mine').replaceChildren(...mine.map(hex => swatch(hex, () => {
+      mine = forgetColor(mine, hex);
+      saveColors(mine);
+      renderMine();
+      app.toast(`내 색에서 뺐습니다 ${hex}`);
+    })));
   }
 
   function fit() {
@@ -226,7 +248,10 @@ export function mountPaint(app) {
   colorBtn.addEventListener('click', () => { colorPop.hidden = !colorPop.hidden; colorBtn.setAttribute('aria-expanded', String(!colorPop.hidden)); });
   document.addEventListener('pointerdown', e => { if (!colorPop.hidden && !colorPop.contains(e.target) && !colorBtn.contains(e.target)) closeColors(); });
   $('#paint-color').addEventListener('input', showColor);
+  // 다른 색 고르기를 마치면(change) 그 색을 내 색 맨 앞에 남깁니다. 고르는 도중(input)의 색은 남기지 않습니다.
+  $('#paint-color').addEventListener('change', () => { mine = rememberColor(mine, $('#paint-color').value); saveColors(mine); renderMine(); });
   showColor();
+  renderMine();
   $('#paint-undo').addEventListener('click', () => { const prev = history.undo(image); if (prev) { image = prev; changed(); } });
   $('#paint-redo').addEventListener('click', () => { const next = history.redo(image); if (next) { image = next; changed(); } });
   $('#paint-fit').addEventListener('click', fit);

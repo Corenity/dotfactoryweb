@@ -70,6 +70,9 @@
         <button class="btn icon" id="paint-undo" aria-label="되돌리기" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button class="btn icon" id="paint-redo" aria-label="다시" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <div class="color-pop" id="paint-color-pop" hidden>
+          <p class="pop-label">내 색 <span>길게 누르면 뺍니다</span></p>
+          <div class="palette mine" id="paint-mine" aria-label="내가 고른 색"></div>
+          <p class="pop-label">그림에 쓰인 색</p>
           <div class="palette" id="paint-palette" aria-label="그림에 쓰인 색"></div>
           <label class="inline">다른 색<input type="color" id="paint-color" value="#000000"></label>
         </div>
