@@ -1,7 +1,7 @@
 // 다듬기 화면 — 한 손가락으로 칠하고, 두 손가락으로 옮기고, + · − 단추로 확대 · 축소합니다.
 // 대볼 그림 한 장은 합치기와 같이 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 내려받기 · 합치기에 더하기에는 넣지 않습니다.
 import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
-import { overlayGuide, guideOpacity, GUIDE_OPACITY } from './core/assemble.js';
+import { overlayGuide, guidePixelAt, guideOpacity, GUIDE_OPACITY } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName } from './io.js';
 import { selectRect, insideRect, lift, fillPiece, place } from './core/select.js';
 import { loadColors, saveColors } from './store.js';
@@ -292,8 +292,9 @@ export function mountPaint(app) {
     if (tool === 'select') { selectMove(at); selectEnd(); strokeBefore = null; last = null; return; }
     if (tool === 'fill' && inside(at)) floodFill(image, at[0], at[1], color());
     if (tool === 'picker' && inside(at)) {
-      const px = getPixel(image, at[0], at[1]);
-      if (px[3]) { setColor(toHex(px)); app.toast(`색을 골랐습니다 ${toHex(px)}`); setTool('pen'); }
+      // 대볼 그림을 골라 둔 동안은 대볼 그림의 원래 색을 가져옵니다.
+      const px = guideTarget && guide ? guidePixelAt(guide.image, at[0], at[1], guide.dx, guide.dy) : getPixel(image, at[0], at[1]);
+      if (px?.[3]) { setColor(toHex(px)); app.toast(`색을 골랐습니다 ${toHex(px)}`); setTool('pen'); }
     }
     if (!sameImage(strokeBefore, image)) { history.push(strokeBefore); changed(); }
     strokeBefore = null;

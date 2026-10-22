@@ -81,6 +81,14 @@ export function overlayGuide(base, guide, alpha = GUIDE_OPACITY, dx = 0, dy = 0)
   return { width: base.width, height: base.height, data: out };
 }
 
+/** 판의 (x, y) 칸에 겹친 대볼 그림 칸의 원래 색 [r,g,b,a] 입니다(진하기로 섞기 전). 대볼 그림 밖이면 null 입니다. */
+export function guidePixelAt(guide, x, y, dx = 0, dy = 0) {
+  const gx = x - dx, gy = y - dy;
+  if (gx < 0 || gy < 0 || gx >= guide.width || gy >= guide.height) return null;
+  const s = (gy * guide.width + gx) * 4;
+  return [guide.data[s], guide.data[s + 1], guide.data[s + 2], guide.data[s + 3]];
+}
+
 /** 그림판 크기는 가장 큰 그림에 맞춥니다(보통 72×64). */
 export function canvasSizeFor(items) {
   let w = 0, h = 0;
