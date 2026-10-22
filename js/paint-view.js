@@ -168,8 +168,11 @@ export function mountPaint(app) {
 
   function renderGuide() {
     $('#paint-guide-name').textContent = guide ? guide.name : '없음';
-    $('#paint-guide-name').disabled = !guide;
-    $('#paint-guide-name').setAttribute('aria-pressed', String(guideTarget));
+    $('#paint-guide-name').classList.toggle('is-empty', !guide);
+    for (const b of $('#paint-target').querySelectorAll('[data-target]')) {
+      b.setAttribute('aria-checked', String((b.dataset.target === 'guide') === guideTarget));
+      if (b.dataset.target === 'guide') b.disabled = !guide;
+    }
     $('#paint-guide-row').classList.toggle('is-target', guideTarget);
     $('#paint-guide-pick').textContent = guide ? '바꾸기' : '고르기';
     $('#paint-guide-drop').hidden = !guide;
@@ -402,10 +405,13 @@ export function mountPaint(app) {
       changed();
     } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
   });
-  $('#paint-guide-name').addEventListener('click', () => { if (guide) { guideTarget = !guideTarget; render(); } });
+  for (const b of $('#paint-target').querySelectorAll('[data-target]')) b.addEventListener('click', () => {
+    guideTarget = b.dataset.target === 'guide' && !!guide;
+    render();
+  });
   $('#paint-guide-drop').addEventListener('click', () => { guide = null; guideTarget = false; changed(); });
   $('#paint-guide-opacity').addEventListener('input', () => { if (guide) { guide.opacity = guideOpacity($('#paint-guide-opacity').value / 100); changed(); } });
-  // 대볼 그림 이름을 고른 동안은 대볼 그림만 옮깁니다. 아니면 선택 영역, 그림 전체 순서로 대상을 정합니다.
+  // 대상을 「대볼 그림」으로 고른 동안은 대볼 그림만 옮깁니다. 아니면 선택 영역, 그림 전체 순서로 대상을 정합니다.
   // 그림 전체가 판 밖으로 나간 칸은 잘리며 한 칸씩 되돌릴 수 있고, 선택 영역은 내려놓을 때 한 단계로 기록합니다.
   for (const b of document.querySelectorAll('[data-move]')) b.addEventListener('click', () => {
     if (!image) return;

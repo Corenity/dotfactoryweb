@@ -102,9 +102,16 @@
           <button class="btn small" data-move="0,1" aria-label="아래로 한 칸 옮기기" disabled>↓</button>
         </span>
       </div>
+      <div class="row target-row">
+        <span class="hint">화살표 · 스포이드</span>
+        <div class="segmented" id="paint-target" role="radiogroup" aria-label="화살표 · 스포이드가 다룰 그림">
+          <button type="button" role="radio" data-target="image" aria-checked="true">원본</button>
+          <button type="button" role="radio" data-target="guide" aria-checked="false" disabled>대볼 그림</button>
+        </div>
+      </div>
       <div class="row guide" id="paint-guide-row">
         <span class="hint">대볼 그림</span>
-        <button type="button" class="guide-name" id="paint-guide-name" aria-pressed="false" disabled>없음</button>
+        <span class="guide-name is-empty" id="paint-guide-name">없음</span>
         <button class="btn small" id="paint-guide-pick">고르기</button>
         <button class="btn small" id="paint-guide-drop" hidden>빼기</button>
         <label class="inline guide-opacity">진하기<input type="range" id="paint-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="paint-guide-opacity-value">50%</span></label>

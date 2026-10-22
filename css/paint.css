@@ -62,12 +62,23 @@ input[type="color"] {
 
 .guide { padding: 4px; border: 1px solid transparent; border-radius: 10px; }
 .guide.is-target { border-color: var(--accent); background: #26304a; }
-.guide .guide-name { flex: 1; min-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.guide button.guide-name {
-  min-height: 44px;
-  padding: 0 6px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font: inherit; text-align: left;
+.guide .guide-name { flex: 1; min-width: 60px; padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guide .guide-name.is-empty { color: var(--muted); }
+
+/* 화살표 · 스포이드가 원본과 대볼 그림 중 어느 쪽을 다룰지 고르는 두 칸 단추입니다. 고른 칸이 파랗게 찹니다. */
+.target-row { flex-wrap: nowrap; padding: 0 4px; }
+.target-row > .hint { flex: none; white-space: nowrap; }
+.segmented {
+  flex: 1; min-width: 0; display: flex; gap: 3px; padding: 3px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
 }
-.guide button.guide-name:disabled { color: var(--muted); }
+.segmented button {
+  flex: 1 1 0; min-width: 0; min-height: 36px; padding: 0 6px; border: 0; border-radius: 7px;
+  background: transparent; color: var(--muted); font: inherit; font-size: 15px; white-space: nowrap;
+  transition: background-color 0.12s, color 0.12s;
+}
+.segmented button[aria-checked="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+.segmented button:disabled { opacity: 0.45; }
 .btn[hidden] { display: none; }
 /* 진하기 밀대는 대볼 그림 줄 아래에 한 줄을 다 써서 손가락으로 끌기 쉽게 합니다. */
 .guide .guide-opacity { flex: 1 1 100%; }
