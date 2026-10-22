@@ -80,10 +80,8 @@
       </div>
       <div class="stage" id="paint-stage">
         <canvas id="paint-canvas" class="pixels"></canvas>
-        <p class="empty" id="paint-empty">축소한 그림을 보내거나 PNG 를 여세요.</p>
-      </div>
-      <div class="paint-pos">
-        <span class="hint" id="paint-pos"></span>
+        <p class="empty" id="paint-empty">축소한 그림을 보내거나 「열기」로 PNG 를 여세요.</p>
+        <span class="stage-pos" id="paint-pos"></span>
         <span class="selection-actions" id="paint-selection-actions" hidden>
           <button class="btn selection-color" id="paint-selection-color" aria-label="선택을 칠할 색 고르기" aria-expanded="false" aria-controls="paint-color-pop"><span id="paint-selection-color-chip"></span>색</button>
           <button class="btn" id="paint-selection-fill">칠하기</button>
@@ -102,25 +100,21 @@
           <button class="btn small" data-move="0,1" aria-label="아래로 한 칸 옮기기" disabled>↓</button>
         </span>
       </div>
-      <div class="row target-row">
-        <span class="hint">화살표 · 스포이드</span>
+      <div class="row guide" id="paint-guide-row">
         <div class="segmented" id="paint-target" role="radiogroup" aria-label="화살표 · 스포이드가 다룰 그림">
           <button type="button" role="radio" data-target="image" aria-checked="true">원본</button>
           <button type="button" role="radio" data-target="guide" aria-checked="false" disabled>대볼 그림</button>
         </div>
-      </div>
-      <div class="row guide" id="paint-guide-row">
-        <span class="hint">대볼 그림</span>
         <span class="guide-name is-empty" id="paint-guide-name">없음</span>
         <button class="btn small" id="paint-guide-pick">고르기</button>
         <button class="btn small" id="paint-guide-drop" hidden>빼기</button>
         <label class="inline guide-opacity">진하기<input type="range" id="paint-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="paint-guide-opacity-value">50%</span></label>
       </div>
-      <div class="row">
-        <button class="btn" id="paint-open">PNG 열기</button>
+      <div class="row paint-files">
+        <button class="btn" id="paint-open" aria-label="PNG 열기">열기</button>
         <button class="btn" id="paint-new">새 그림</button>
-        <button class="btn primary" id="paint-save">PNG 내려받기</button>
-        <button class="btn" id="paint-to-assemble">합치기에 더하기</button>
+        <button class="btn primary" id="paint-save" aria-label="PNG 내려받기">내려받기</button>
+        <button class="btn" id="paint-to-assemble" aria-label="합치기에 더하기">합치기로</button>
       </div>
     </section>
 

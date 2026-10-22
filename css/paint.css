@@ -47,9 +47,21 @@ input[type="color"] {
 .stage.small { height: auto; min-height: 0; display: grid; place-items: center; padding: 8px; touch-action: auto; }
 .stage.small canvas { position: static; max-width: 100%; }
 
-.paint-pos { min-height: 32px; margin: -8px 0 0; display: flex; align-items: center; gap: 4px; overflow: hidden; }
-.paint-pos > .hint { flex: 1 1 auto; min-width: 0; white-space: nowrap; font-size: 12px; }
-.selection-actions { flex: none; display: flex; gap: 4px; }
+/* 다듬기는 아이폰에서 스크롤 없이 한 화면에 담습니다. 화면을 주소창이 나와 있을 때의 높이(svh)에 맞추고
+   단추 줄을 뺀 나머지 높이를 그림판이 씁니다. 맞춤이 그림판을 그림 높이로 줄이면 남는 곳은 맨 아래로 갑니다. */
+#paint { gap: 8px; height: calc(100vh - var(--top-h, 61px) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+@supports (height: 100svh) {
+  #paint { height: calc(100svh - var(--top-h, 61px) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+}
+#paint .stage { flex: 1 1 0; height: auto; min-height: 160px; }
+
+/* 좌표와 선택 단추는 그림판 위에 겹쳐 띄워 줄 하나를 아낍니다. 좌표는 손가락 조작을 막지 않습니다. */
+.stage-pos {
+  position: absolute; left: 6px; top: 6px; padding: 2px 6px; border-radius: 6px;
+  background: #000a; color: var(--muted); font-size: 12px; white-space: nowrap; pointer-events: none;
+}
+.stage-pos:empty { display: none; }
+.selection-actions { position: absolute; right: 6px; bottom: 6px; display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: #000b; }
 .selection-actions[hidden] { display: none; }
 .selection-actions .btn { min-height: 32px; height: 32px; padding: 0 7px; border-radius: 7px; font-size: 12px; }
 .selection-actions .selection-color { display: flex; align-items: center; gap: 3px; padding: 0 6px; }
@@ -62,24 +74,26 @@ input[type="color"] {
 
 .guide { padding: 4px; border: 1px solid transparent; border-radius: 10px; }
 .guide.is-target { border-color: var(--accent); background: #26304a; }
-.guide .guide-name { flex: 1; min-width: 60px; padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.guide .guide-name { flex: 1 1 0; min-width: 0; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .guide .guide-name.is-empty { color: var(--muted); }
 
 /* 화살표 · 스포이드가 원본과 대볼 그림 중 어느 쪽을 다룰지 고르는 두 칸 단추입니다. 고른 칸이 파랗게 찹니다. */
-.target-row { flex-wrap: nowrap; padding: 0 4px; }
-.target-row > .hint { flex: none; white-space: nowrap; }
 .segmented {
-  flex: 1; min-width: 0; display: flex; gap: 3px; padding: 3px;
+  flex: none; display: flex; gap: 3px; padding: 3px;
   border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
 }
 .segmented button {
-  flex: 1 1 0; min-width: 0; min-height: 36px; padding: 0 6px; border: 0; border-radius: 7px;
+  min-height: 36px; padding: 0 10px; border: 0; border-radius: 7px;
   background: transparent; color: var(--muted); font: inherit; font-size: 15px; white-space: nowrap;
   transition: background-color 0.12s, color 0.12s;
 }
 .segmented button[aria-checked="true"] { background: var(--accent); color: #fff; font-weight: 600; }
 .segmented button:disabled { opacity: 0.45; }
 .btn[hidden] { display: none; }
+
+/* 파일 단추 네 개는 한 줄에 같은 폭으로 둡니다. */
+.paint-files { flex-wrap: nowrap; gap: 6px; }
+.paint-files .btn { flex: 1 1 0; min-width: 0; padding: 0 4px; font-size: 14px; white-space: nowrap; }
 /* 진하기 밀대는 대볼 그림 줄 아래에 한 줄을 다 써서 손가락으로 끌기 쉽게 합니다. */
 .guide .guide-opacity { flex: 1 1 100%; }
 .guide-opacity input[type="range"] { flex: 1; min-height: 44px; }

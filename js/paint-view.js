@@ -215,15 +215,20 @@ export function mountPaint(app) {
     })));
   }
 
-  // 맞춘 그림보다 그림판이 높으면 그림판을 그림 높이 + 위아래 FIT_PAD 로 줄여 빈 곳을 없앱니다. 한도는 CSS 높이(62vh)입니다.
+  // 맞춘 그림보다 그림판이 높으면 그림판을 그림 높이 + 위아래 FIT_PAD 로 줄여 빈 곳을 없앱니다.
+  // 한도는 단추 줄을 뺀 남는 높이(CSS 에서 늘어나는 그림판)이고, 줄일 때는 늘어나지 않게 고정합니다.
   function fit() {
     if (!image) return;
-    stage.style.height = stage.style.minHeight = '';
+    stage.style.height = stage.style.minHeight = stage.style.flex = '';
     const w = stage.clientWidth, h = stage.clientHeight;
     fittedWidth = w;
     cell = Math.max(1, Math.floor(Math.min(w / image.width, h / image.height)));
     const fitted = image.height * cell + FIT_PAD * 2;
-    if (fitted < h) { stage.style.height = `${fitted + stage.offsetHeight - h}px`; stage.style.minHeight = '0'; }
+    if (fitted < h) {
+      stage.style.height = `${fitted + stage.offsetHeight - h}px`;
+      stage.style.minHeight = '0';
+      stage.style.flex = '0 0 auto';
+    }
     panX = Math.round((w - image.width * cell) / 2);
     panY = Math.round((stage.clientHeight - image.height * cell) / 2);
     render();
@@ -351,6 +356,10 @@ export function mountPaint(app) {
   };
   stage.addEventListener('pointerup', up);
   stage.addEventListener('pointercancel', up);
+  // 그림판 위에 뜬 선택 단추를 눌러도 그림판이 칠하거나 선택을 내려놓지 않게 합니다.
+  for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel']) {
+    $('#paint-selection-actions').addEventListener(type, e => e.stopPropagation());
+  }
 
   stage.addEventListener('wheel', e => {
     if (!image) return;
