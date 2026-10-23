@@ -1,0 +1,67 @@
+/* 뼈 애니메이션 3단계 — 움직임 설정, 시간 줄, 키 편집 화면 */
+
+#rig.rig-mode-motion .rig-slice-only { display: none; }
+.rig-motion-only { display: grid; gap: 8px; }
+.rig-motion-only[hidden] { display: none; }
+
+.motion-pick-row label { flex: 1; }
+.motion-pick-row select { min-width: 110px; min-height: 44px; }
+
+.motion-settings {
+  display: grid;
+  grid-template-columns: minmax(100px, 1.4fr) repeat(2, minmax(90px, 1fr)) minmax(80px, auto);
+  gap: 6px;
+  align-items: end;
+}
+
+.motion-settings label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+.motion-settings input, .motion-settings select { width: 100%; min-height: 44px; font-size: 16px; }
+.motion-settings input[type="text"] { padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
+.motion-settings .motion-loop { display: flex; align-items: center; min-width: 44px; min-height: 44px; padding: 0 8px; gap: 8px; font-size: 16px; color: var(--text); cursor: pointer; }
+.motion-loop input { width: 24px; min-height: 24px; }
+
+.motion-timeline {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  padding: 4px 0 8px;
+}
+
+.motion-time {
+  flex: 0 0 58px;
+  min-width: 58px;
+  min-height: 44px;
+  position: relative;
+  white-space: nowrap;
+}
+
+.motion-time.has-key::after {
+  content: '';
+  position: absolute;
+  left: 50%; bottom: 3px;
+  width: 6px; height: 6px;
+  margin-left: -3px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.motion-time[aria-pressed="true"] { border-color: var(--accent); background: #26304a; color: var(--text); }
+.motion-overlay { pointer-events: none; }
+#motion-onion-canvas { opacity: 0.3; }
+
+.motion-angle-buttons, .motion-key-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.motion-angle-buttons .btn, .motion-key-buttons .btn { min-height: 44px; }
+.motion-dpad #motion-bone-up { grid-column: 2; }
+.motion-dpad #motion-bone-left { grid-column: 1; grid-row: 2; }
+.motion-dpad #motion-bone-down { grid-column: 2; grid-row: 2; }
+.motion-dpad #motion-bone-right { grid-column: 3; grid-row: 2; }
+
+@media (max-width: 560px) {
+  .motion-settings { grid-template-columns: 1fr 1fr; }
+}

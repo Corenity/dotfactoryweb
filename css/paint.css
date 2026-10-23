@@ -87,7 +87,8 @@ input[type="color"] {
   background: transparent; color: var(--muted); font: inherit; font-size: 15px; white-space: nowrap;
   transition: background-color 0.12s, color 0.12s;
 }
-.segmented button[aria-checked="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+.segmented button[aria-checked="true"],
+.segmented button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
 .segmented button:disabled { opacity: 0.45; }
 .btn[hidden] { display: none; }
 

@@ -1,6 +1,7 @@
 // 도트 공장 웹 — 네 화면(축소 · 다듬기 · 합치기 · 재생)을 잇고, 작업을 자동 저장합니다.
 import { mountShrink } from './shrink-view.js';
 import { mountPaint } from './paint-view.js';
+import { mountRig } from './rig-view.js';
 import { mountAssemble } from './assemble-view.js';
 import { mountPlay } from './play-view.js';
 import { loadSaved, saveLater } from './store.js';
@@ -27,12 +28,13 @@ const app = {
   toast,
   sendToPaint(image, name) { views.paint.load(image, name); show('paint'); },
   addToAssemble(image, name) { views.assemble.add(image, name); show('assemble'); toast(`합치기에 「${name}」을 더했습니다`); },
-  changed() { saveLater({ paint: views.paint.snapshot(), assemble: views.assemble.snapshot(), play: views.play.snapshot() }); },
+  changed() { saveLater({ paint: views.paint.snapshot(), rig: views.rig.snapshot(), assemble: views.assemble.snapshot(), play: views.play.snapshot() }); },
 };
 
 const views = {
   shrink: mountShrink(app),
   paint: mountPaint(app),
+  rig: mountRig(app),
   assemble: mountAssemble(app),
   play: mountPlay(app),
 };
@@ -47,6 +49,7 @@ new ResizeObserver(() => document.documentElement.style.setProperty('--top-h', `
 loadSaved().then(async saved => {
   if (!saved) return;
   if (saved.paint) await views.paint.restore(saved.paint);
+  if (saved.rig) await views.rig.restore(saved.rig);
   if (saved.assemble) await views.assemble.restore(saved.assemble);
   if (saved.play) await views.play.restore(saved.play);
 }).catch(() => {});

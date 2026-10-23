@@ -1,11 +1,11 @@
 // 오프라인에서도 열리게 화면 파일을 휴대폰에 담아 둡니다. VERSION 은 손으로 올리지 않습니다 —
 // 공개판 복사(tools/publish.mjs)가 화면 파일 내용으로 정한 값으로 바꿔 넣습니다.
-const VERSION = 'dotfactory-web-bc2c6d086130';
+const VERSION = 'dotfactory-web-6a12bbdddeee';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'icon.svg',
-  'css/app.css', 'css/paint.css', 'css/play.css',
-  'js/app.js', 'js/store.js', 'js/io.js', 'js/shrink-view.js', 'js/paint-view.js', 'js/assemble-view.js', 'js/play-view.js', 'js/backdrop.js', 'js/restore-worker.js',
-  'js/core/numeric.js', 'js/core/background.js', 'js/core/resample.js', 'js/core/restore.js', 'js/core/paint.js', 'js/core/select.js', 'js/core/assemble.js', 'js/core/frames.js', 'js/core/gif.js',
+  'css/app.css', 'css/paint.css', 'css/rig.css', 'css/motion.css', 'css/play.css',
+  'js/app.js', 'js/store.js', 'js/io.js', 'js/shrink-view.js', 'js/paint-view.js', 'js/rig-view.js', 'js/rig-bones-view.js', 'js/motion-view.js', 'js/rig-export-view.js', 'js/assemble-view.js', 'js/play-view.js', 'js/backdrop.js', 'js/restore-worker.js',
+  'js/core/numeric.js', 'js/core/background.js', 'js/core/resample.js', 'js/core/restore.js', 'js/core/paint.js', 'js/core/select.js', 'js/core/assemble.js', 'js/core/frames.js', 'js/core/gif.js', 'js/core/slice.js', 'js/core/rig.js', 'js/core/rig-render.js', 'js/core/motion.js', 'js/core/zip.js', 'js/core/godot-tscn.js', 'js/core/godot-export.js',
 ];
 
 self.addEventListener('install', event => {
