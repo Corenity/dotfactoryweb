@@ -18,7 +18,7 @@ export function mountRig(app) {
   let canvasHeight = 64;
   let mask = createMask(canvasWidth, canvasHeight);
   let pieces = [];
-  let bones = cloneDefaultBones();
+  let bones = cloneDefaultBones(); let restPose = null;
   let animations = defaultAnimations();
   let currentSlot = 'bare';
   let currentItem = '맨몸';
@@ -58,7 +58,7 @@ export function mountRig(app) {
       baseImage,
       pieces,
       bones,
-      animations,
+      animations, restPose,
     });
   }
 
@@ -84,7 +84,7 @@ export function mountRig(app) {
     baseImage = copy.baseImage;
     pieces = copy.pieces;
     bones = copy.bones;
-    animations = copy.animations;
+    animations = copy.animations; restPose = copy.restPose || null;
     mask = createMask(canvasWidth, canvasHeight);
     updatePieceSelect();
     renderPiecesList();
@@ -109,6 +109,7 @@ export function mountRig(app) {
   bonesView = mountRigBones(app, {
     getBones: () => bones,
     setBones: value => { bones = value; },
+    getRestPose: () => restPose, setRestPose: value => { restPose = value; },
     getPieces: () => pieces,
     getSize: () => [canvasWidth, canvasHeight],
     getBackdrop: () => toHex(KEY),
@@ -357,7 +358,7 @@ export function mountRig(app) {
     currentSlot = proj.slot;
     currentItem = proj.item;
     bones = proj.bones;
-    animations = proj.animations;
+    animations = proj.animations; restPose = proj.restPose || null;
     slotSelect.value = currentSlot;
     itemInput.value = currentItem;
     updatePieceSelect();
@@ -385,7 +386,7 @@ export function mountRig(app) {
       basePng: baseImage ? toPngDataUrl(baseImage) : null,
       pieces,
       bones,
-      animations,
+      animations, restPose,
     });
   }
 
@@ -572,7 +573,7 @@ export function mountRig(app) {
         const name = file.name.toLowerCase();
         let proj, warnings = null;
         if (name.endsWith('.zip')) {
-          const loaded = projectFromGodotZip(new Uint8Array(await file.arrayBuffer()));
+          const loaded = projectFromGodotZip(new Uint8Array(await file.arrayBuffer())); loaded.project.restPose = null;
           proj = loaded.project; warnings = loaded.warnings;
         } else if (name.endsWith('.tscn')) {
           const loaded = projectFromGodotTscn(await file.text());

@@ -37,6 +37,7 @@ export function cloneRigState(state) {
       pos: [...b.pos],
     })),
     animations: JSON.parse(JSON.stringify(state.animations || {})),
+    restPose: state.restPose ? JSON.parse(JSON.stringify(state.restPose)) : null,
   };
 }
 
@@ -69,6 +70,7 @@ export function sameRigState(a, b) {
 
   if (JSON.stringify(a.bones || []) !== JSON.stringify(b.bones || [])) return false;
   if (JSON.stringify(a.animations || {}) !== JSON.stringify(b.animations || {})) return false;
+  if (JSON.stringify(a.restPose || null) !== JSON.stringify(b.restPose || null)) return false;
 
   return true;
 }

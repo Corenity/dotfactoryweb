@@ -1,5 +1,5 @@
 // 뼈대 단계 화면 — 뼈 나무, 위치·각도, 조각 연결·층과 미리보기를 다룹니다.
-import { boneLabel, normalizeBones } from './core/rig.js';
+import { boneLabel, normalizeBones, applyRestPose, createRestPose } from './core/rig.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
 import { drawPixels } from './io.js';
 
@@ -333,6 +333,24 @@ export function mountRigBones(app, model) {
     $('#rig-bone-left').addEventListener('click', () => nudge(-1, 0));
     $('#rig-bone-down').addEventListener('click', () => nudge(0, 1));
     $('#rig-bone-right').addEventListener('click', () => nudge(1, 0));
+    $('#rig-bones-reset-rest').addEventListener('click', () => {
+      const { bones: nextBones, changed } = applyRestPose(bones(), model.getRestPose?.());
+      if (!changed) return;
+      const before = model.snapshot?.();
+      model.setBones(nextBones);
+      notify();
+      refreshControls();
+      render();
+      model.commit?.(before);
+    });
+    $('#rig-bones-save-rest').addEventListener('click', () => {
+      const before = model.snapshot?.();
+      const newRestPose = createRestPose(bones());
+      model.setRestPose?.(newRestPose);
+      notify();
+      app.toast('초기값을 저장했습니다');
+      model.commit?.(before);
+    });
     bindPointers();
   }
 

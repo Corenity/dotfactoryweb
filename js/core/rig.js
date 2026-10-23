@@ -80,6 +80,60 @@ function integer(value, label) {
   return number;
 }
 
+export function defaultRestPose() {
+  const pose = {};
+  for (const bone of DEFAULT_BONES) {
+    pose[bone.name] = { pos: [...bone.pos], angle: bone.angle };
+  }
+  return pose;
+}
+
+export function createRestPose(bones) {
+  const pose = {};
+  for (const bone of normalizeBones(bones)) {
+    pose[bone.name] = { pos: [...bone.pos], angle: bone.angle };
+  }
+  return pose;
+}
+
+export function normalizeRestPose(value) {
+  if (value == null) return defaultRestPose();
+  if (typeof value !== 'object' || Array.isArray(value)) throw new Error('초기값(restPose) 자료가 깨졌습니다');
+  const result = {};
+  for (const [name, entry] of Object.entries(value)) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) throw new Error(`뼈 「${name}」의 초기값이 깨졌습니다`);
+    if (!Array.isArray(entry.pos) || entry.pos.length !== 2) throw new Error(`뼈 「${name}」의 초기값 위치가 깨졌습니다`);
+    result[name] = {
+      pos: [integer(entry.pos[0], `뼈 「${name}」 초기값 X`), integer(entry.pos[1], `뼈 「${name}」 초기값 Y`)],
+      angle: finite(entry.angle ?? 90, `뼈 「${name}」 초기값 각도`),
+    };
+  }
+  if (!Object.keys(result).length) return defaultRestPose();
+  return result;
+}
+
+export function applyRestPose(bones, restPose) {
+  if (!Array.isArray(bones)) return { bones: [], changed: false };
+  const safePose = restPose || defaultRestPose();
+  let changed = false;
+  const result = bones.map(bone => {
+    const entry = safePose[bone.name];
+    if (!entry) return { ...bone, pos: [...bone.pos] };
+    const samePos = bone.pos[0] === entry.pos[0] && bone.pos[1] === entry.pos[1];
+    const sameAngle = bone.angle === entry.angle;
+    if (samePos && sameAngle) {
+      return { ...bone, pos: [...bone.pos] };
+    }
+    changed = true;
+    return {
+      ...bone,
+      pos: [entry.pos[0], entry.pos[1]],
+      angle: entry.angle,
+    };
+  });
+  return { bones: result, changed };
+}
+
 function normalizeTrack(value, motionName, boneName, length, step) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`움직임 「${motionName}」의 뼈 「${boneName}」 키가 깨졌습니다`);
   const times = value.times, positions = value.positions, rotations = value.rotations;
@@ -205,7 +259,7 @@ function normalizePieces(value, slot, item, boneNames) {
   });
 }
 
-export function toProject({ canvas = [72, 64], slot = 'bare', item = '맨몸', basePng = null, pieces = [], bones = null, animations = null } = {}) {
+export function toProject({ canvas = [72, 64], slot = 'bare', item = '맨몸', basePng = null, pieces = [], bones = null, animations = null, restPose = null } = {}) {
   const safeBones = normalizeBones(bones);
   const safeSlot = String(slot || 'bare');
   const safeItem = String(item || '맨몸');
@@ -219,6 +273,7 @@ export function toProject({ canvas = [72, 64], slot = 'bare', item = '맨몸', b
     pieces: normalizePieces(pieces, safeSlot, safeItem, new Set(safeBones.map(bone => bone.name))),
     bones: safeBones,
     animations: normalizeAnimations(animations, safeBones),
+    restPose: normalizeRestPose(restPose),
   };
 }
 
@@ -233,5 +288,6 @@ export function parseProject(json) {
     pieces: json.pieces,
     bones: json.bones,
     animations: json.animations,
+    restPose: json.restPose,
   });
 }
