@@ -33,6 +33,7 @@ export function cloneRigState(state) {
       name: state.presetMeta?.name || '새 프리셋',
       kind: state.presetMeta?.kind || 'bare',
     },
+    presetLayers: (state.presetLayers || []).map(layer => ({ ...layer })),
     baseImage: cloneImage(state.baseImage),
     pieces: (state.pieces || []).map(p => ({
       ...p,
@@ -57,6 +58,7 @@ function stripPiecesForCompare(pieces) {
     zIndex: p.zIndex,
     visible: p.visible,
     png: p.png,
+    presetLayerKey: p.presetLayerKey || null,
   }));
 }
 
@@ -67,6 +69,7 @@ export function sameRigState(a, b) {
   if (a.baseTitle !== b.baseTitle) return false;
   if (a.skeletonName !== b.skeletonName) return false;
   if (JSON.stringify(a.presetMeta || {}) !== JSON.stringify(b.presetMeta || {})) return false;
+  if (JSON.stringify(a.presetLayers || []) !== JSON.stringify(b.presetLayers || [])) return false;
   if (!sameImage(a.baseImage, b.baseImage)) return false;
 
   const aPieces = a.pieces || [], bPieces = b.pieces || [];

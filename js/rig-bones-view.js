@@ -92,7 +92,12 @@ export function mountRigBones(app, model) {
       button.style.paddingLeft = `${10 + depthOf(bone, byName) * 16}px`;
       button.textContent = `${bone.parent ? '↳ ' : ''}${boneLabel(bone.name)}`;
       button.setAttribute('aria-pressed', String(bone.name === selected));
-      button.addEventListener('click', () => { selected = bone.name; refreshControls(); render(); });
+      button.addEventListener('click', () => {
+        selected = bone.name;
+        refreshControls();
+        render();
+        model.changed?.();
+      });
       tree.appendChild(button);
     }
   }
@@ -105,6 +110,8 @@ export function mountRigBones(app, model) {
     xInput.value = String(bone.pos[0]);
     yInput.value = String(bone.pos[1]);
     angleInput.value = String(bone.angle);
+    const badge = $('#rig-selected-bone-badge');
+    if (badge) badge.textContent = `선택: ${boneLabel(bone.name)}`;
     parentSelect.innerHTML = '<option value="">없음 (Skeleton2D)</option>';
     for (const other of bones()) {
       if (other.name === bone.name) continue;
@@ -138,7 +145,7 @@ export function mountRigBones(app, model) {
   function render() {
     const [width, height] = model.getSize();
     const restBones = applyRestPose(bones(), model.getRestPose?.()).bones;
-    const preview = composeRig(pieces(), bones(), width, height, restBones);
+    const preview = composeRig(pieces(), bones(), width, height, restBones, model.getPresetLayers?.() || []);
     drawPixels(canvas, preview, cell, model.getBackdrop());
     canvas.style.transform = `translate(${panX}px, ${panY}px)`;
     zoomText.textContent = `${cell}배`;
@@ -183,7 +190,10 @@ export function mountRigBones(app, model) {
       if (pointers.size === 1) {
         const hit = hitBone(event.clientX, event.clientY);
         if (hit) {
-          selected = hit; refreshControls(); render();
+          selected = hit;
+          refreshControls();
+          render();
+          model.changed?.();
           const bone = selectedBone();
           dragBefore = model.snapshot?.();
           dragging = { x: event.clientX, y: event.clientY, pos: [...bone.pos], changed: false };

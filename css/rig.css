@@ -3,6 +3,8 @@
 #rig,
 #slice {
   gap: 8px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 #rig .segmented button,
@@ -119,10 +121,111 @@
 
 #rig.rig-mode-bones .rig-slice-only,
 #rig.rig-mode-motion .rig-slice-only { display: none; }
-.rig-bones-only { display: grid; gap: 8px; }
+.rig-bones-only { display: grid; gap: 8px; max-width: 100%; box-sizing: border-box; }
 .rig-bones-only[hidden] { display: none; }
 .rig-import-report { margin-bottom: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .rig-import-report[hidden] { display: none; }
+
+/* 뼈대 상단 도구 줄 및 파일 팝업 */
+.rig-tools {
+  position: sticky; top: var(--top-h, 61px); z-index: 5;
+  display: flex; align-items: center; gap: 6px;
+  margin: -6px -12px 0; padding: 6px 12px; background: var(--bg);
+}
+.rig-tools .btn { min-height: 44px; padding: 0 10px; border-radius: 8px; font-size: 14px; }
+.rig-tools .icon { flex: 0 0 44px; width: 44px; min-height: 44px; padding: 0; display: grid; place-items: center; }
+.rig-top-add-piece { flex: 1 1 auto; font-weight: 600; }
+.rig-file-btn { flex: 0 0 auto; white-space: nowrap; }
+
+.rig-file-pop {
+  position: absolute; top: calc(100% + 4px); right: 12px; z-index: 20;
+  width: min(340px, calc(100% - 24px));
+  display: flex; flex-direction: column; gap: 10px; padding: 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+.rig-file-pop[hidden] { display: none !important; }
+.rig-pop-header { display: flex; justify-content: space-between; align-items: center; }
+.rig-pop-section { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+.rig-pop-section:first-of-type { border-top: none; padding-top: 0; }
+.rig-pop-label { font-size: 12px; color: var(--muted); }
+.rig-pop-label strong { color: var(--text); }
+.rig-preset-inline-row { display: flex; gap: 8px; align-items: center; }
+.rig-preset-name-label { flex: 1 1 auto; }
+
+/* 뼈대 무대 및 컨트롤 줄 */
+#rig-bones-stage {
+  position: relative;
+  height: 38vh;
+  min-height: 220px;
+  max-height: 320px;
+}
+
+.stage-pos {
+  position: absolute; left: 6px; top: 6px; padding: 2px 6px; border-radius: 6px;
+  background: #000a; color: var(--muted); font-size: 11px; white-space: nowrap; pointer-events: none;
+}
+
+.rig-controls {
+  display: flex; align-items: center; gap: 6px; width: 100%; box-sizing: border-box;
+}
+.rig-controls .btn { min-width: 44px; min-height: 44px; padding: 0 8px; border-radius: 8px; }
+.rig-controls .hint { min-width: 32px; text-align: center; }
+.rig-arrows { display: inline-flex; gap: 4px; margin-left: auto; }
+.rig-arrows .btn { width: 44px; min-height: 44px; padding: 0; }
+.rig-zoom-row #rig-bones-zoom-fit { margin-left: auto; min-width: 60px; }
+.rig-arrow-row { margin-top: -2px; }
+.rig-arrow-row .hint { text-align: left; font-size: 13px; color: var(--muted); }
+
+/* 뼈대 하위 서브탭 */
+.rig-subview-tabs { display: flex; width: 100%; gap: 4px; margin-top: 2px; }
+.rig-subview-tabs button { flex: 1 1 0; min-width: 0; min-height: 44px; padding-inline: 4px; }
+.rig-subview-panel { width: 100%; box-sizing: border-box; }
+.rig-subview-panel[hidden] { display: none !important; }
+
+/* 뼈와 그림 세로 1열 레이아웃 (375px 모바일 폭 최적화) */
+.rig-columns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.rig-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.rig-card-header h3 { margin: 0; font-size: 14px; }
+.rig-selected-bone-label { font-size: 12px; color: var(--accent); }
+
+/* 뼈 나무 및 할당 목록 공용 스타일 (뼈대 및 키잡기 화면 공통) */
+.rig-bone-tree, .rig-assign-list { display: grid; gap: 5px; }
+.rig-bone-tree { max-height: 265px; overflow-y: auto; }
+.rig-bone-tree .btn { justify-content: flex-start; min-height: 44px; text-align: left; }
+.rig-bone-tree .btn[aria-pressed="true"] { border-color: var(--accent); background: #26304a; color: var(--text); }
+
+.rig-card-tree .rig-bone-tree {
+  max-height: 110px;
+}
+.rig-card-tree .rig-bone-tree .btn {
+  min-height: 40px; padding: 0 8px; font-size: 13px;
+  justify-content: flex-start; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rig-bone-add-row { display: flex; gap: 4px; margin-top: 6px; }
+.rig-bone-add-row input { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 6px; font-size: 13px; }
+.rig-bone-add-row .btn { min-height: 44px; padding: 0 10px; font-size: 13px; white-space: nowrap; }
+
+.rig-card-assigned .rig-assign-list {
+  max-height: 120px;
+}
+.rig-assigned-add-row { margin-bottom: 6px; }
+.rig-assigned-add-row .btn { min-height: 44px; width: 100%; font-weight: 600; }
+.rig-assigned-actions { margin-top: 6px; }
+.rig-assigned-actions .btn { min-height: 44px; width: 100%; }
+
+/* 고른 뼈 속성 카드 */
+.rig-props-form { display: grid; gap: 6px; }
+.rig-props-form label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+.rig-props-form input, .rig-props-form select { min-height: 44px; width: 100%; font-size: 15px; }
+.rig-props-actions { display: flex; gap: 6px; margin-top: 10px; }
+.rig-props-actions .btn { min-height: 44px; flex: 1; }
 
 .rig-editor-grid {
   display: grid;
@@ -142,20 +245,11 @@
 .rig-editor-card label { display: grid; gap: 4px; margin-top: 6px; color: var(--muted); font-size: 12px; }
 .rig-editor-card input, .rig-editor-card select { min-height: 44px; width: 100%; font-size: 16px; }
 
-.rig-bone-tree, .rig-assign-list { display: grid; gap: 5px; }
-.rig-bone-tree { max-height: 265px; overflow-y: auto; }
-.rig-bone-tree .btn { justify-content: flex-start; min-height: 44px; text-align: left; }
-.rig-bone-tree .btn[aria-pressed="true"] { border-color: var(--accent); background: #26304a; color: var(--text); }
-
-.rig-skeleton-label strong { color: var(--text); overflow-wrap: anywhere; }
 .rig-preset-meta {
   display: grid;
-  grid-template-columns: minmax(110px, .8fr) minmax(120px, 1fr) minmax(140px, 1.2fr);
-  gap: 8px;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
 }
 .rig-preset-meta label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
 .rig-preset-meta input, .rig-preset-meta select { width: 100%; min-height: 44px; font-size: 16px; }
@@ -176,15 +270,38 @@
 
 .rig-assign-row {
   display: grid;
-  grid-template-columns: minmax(90px, 1fr) minmax(105px, 1fr) 70px 70px 60px;
-  align-items: end;
-  gap: 5px;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface, #1b1c24);
 }
-.rig-assign-row strong { align-self: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rig-assign-row label { margin: 0; }
-.rig-assign-row .btn { min-width: 44px; min-height: 44px; padding: 0; }
+.rig-assign-row strong { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rig-piece-layer-badge { width: max-content; max-width: 100%; padding: 2px 6px; border-radius: 5px; background: #263449; color: #8ecbff; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rig-assign-row.is-locked { opacity: .68; }
+.rig-assign-row-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.rig-assign-row-controls label { margin: 0; font-size: 11px; display: inline-flex; align-items: center; gap: 2px; }
+.rig-assign-row-controls select { min-height: 36px; max-width: 80px; font-size: 12px; padding: 0 2px; }
+.rig-assign-row-controls input[type="number"] { min-height: 36px; width: 44px; font-size: 12px; padding: 0 2px; text-align: center; }
+.rig-assign-row-controls .btn { min-width: 44px; min-height: 44px; padding: 0 4px; font-size: 11px; }
 .rig-assign-row.mismatch { border-left: 3px solid #ff453a; padding-left: 6px; }
 .rig-assign-row.mismatch select { border-color: #ff453a; color: #ff9f0a; }
+
+.rig-preset-layer-list { display: grid; gap: 6px; }
+.rig-layer-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; padding: 5px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface, #1b1c24); }
+.rig-layer-row[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.rig-layer-row .btn { min-width: 44px; min-height: 44px; padding-inline: 6px; }
+.rig-layer-pick, .rig-layer-draft { flex: 1 1 120px; min-width: 0; min-height: 44px; border: 0; color: var(--text); background: transparent; text-align: left; }
+.rig-layer-pick { display: grid; align-content: center; }
+.rig-layer-pick strong, .rig-layer-pick span, .rig-layer-draft strong, .rig-layer-draft span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rig-layer-pick span, .rig-layer-draft span { color: var(--muted); font-size: 11px; }
+.rig-layer-draft { width: 100%; padding: 5px; border: 1px dashed var(--line); border-radius: 8px; }
 
 /* 자르기 방식별 행 숨김 — .row 의 display: flex 가 hidden 을 덮지 않도록 강제 숨김 */
 .rig-slice-only[hidden],
@@ -297,6 +414,4 @@
 @media (max-width: 520px) {
   .rig-editor-grid { grid-template-columns: 1fr; }
   .rig-preset-meta { grid-template-columns: 1fr; }
-  .rig-assign-row { grid-template-columns: minmax(90px, 1fr) minmax(105px, 1fr) 68px; }
-  .rig-assign-row .btn { grid-row: 2; }
 }

@@ -48,17 +48,18 @@ export function defaultZIndex(slot = '', piece = '') {
 }
 
 export function defaultBoneFor(slot = '', piece = '', bones = null, selectedBone = null) {
+  if (selectedBone) {
+    if (!bones || !Array.isArray(bones) || bones.some(b => b.name === selectedBone)) {
+      return selectedBone;
+    }
+  }
   if (slot !== 'extra') {
     const target = slotDefaultBone(piece);
     if (!bones || !Array.isArray(bones) || bones.some(b => b.name === target)) return target;
   }
-  if (slot === 'extra' || bones) {
-    if (selectedBone) return selectedBone;
-    if (bones && Array.isArray(bones)) {
-      if (bones.some(b => b.name === 'Torso')) return 'Torso';
-      return bones[0]?.name || 'Torso';
-    }
-    return 'Torso';
+  if (bones && Array.isArray(bones)) {
+    if (bones.some(b => b.name === 'Torso')) return 'Torso';
+    return bones[0]?.name || 'Torso';
   }
   return 'Torso';
 }
@@ -411,11 +412,12 @@ function normalizePieces(value, slot, item, bones) {
       zIndex: Number.isFinite(Number(piece.zIndex)) ? Math.trunc(Number(piece.zIndex)) : defaultZIndex(pieceSlot, pieceName),
       visible: piece.visible !== false,
       png: piece.png,
+      ...(piece.presetLayerKey ? { presetLayerKey: String(piece.presetLayerKey) } : {}),
     };
   });
 }
 
-export function toProject({ canvas = [72, 64], slot = 'bare', item = '맨몸', basePng = null, pieces = [], bones = null, animations = null, restPose = null } = {}) {
+export function toProject({ canvas = [72, 64], slot = 'bare', item = '맨몸', basePng = null, pieces = [], bones = null, animations = null, restPose = null, presetLayers = [] } = {}) {
   const safeBones = normalizeBones(bones);
   const safeSlot = String(slot || 'bare');
   const safeItem = String(item || '맨몸');
@@ -430,6 +432,11 @@ export function toProject({ canvas = [72, 64], slot = 'bare', item = '맨몸', b
     bones: safeBones,
     animations: normalizeAnimations(animations, safeBones),
     restPose: normalizeRestPose(restPose),
+    presetLayers: Array.isArray(presetLayers) ? presetLayers.map(layer => ({
+      key: String(layer.key || ''), id: String(layer.id || 'preset'),
+      name: String(layer.name || '새 프리셋'), kind: String(layer.kind || 'bare'),
+      visible: layer.visible !== false,
+    })) : [],
   };
 }
 
@@ -445,5 +452,6 @@ export function parseProject(json) {
     bones: json.bones,
     animations: json.animations,
     restPose: json.restPose,
+    presetLayers: json.presetLayers,
   });
 }

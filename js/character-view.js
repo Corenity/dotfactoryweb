@@ -13,6 +13,7 @@ import {
   addCharacterPreset,
   removeCharacterPreset,
   moveCharacterPreset,
+  toggleCharacterPreset,
   addCharacterAnimation,
   removeCharacterAnimation,
   flattenedCharacterLayers,
@@ -94,7 +95,6 @@ export function mountCharacter(app, model = {}) {
   const openAnimationBtn = $('#character-open-animation');
   const errorEl = $('#character-error');
   const warningEl = $('#character-warning');
-  const bareListEl = $('#character-bare');
   const presetsListEl = $('#character-presets');
   const animListEl = $('#character-animations');
   const motionSelect = $('#play-motion-select');
@@ -291,39 +291,22 @@ export function mountCharacter(app, model = {}) {
       if (warningEl) warningEl.hidden = true;
     }
 
-    // 1. 맨몸 프리셋 렌더링
-    if (bareListEl) {
-      bareListEl.innerHTML = '';
-      const bare = state.barePreset;
-      if (bare) {
-        const item = document.createElement('div');
-        item.className = 'character-item';
-        const title = document.createElement('span');
-        title.className = 'character-item-title';
-        title.textContent = `맨몸: ${bare.name || bare.id}`;
-        const badge = document.createElement('span');
-        badge.className = 'character-item-badge';
-        badge.textContent = 'bare (캐시)';
-        item.appendChild(title);
-        item.appendChild(badge);
-        bareListEl.appendChild(item);
-      }
-    }
-
-    // 2. 오버레이 프리셋 목록 렌더링
+    // 모든 프리셋을 같은 레이어 목록으로 렌더링
     if (presetsListEl) {
       presetsListEl.innerHTML = '';
-      state.loadedPresets.forEach((entry, idx) => {
+      [...state.presetLayers].reverse().forEach(entry => {
+        const idx = state.presetLayers.indexOf(entry);
         const item = document.createElement('div');
         item.className = 'character-item';
-        const presetCheck = inspect.presetResults[idx + (state.barePreset ? 1 : 0)];
+        const visibleIndex = state.presetLayers.slice(0, idx + 1).filter(layer => layer.visible !== false).length - 1;
+        const presetCheck = entry.visible === false ? null : inspect.presetResults[visibleIndex];
         if (presetCheck && !presetCheck.compatible) {
           item.classList.add('is-invalid');
         }
 
         const title = document.createElement('span');
         title.className = 'character-item-title';
-        title.textContent = `${entry.preset.name || entry.preset.id}`;
+        title.textContent = `${idx} · ${entry.preset.name || entry.preset.id}`;
 
         if (presetCheck && presetCheck.missingBones.length > 0) {
           const miss = document.createElement('span');
@@ -337,12 +320,21 @@ export function mountCharacter(app, model = {}) {
         badge.className = 'character-item-badge';
         badge.textContent = entry.preset.kind || 'overlay';
 
+        const visibleBtn = document.createElement('button');
+        visibleBtn.className = 'btn small';
+        visibleBtn.textContent = entry.visible === false ? '보이기' : '숨기기';
+        visibleBtn.addEventListener('click', () => {
+          state = toggleCharacterPreset(state, idx);
+          app.changed?.();
+          refreshUI();
+        });
+
         const upBtn = document.createElement('button');
         upBtn.className = 'btn small';
         upBtn.textContent = '▲';
-        upBtn.disabled = idx === 0;
+        upBtn.disabled = idx === state.presetLayers.length - 1;
         upBtn.addEventListener('click', () => {
-          state = moveCharacterPreset(state, idx, -1);
+          state = moveCharacterPreset(state, idx, 1);
           app.changed?.();
           refreshUI();
         });
@@ -350,9 +342,9 @@ export function mountCharacter(app, model = {}) {
         const downBtn = document.createElement('button');
         downBtn.className = 'btn small';
         downBtn.textContent = '▼';
-        downBtn.disabled = idx === state.loadedPresets.length - 1;
+        downBtn.disabled = idx === 0;
         downBtn.addEventListener('click', () => {
-          state = moveCharacterPreset(state, idx, 1);
+          state = moveCharacterPreset(state, idx, -1);
           app.changed?.();
           refreshUI();
         });
@@ -368,6 +360,7 @@ export function mountCharacter(app, model = {}) {
 
         item.appendChild(title);
         item.appendChild(badge);
+        item.appendChild(visibleBtn);
         item.appendChild(upBtn);
         item.appendChild(downBtn);
         item.appendChild(delBtn);
@@ -560,11 +553,11 @@ export function mountCharacter(app, model = {}) {
     }
   });
 
-  // 초기 맨몸 로드
-  if (!state.barePreset) {
+  // 초기 맨몸도 0번 보통 레이어로 넣습니다.
+  if (!state.presetLayers.length) {
     loadDefaultBare().then(bare => {
-      if (!state.barePreset) {
-        state.barePreset = bare;
+      if (!state.presetLayers.length) {
+        state = addCharacterPreset(state, bare, '기본 맨몸');
         refreshUI();
       }
     }).catch(() => {});
@@ -580,23 +573,19 @@ export function mountCharacter(app, model = {}) {
       pause();
     },
     snapshot() {
-      return {
-        barePreset: state.barePreset,
-        loadedPresets: state.loadedPresets,
-        animations: state.animations,
-        selectedMotion: state.selectedMotion,
-      };
+      return normalizeCharacterState(state);
     },
     async restore(saved) {
       state = normalizeCharacterState(saved);
-      if (!state.barePreset) {
+      if (!state.presetLayers.length) {
         const bare = await loadDefaultBare().catch(() => null);
-        if (bare && !state.barePreset) state.barePreset = bare;
+        if (bare && !state.presetLayers.length) state = addCharacterPreset(state, bare, '기본 맨몸');
       }
       refreshUI();
     },
     getPresetStack() {
       return {
+        presetLayers: state.presetLayers,
         barePreset: state.barePreset,
         overlayPresets: state.loadedPresets.map(entry => entry.preset),
       };

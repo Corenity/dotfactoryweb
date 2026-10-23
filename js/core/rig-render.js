@@ -1,5 +1,6 @@
 // 72×64 도트 칸에서 뼈 계층과 최근접 회전을 계산합니다. DOM은 사용하지 않습니다.
 import { normalizeBones } from './rig.js';
+import { sortRigPiecesByLayers } from './preset-layers.js';
 
 const DEG = Math.PI / 180;
 const identity = () => [1, 0, 0, 1, 0, 0];
@@ -96,15 +97,13 @@ export function rotateNearest(image, pivotX, pivotY, degrees) {
   return transformNearest(image, aroundPivot);
 }
 
-/** 뼈에 붙은 조각을 층이 작은 것부터 그려 72×64 미리보기 한 장으로 만듭니다. */
-export function composeRig(pieces, bones, width = 72, height = 64, restBones = null) {
+/** 뼈에 붙은 조각을 프리셋 레이어, 층 순서로 그려 미리보기 한 장으로 만듭니다. */
+export function composeRig(pieces, bones, width = 72, height = 64, restBones = null, presetLayers = []) {
   const transforms = bonePoseTransforms(bones, restBones);
   const out = new Uint8ClampedArray(width * height * 4);
-  const ordered = pieces.map((piece, index) => ({ piece, index }))
-    .filter(({ piece }) => piece.visible !== false && piece.image)
-    .sort((a, b) => (Number(a.piece.zIndex) || 0) - (Number(b.piece.zIndex) || 0) || a.index - b.index);
+  const ordered = sortRigPiecesByLayers(pieces, presetLayers).filter(piece => piece.image);
 
-  for (const { piece } of ordered) {
+  for (const piece of ordered) {
     const matrix = transforms.get(piece.bone) || identity();
     const image = transformNearest(piece.image, matrix);
     for (let i = 0; i < out.length; i += 4) {

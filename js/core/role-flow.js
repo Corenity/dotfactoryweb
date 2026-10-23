@@ -101,6 +101,7 @@ export function migrateRig1ToRoleState(project) {
       skeleton: cloneJson(files.skeleton),
       restPose: cloneJson(source.restPose),
       attachedPieces: cloneJson(source.pieces),
+      presetLayers: cloneJson(source.presetLayers || []),
       animations: cloneJson(source.animations),
       presetDrafts: cloneJson(files.presets),
     },
@@ -171,6 +172,10 @@ export function migrateLegacyAutosave(saved) {
     character: {
       barePreset: cloneJson(presetState.barePreset),
       loadedPresets: cloneJson(presetState.loadedPresets),
+      presetLayers: [
+        ...(presetState.barePreset ? [{ key: 'character_layer_0', visible: true, source: 'barePreset', preset: cloneJson(presetState.barePreset) }] : []),
+        ...presetState.loadedPresets.map((entry, index) => ({ ...cloneJson(entry), key: `character_layer_${index + (presetState.barePreset ? 1 : 0)}`, visible: true })),
+      ],
       animations: [],
       selectedMotion: '',
     },
@@ -182,8 +187,10 @@ export function migrateLegacyAutosave(saved) {
 
 /** 현재 뼈대 화면의 rig-1 메모리 자료를 version 2의 rig 역할 상태로 바꿉니다. */
 export function projectToRoleRig(project, preset = null, skeletonName = 'character_skeleton') {
-  const rig = migrateRig1ToRoleState(project).value.rig;
+  const source = parseProject(project);
+  const rig = migrateRig1ToRoleState(source).value.rig;
   rig.skeletonName = String(skeletonName || 'character_skeleton');
+  rig.presetLayers = cloneJson(source.presetLayers || []);
   if (preset) rig.presetDraft = cloneJson(parsePreset(preset));
   return rig;
 }
@@ -191,7 +198,7 @@ export function projectToRoleRig(project, preset = null, skeletonName = 'charact
 /** 현재 뼈대 화면 상태를 missing layer.bone까지 바꾸지 않고 version 2 역할 상태로 보관합니다. */
 export function workingRigToRoleState({
   canvas = [72, 64], item = '캐릭터', slot = 'bare', skeletonName = 'character_skeleton',
-  bones = [], restPose = null, attachedPieces = [], animations = {}, preset = null,
+  bones = [], restPose = null, attachedPieces = [], animations = {}, preset = null, presetLayers = [],
 } = {}) {
   const safePreset = preset ? parsePreset(preset) : null;
   const storedPieces = (Array.isArray(attachedPieces) ? attachedPieces : []).map(piece => {
@@ -206,6 +213,7 @@ export function workingRigToRoleState({
     skeleton: toSkeleton({ canvas, bones }),
     restPose: cloneJson(restPose),
     attachedPieces: storedPieces,
+    presetLayers: cloneJson(presetLayers || []),
     animations: cloneJson(animations),
     presetDrafts: safePreset ? [cloneJson(safePreset)] : [],
     ...(safePreset ? { presetDraft: cloneJson(safePreset) } : {}),
@@ -224,6 +232,7 @@ export function roleRigToWorkingState(value) {
     bones: cloneJson(skeleton.bones),
     restPose: cloneJson(value.restPose || null),
     animations: cloneJson(value.animations || {}),
+    presetLayers: cloneJson(value.presetLayers || []),
   };
 }
 
@@ -240,6 +249,7 @@ export function roleRigToProject(value) {
     bones: skeleton.bones,
     restPose: value.restPose || null,
     animations: value.animations || {},
+    presetLayers: value.presetLayers || [],
   });
 }
 

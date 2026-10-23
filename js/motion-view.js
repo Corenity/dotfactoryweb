@@ -117,13 +117,13 @@ export function mountMotion(app, model) {
     if (!active) return;
     const posed = poseAt(bones(), active, currentTime);
     const [width, height] = model.getSize();
-    drawPixels(canvas, composeRig(pieces(), posed, width, height, bones()), cell, model.getBackdrop());
+    drawPixels(canvas, composeRig(pieces(), posed, width, height, bones(), model.getPresetLayers?.() || []), cell, model.getBackdrop());
     const transform = `translate(${panX}px, ${panY}px)`;
     canvas.style.transform = transform;
 
     const previous = Math.max(0, slotTime(currentTime) - active.step);
     onionCanvas.hidden = !onion || currentTime < active.step - 1e-7;
-    if (!onionCanvas.hidden) drawPixels(onionCanvas, composeRig(pieces(), poseAt(bones(), active, previous), width, height, bones()), cell, null);
+    if (!onionCanvas.hidden) drawPixels(onionCanvas, composeRig(pieces(), poseAt(bones(), active, previous), width, height, bones(), model.getPresetLayers?.() || []), cell, null);
     onionCanvas.style.transform = transform;
     drawBones(posed); bonesCanvas.style.transform = transform;
     zoomText.textContent = `${cell}배`;
@@ -389,7 +389,7 @@ export function mountMotion(app, model) {
     });
     $('#motion-save-gif').addEventListener('click', async () => {
       const active = motion(), [width, height] = model.getSize();
-      const made = renderMotionFrames(pieces(), bones(), active, width, height);
+      const made = renderMotionFrames(pieces(), bones(), active, width, height, model.getPresetLayers?.() || []);
       const frames = made.frames;
       const bytes = encodeGif(frames, made.delays, { loop: active.loop });
       const safeName = currentName.replace(/[\\/:*?"<>|]/g, '_');

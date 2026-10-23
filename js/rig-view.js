@@ -8,6 +8,7 @@ import { mountRigBones } from './rig-bones-view.js';
 import { mountRigPreset } from './rig-preset-view.js';
 import { mountMotion } from './motion-view.js';
 import { projectFromGodotTscn, projectFromGodotZip } from './core/godot-export.js';
+import { normalizeRigLayerState } from './core/preset-layers.js';
 
 const $ = sel => document.querySelector(sel);
 
@@ -22,6 +23,8 @@ export function mountRig(app) {
   let currentItem = '맨몸';
   let skeletonName = 'character_skeleton';
   let presetMeta = { id: 'preset', name: '새 프리셋', kind: 'bare' };
+  let presetLayers = [];
+  let selectedPresetLayerKey = null;
 
   const undoBtn = $('#rig-undo');
   const redoBtn = $('#rig-redo');
@@ -35,6 +38,7 @@ export function mountRig(app) {
       baseTitle: currentItem,
       skeletonName,
       presetMeta,
+      presetLayers,
       baseImage: null,
       pieces,
       bones,
@@ -64,6 +68,8 @@ export function mountRig(app) {
     currentItem = copy.baseTitle;
     skeletonName = copy.skeletonName;
     presetMeta = copy.presetMeta;
+    presetLayers = copy.presetLayers;
+    if (selectedPresetLayerKey && !presetLayers.some(layer => layer.key === selectedPresetLayerKey)) selectedPresetLayerKey = null;
     pieces = copy.pieces;
     bones = copy.bones;
     animations = copy.animations;
@@ -94,6 +100,7 @@ export function mountRig(app) {
     getAnimations: () => animations,
     setAnimations: value => { animations = value; },
     getPieces: () => pieces,
+    getPresetLayers: () => presetLayers,
     getSize: () => [canvasWidth, canvasHeight],
     getBackdrop: () => toHex(KEY),
     changed: () => presetView?.refresh(),
@@ -114,6 +121,10 @@ export function mountRig(app) {
     getBones: () => bones,
     getPieces: () => pieces,
     setPieces: value => { pieces = value; },
+    getPresetLayers: () => presetLayers,
+    setPresetLayers: value => { presetLayers = value; },
+    getSelectedPresetLayerKey: () => selectedPresetLayerKey,
+    setSelectedPresetLayerKey: value => { selectedPresetLayerKey = value || null; },
     getSize: () => [canvasWidth, canvasHeight],
     setSize: value => { canvasWidth = value[0]; canvasHeight = value[1]; },
     getPresetMeta: () => ({ ...presetMeta }),
@@ -132,6 +143,7 @@ export function mountRig(app) {
   motionView = mountMotion(app, {
     getBones: () => bones,
     getPieces: () => pieces,
+    getPresetLayers: () => presetLayers,
     getAnimations: () => animations,
     setAnimations: value => { animations = normalizeAnimations(value, bones); },
     getSize: () => [canvasWidth, canvasHeight],
@@ -157,7 +169,10 @@ export function mountRig(app) {
     bones = proj.bones;
     animations = proj.animations;
     restPose = proj.restPose || null;
-    pieces = loadedPieces;
+    const layerState = normalizeRigLayerState(proj.presetLayers || role?.presetLayers, loadedPieces);
+    pieces = layerState.pieces;
+    presetLayers = layerState.layers;
+    selectedPresetLayerKey = null;
     skeletonName = String(role?.skeletonName || 'character_skeleton');
     const draft = role?.presetDraft || role?.presetDrafts?.[0];
     presetMeta = draft
@@ -185,6 +200,7 @@ export function mountRig(app) {
       bones,
       animations,
       restPose,
+      presetLayers,
     });
   }
 
@@ -249,6 +265,56 @@ export function mountRig(app) {
         app.toast(err.message || '작업 파일을 열 수 없습니다');
       }
     });
+
+    // 파일 팝업 창 토글
+    const fileBtn = $('#rig-file-btn');
+    const filePop = $('#rig-file-pop');
+    const filePopClose = $('#rig-file-pop-close');
+
+    function toggleFilePop(show) {
+      if (!filePop) return;
+      const willShow = show != null ? show : filePop.hidden;
+      filePop.hidden = !willShow;
+      if (fileBtn) fileBtn.setAttribute('aria-expanded', String(willShow));
+    }
+
+    fileBtn?.addEventListener('click', e => {
+      e.stopPropagation();
+      toggleFilePop();
+    });
+    filePopClose?.addEventListener('click', () => toggleFilePop(false));
+    filePop?.addEventListener('click', e => e.stopPropagation());
+    document.addEventListener('click', e => {
+      if (!filePop || filePop.hidden) return;
+      if (!filePop.contains(e.target) && e.target !== fileBtn) {
+        toggleFilePop(false);
+      }
+    });
+
+    // 뼈대 하위 서브탭 전환
+    const tabBonePieces = $('#rig-tab-bone-pieces');
+    const tabBoneProps = $('#rig-tab-bone-props');
+    const tabPresetLayers = $('#rig-tab-preset-layers');
+    const panelBonePieces = $('#rig-panel-bone-pieces');
+    const panelBoneProps = $('#rig-panel-bone-props');
+    const panelPresetLayers = $('#rig-panel-preset-layers');
+
+    function switchSubTab(mode) {
+      if (tabBonePieces) {
+        tabBonePieces.setAttribute('aria-selected', String(mode === 'pieces'));
+      }
+      if (tabBoneProps) {
+        tabBoneProps.setAttribute('aria-selected', String(mode === 'props'));
+      }
+      if (tabPresetLayers) tabPresetLayers.setAttribute('aria-selected', String(mode === 'layers'));
+      if (panelBonePieces) panelBonePieces.hidden = mode !== 'pieces';
+      if (panelBoneProps) panelBoneProps.hidden = mode !== 'props';
+      if (panelPresetLayers) panelPresetLayers.hidden = mode !== 'layers';
+    }
+
+    tabBonePieces?.addEventListener('click', () => switchSubTab('pieces'));
+    tabBoneProps?.addEventListener('click', () => switchSubTab('props'));
+    tabPresetLayers?.addEventListener('click', () => switchSubTab('layers'));
   }
 
   function setStep(step) {
@@ -288,7 +354,7 @@ export function mountRig(app) {
     roleSnapshot() {
       return workingRigToRoleState({
         canvas: [canvasWidth, canvasHeight], item: currentItem, slot: currentSlot, skeletonName,
-        bones, restPose, attachedPieces: pieces, animations, preset: currentPreset(),
+        bones, restPose, attachedPieces: pieces, animations, preset: currentPreset(), presetLayers,
       });
     },
     async restoreRole(saved) {

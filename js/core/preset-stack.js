@@ -13,10 +13,10 @@ export const DEFAULT_BARE_LAYERS_META = Object.freeze([
 ]);
 
 /**
- * 맨몸 프리셋과 오버레이 프리셋들의 모든 레이어를 정렬 규칙에 따라 평탄화합니다.
+ * 프리셋들의 모든 그림을 레이어 우선 규칙에 따라 평탄화합니다.
  * 정렬 기준:
- * 1. zIndex 오름차순
- * 2. zIndex 가 같으면 프리셋 쌓인 순서 (맨몸 0, 이후 오버레이 1, 2, ...)
+ * 1. 프리셋 쌓인 순서 (0, 1, 2, ...)
+ * 2. 같은 프리셋 안에서 zIndex 오름차순
  * 3. 같은 프리셋 내에서 zIndex 까지 같으면 레이어 인덱스 순서
  *
  * @param {object|null} barePreset - 기본 맨몸 프리셋
@@ -55,14 +55,21 @@ export function flattenPresetStack(barePreset, overlayPresets = []) {
   }
 
   result.sort((a, b) => {
+    if (a.presetIndex !== b.presetIndex) return a.presetIndex - b.presetIndex;
     const zA = Number(a.layer.zIndex) || 0;
     const zB = Number(b.layer.zIndex) || 0;
     if (zA !== zB) return zA - zB;
-    if (a.presetIndex !== b.presetIndex) return a.presetIndex - b.presetIndex;
     return a.layerIndex - b.layerIndex;
   });
 
   return result;
+}
+
+/** 보이는 보통 프리셋 레이어 항목을 아래에서 위 순서로 평탄화합니다. */
+export function flattenPresetLayers(entries = []) {
+  const visible = (Array.isArray(entries) ? entries : []).filter(entry => entry?.visible !== false && entry?.preset);
+  if (!visible.length) return [];
+  return flattenPresetStack(visible[0].preset, visible.slice(1).map(entry => entry.preset));
 }
 
 /**

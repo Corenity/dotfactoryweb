@@ -121,11 +121,11 @@ export function copyPreviousKey(bones, motion, boneName, time) {
   return pose ? setKey(motion, boneName, time, pose) : motion;
 }
 
-export function renderMotionFrames(pieces, bones, motion, width = 72, height = 64) {
+export function renderMotionFrames(pieces, bones, motion, width = 72, height = 64, presetLayers = []) {
   const times = frameTimes(motion);
   return {
     times,
-    frames: times.map(time => composeRig(pieces, poseAt(bones, motion, time), width, height, bones)),
+    frames: times.map(time => composeRig(pieces, poseAt(bones, motion, time), width, height, bones, presetLayers)),
     delays: times.map(() => Math.max(10, Math.round(motion.step * 1000 / 10) * 10)),
   };
 }

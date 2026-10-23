@@ -91,6 +91,7 @@
 
 .character-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   background: var(--bg, #18181c);
@@ -107,7 +108,7 @@
 }
 
 .character-item-title {
-  flex: 1;
+  flex: 1 1 130px;
   font-size: 14px;
   color: var(--text, #eee);
   overflow: hidden;
@@ -133,7 +134,7 @@
 .character-item .btn.small {
   min-height: 44px;
   min-width: 44px;
-  padding: 0 10px;
+  padding: 0 6px;
   flex-shrink: 0;
 }
 

@@ -3,7 +3,10 @@ import { parsePreset, checkPresetCompatibility } from './preset.js';
 import { parseAnimation, checkSkeletonCompatibility, toAnimation } from './animation.js';
 import { toSkeleton } from './skeleton.js';
 import { toProject } from './rig.js';
-import { flattenPresetStack } from './preset-stack.js';
+import { flattenPresetLayers } from './preset-stack.js';
+import {
+  characterLayersWithLegacyFields, nextPresetLayerKey, normalizeCharacterPresetLayers,
+} from './preset-layers.js';
 
 const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
@@ -27,42 +30,51 @@ function animationEntry(value, index) {
   };
 }
 
-/** version 2의 character 자리 모양을 바꾸지 않고 내용만 검증합니다. */
+function withLegacyFields(presetLayers, animations, selectedMotion) {
+  return {
+    ...characterLayersWithLegacyFields(presetLayers),
+    animations,
+    selectedMotion,
+  };
+}
+
+/** 옛 barePreset/loadedPresets와 새 presetLayers를 한 보통 레이어 목록으로 검증합니다. */
 export function normalizeCharacterState(value = {}) {
   const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-  return {
-    barePreset: input.barePreset ? parsePreset(input.barePreset) : null,
-    loadedPresets: (Array.isArray(input.loadedPresets) ? input.loadedPresets : [])
-      .map((entry, index) => presetEntry(entry, index)),
-    animations: (Array.isArray(input.animations) ? input.animations : [])
-      .map((entry, index) => animationEntry(entry, index)),
-    selectedMotion: String(input.selectedMotion || ''),
-  };
+  const layers = normalizeCharacterPresetLayers(input);
+  const animations = (Array.isArray(input.animations) ? input.animations : [])
+    .map((entry, index) => animationEntry(entry, index));
+  return withLegacyFields(layers, animations, String(input.selectedMotion || ''));
 }
 
 export function addCharacterPreset(state, preset, name = '') {
   const next = normalizeCharacterState(state);
   const parsed = parsePreset(preset);
-  if (parsed.kind === 'bare') {
-    next.barePreset = parsed;
-  } else {
-    next.loadedPresets.push({ source: 'file', sourceIndex: next.loadedPresets.length, name: String(name), preset: parsed });
-  }
-  return next;
+  next.presetLayers.push({
+    key: nextPresetLayerKey(next.presetLayers), visible: true, source: 'file',
+    sourceIndex: next.presetLayers.length, name: String(name), preset: parsed,
+  });
+  return withLegacyFields(next.presetLayers, next.animations, next.selectedMotion);
 }
 
 export function removeCharacterPreset(state, index) {
   const next = normalizeCharacterState(state);
-  if (index >= 0 && index < next.loadedPresets.length) next.loadedPresets.splice(index, 1);
-  return next;
+  if (index >= 0 && index < next.presetLayers.length) next.presetLayers.splice(index, 1);
+  return withLegacyFields(next.presetLayers, next.animations, next.selectedMotion);
 }
 
 export function moveCharacterPreset(state, index, direction) {
   const next = normalizeCharacterState(state);
   const target = index + Math.sign(Number(direction) || 0);
-  if (index < 0 || target < 0 || index >= next.loadedPresets.length || target >= next.loadedPresets.length) return next;
-  [next.loadedPresets[index], next.loadedPresets[target]] = [next.loadedPresets[target], next.loadedPresets[index]];
-  return next;
+  if (index < 0 || target < 0 || index >= next.presetLayers.length || target >= next.presetLayers.length) return next;
+  [next.presetLayers[index], next.presetLayers[target]] = [next.presetLayers[target], next.presetLayers[index]];
+  return withLegacyFields(next.presetLayers, next.animations, next.selectedMotion);
+}
+
+export function toggleCharacterPreset(state, index) {
+  const next = normalizeCharacterState(state);
+  if (index >= 0 && index < next.presetLayers.length) next.presetLayers[index].visible = next.presetLayers[index].visible === false;
+  return withLegacyFields(next.presetLayers, next.animations, next.selectedMotion);
 }
 
 export function addCharacterAnimation(state, animation, name = '') {
@@ -79,12 +91,12 @@ export function removeCharacterAnimation(state, index) {
 
 export function activeCharacterPresets(state) {
   const safe = normalizeCharacterState(state);
-  return [safe.barePreset, ...safe.loadedPresets.map(entry => entry.preset)].filter(Boolean);
+  return safe.presetLayers.filter(entry => entry.visible !== false).map(entry => entry.preset);
 }
 
 export function flattenedCharacterLayers(state) {
   const safe = normalizeCharacterState(state);
-  return flattenPresetStack(safe.barePreset, safe.loadedPresets.map(entry => entry.preset));
+  return flattenPresetLayers(safe.presetLayers);
 }
 
 export function characterMotionOptions(state) {
@@ -164,14 +176,13 @@ export function characterBundleInput(state, basis) {
 export function characterGodotProject(state, basis) {
   const safe = normalizeCharacterState(state);
   requireCompatible(safe, basis);
-  const overlayPresets = safe.loadedPresets.map(entry => entry.preset || entry);
-  const pieces = flattenPresetStack(safe.barePreset, overlayPresets).map(({ layer, presetKind, presetId }) => ({
+  const pieces = flattenPresetLayers(safe.presetLayers).map(({ layer, presetKind, presetId }, drawIndex) => ({
     slot: layer.slot || presetKind,
     item: presetId,
     piece: layer.piece || layer.id,
     name: layer.id,
     bone: layer.bone,
-    zIndex: layer.zIndex,
+    zIndex: drawIndex,
     visible: true,
     png: layer.image,
   }));
