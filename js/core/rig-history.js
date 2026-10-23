@@ -27,6 +27,12 @@ export function cloneRigState(state) {
   return {
     canvas: state.canvas ? [state.canvas[0], state.canvas[1]] : [72, 64],
     baseTitle: state.baseTitle || '캐릭터',
+    skeletonName: state.skeletonName || 'character_skeleton',
+    presetMeta: {
+      id: state.presetMeta?.id || 'preset',
+      name: state.presetMeta?.name || '새 프리셋',
+      kind: state.presetMeta?.kind || 'bare',
+    },
     baseImage: cloneImage(state.baseImage),
     pieces: (state.pieces || []).map(p => ({
       ...p,
@@ -59,6 +65,8 @@ export function sameRigState(a, b) {
   if (!a || !b) return false;
   if (a.canvas?.[0] !== b.canvas?.[0] || a.canvas?.[1] !== b.canvas?.[1]) return false;
   if (a.baseTitle !== b.baseTitle) return false;
+  if (a.skeletonName !== b.skeletonName) return false;
+  if (JSON.stringify(a.presetMeta || {}) !== JSON.stringify(b.presetMeta || {})) return false;
   if (!sameImage(a.baseImage, b.baseImage)) return false;
 
   const aPieces = a.pieces || [], bPieces = b.pieces || [];

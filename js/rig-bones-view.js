@@ -1,7 +1,7 @@
 // 뼈대 단계 화면 — 뼈 나무, 위치·각도, 조각 연결·층과 미리보기를 다룹니다.
 import { boneLabel, normalizeBones, applyRestPose, createRestPose, DEFAULT_BONES, addBone, removeBone, isValidBoneName } from './core/rig.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
-import { drawPixels, saveJson, pickFiles } from './io.js';
+import { drawPixels, saveJson, pickFiles, baseName } from './io.js';
 import { toSkeleton, parseSkeleton, applySkeletonToRig } from './core/skeleton.js';
 
 const $ = selector => document.querySelector(selector);
@@ -12,7 +12,6 @@ export function mountRigBones(app, model) {
   const canvas = $('#rig-bones-canvas');
   const empty = $('#rig-bones-empty');
   const tree = $('#rig-bone-tree');
-  const assignments = $('#rig-assign-list');
   const nameInput = $('#rig-bone-name');
   const parentSelect = $('#rig-bone-parent');
   const xInput = $('#rig-bone-x');
@@ -116,79 +115,6 @@ export function mountRigBones(app, model) {
     }
     parentSelect.value = bone.parent || '';
     renderTree();
-    renderAssignments();
-  }
-
-  function renderAssignments() {
-    assignments.innerHTML = '';
-    if (!pieces().length) {
-      assignments.innerHTML = '<p class="hint">자르기 단계에서 만든 조각이 아직 없습니다.</p>';
-      return;
-    }
-    for (const piece of pieces()) {
-      const row = document.createElement('div');
-      row.className = 'rig-assign-row';
-      const title = document.createElement('strong');
-      title.textContent = piece.name;
-      title.title = piece.name;
-
-      const boneField = document.createElement('label');
-      boneField.textContent = '뼈';
-      const select = document.createElement('select');
-      for (const bone of bones()) {
-        const option = document.createElement('option');
-        option.value = bone.name;
-        option.textContent = boneLabel(bone.name);
-        select.appendChild(option);
-      }
-      select.value = piece.bone;
-      select.addEventListener('change', () => {
-        const before = model.snapshot?.();
-        piece.bone = select.value;
-        notify();
-        render();
-        model.commit?.(before);
-      });
-      boneField.appendChild(select);
-
-      const layerLabel = document.createElement('label');
-      layerLabel.textContent = '층';
-      const layer = document.createElement('input');
-      layer.type = 'number'; layer.step = '1'; layer.min = '0'; layer.value = String(piece.zIndex);
-      layer.addEventListener('change', () => {
-        const before = model.snapshot?.();
-        piece.zIndex = Math.max(0, Math.trunc(Number(layer.value) || 0));
-        layer.value = String(piece.zIndex);
-        notify();
-        render();
-        model.commit?.(before);
-      });
-      layerLabel.appendChild(layer);
-
-      const down = document.createElement('button');
-      down.className = 'btn'; down.textContent = '▼'; down.setAttribute('aria-label', `${piece.name} 한 층 아래로`);
-      down.addEventListener('click', () => {
-        const before = model.snapshot?.();
-        piece.zIndex = Math.max(0, piece.zIndex - 1);
-        notify();
-        refreshControls();
-        render();
-        model.commit?.(before);
-      });
-      const up = document.createElement('button');
-      up.className = 'btn'; up.textContent = '▲'; up.setAttribute('aria-label', `${piece.name} 한 층 위로`);
-      up.addEventListener('click', () => {
-        const before = model.snapshot?.();
-        piece.zIndex += 1;
-        notify();
-        refreshControls();
-        render();
-        model.commit?.(before);
-      });
-
-      row.append(title, boneField, layerLabel, down, up);
-      assignments.appendChild(row);
-    }
   }
 
   function fit() {
@@ -211,7 +137,8 @@ export function mountRigBones(app, model) {
 
   function render() {
     const [width, height] = model.getSize();
-    const preview = composeRig(pieces(), bones(), width, height);
+    const restBones = applyRestPose(bones(), model.getRestPose?.()).bones;
+    const preview = composeRig(pieces(), bones(), width, height, restBones);
     drawPixels(canvas, preview, cell, model.getBackdrop());
     canvas.style.transform = `translate(${panX}px, ${panY}px)`;
     zoomText.textContent = `${cell}배`;
@@ -438,12 +365,12 @@ export function mountRigBones(app, model) {
     }
     if (saveSkeletonBtn) {
       saveSkeletonBtn.addEventListener('click', async () => {
-        const item = model.getItem?.() || '캐릭터';
+        const skeletonName = model.getSkeletonName?.() || 'character_skeleton';
         const skeletonObj = toSkeleton({
           canvas: model.getSize?.() || [72, 64],
           bones: bones(),
         });
-        const fileName = `${item}_뼈.json`;
+        const fileName = `${skeletonName}.json`;
         const result = await saveJson(fileName, skeletonObj);
         if (result !== 'cancelled') {
           app.toast(`「${fileName}」으로 저장했습니다`);
@@ -463,10 +390,12 @@ export function mountRigBones(app, model) {
             pieces: pieces(),
             animations: model.getAnimations?.(),
             selectedBone: selected,
+            preserveMissingPieces: true,
           });
           model.setBones(result.bones);
           if (model.setRestPose) model.setRestPose(result.restPose);
           if (model.setAnimations && result.animations) model.setAnimations(result.animations);
+          model.setSkeletonName?.(baseName(file.name));
           const curPieces = pieces();
           for (let i = 0; i < curPieces.length; i++) {
             if (result.pieces[i]) curPieces[i].bone = result.pieces[i].bone;

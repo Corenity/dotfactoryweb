@@ -1,42 +1,41 @@
-// 뼈 탭 화면 — 조각 자르기, 뼈대 연결, 작업 파일 저장을 다룹니다.
-import { createMask } from './core/slice.js';
+// 뼈대·키잡기 화면 — 뼈, 붙인 그림, 움직임과 옛 작업 파일 호환을 다룹니다.
 import { toProject, parseProject, cloneDefaultBones, defaultAnimations, normalizeAnimations } from './core/rig.js';
-import { KEY, toHex, dropKey } from './core/paint.js';
-import { pickFiles, readImageFile, readDataUrl, toPngDataUrl, saveJson, baseName } from './io.js';
+import { KEY, toHex } from './core/paint.js';
+import { pickFiles, readDataUrl, saveJson } from './io.js';
 import { RigHistory, cloneRigState } from './core/rig-history.js';
-import { mountRigSlice } from './rig-slice-view.js';
-import { mountRigPieces } from './rig-pieces-view.js';
+import { workingRigToRoleState, roleRigToWorkingState } from './core/role-flow.js';
 import { mountRigBones } from './rig-bones-view.js';
+import { mountRigPreset } from './rig-preset-view.js';
 import { mountMotion } from './motion-view.js';
-import { mountRigExport } from './rig-export-view.js';
-import { mountCharacterPlay } from './character-play-view.js';
 import { projectFromGodotTscn, projectFromGodotZip } from './core/godot-export.js';
 
 const $ = sel => document.querySelector(sel);
 
 export function mountRig(app) {
-  let baseImage = null;
-  let baseTitle = '캐릭터';
   let canvasWidth = 72;
   let canvasHeight = 64;
-  let mask = createMask(canvasWidth, canvasHeight);
   let pieces = [];
   let bones = cloneDefaultBones();
   let restPose = null;
   let animations = defaultAnimations();
   let currentSlot = 'bare';
   let currentItem = '맨몸';
+  let skeletonName = 'character_skeleton';
+  let presetMeta = { id: 'preset', name: '새 프리셋', kind: 'bare' };
 
   const undoBtn = $('#rig-undo');
   const redoBtn = $('#rig-redo');
+  const importReport = $('#rig-import-report');
 
   const history = new RigHistory();
 
   function snapshot() {
     return cloneRigState({
       canvas: [canvasWidth, canvasHeight],
-      baseTitle,
-      baseImage,
+      baseTitle: currentItem,
+      skeletonName,
+      presetMeta,
+      baseImage: null,
       pieces,
       bones,
       animations,
@@ -62,18 +61,15 @@ export function mountRig(app) {
     const copy = cloneRigState(snap);
     canvasWidth = copy.canvas[0];
     canvasHeight = copy.canvas[1];
-    baseTitle = copy.baseTitle;
-    baseImage = copy.baseImage;
+    currentItem = copy.baseTitle;
+    skeletonName = copy.skeletonName;
+    presetMeta = copy.presetMeta;
     pieces = copy.pieces;
     bones = copy.bones;
     animations = copy.animations;
     restPose = copy.restPose || null;
-    mask = createMask(canvasWidth, canvasHeight);
-    sliceView.sync();
-    piecesView.sync();
-    piecesView.render();
-    sliceView.render();
     bonesView?.refresh();
+    presetView?.refresh();
     motionView?.refresh();
     updateUndoRedo();
     app.changed();
@@ -89,26 +85,7 @@ export function mountRig(app) {
     if (next) applySnapshot(next);
   }
 
-  let sliceView = null, piecesView = null, bonesView = null, motionView = null, exportView = null, playView = null;
-  sliceView = mountRigSlice(app, {
-    getBaseImage: () => baseImage,
-    getSize: () => [canvasWidth, canvasHeight],
-    getMask: () => mask,
-  });
-  piecesView = mountRigPieces(app, {
-    getPieces: () => pieces,
-    getBaseImage: () => baseImage,
-    getMask: () => mask,
-    getSize: () => [canvasWidth, canvasHeight],
-    setBaseImage: (img, name) => setBaseImage(img, name),
-    drawOverlay: () => sliceView.drawOverlay(),
-    refreshBones: () => bonesView?.refresh(),
-    getBones: () => bones,
-    getSelectedBone: () => bonesView?.getSelectedBone?.(),
-    getItem: () => (piecesView ? piecesView.getItem() : currentItem),
-    snapshot: () => snapshot(),
-    commit: before => recordChange(before),
-  });
+  let bonesView = null, presetView = null, motionView = null;
   bonesView = mountRigBones(app, {
     getBones: () => bones,
     setBones: value => { bones = value; },
@@ -119,7 +96,7 @@ export function mountRig(app) {
     getPieces: () => pieces,
     getSize: () => [canvasWidth, canvasHeight],
     getBackdrop: () => toHex(KEY),
-    changed: () => {},
+    changed: () => presetView?.refresh(),
     renameBone: (from, to) => {
       for (const motion of Object.values(animations)) {
         if (!(from in motion.tracks)) continue;
@@ -127,9 +104,30 @@ export function mountRig(app) {
         delete motion.tracks[from];
       }
     },
-    getItem: () => (piecesView ? piecesView.getItem() : currentItem),
+    getItem: () => currentItem,
     snapshot: () => snapshot(),
     commit: before => recordChange(before),
+    getSkeletonName: () => skeletonName,
+    setSkeletonName: value => { skeletonName = String(value || 'character_skeleton'); },
+  });
+  presetView = mountRigPreset(app, {
+    getBones: () => bones,
+    getPieces: () => pieces,
+    setPieces: value => { pieces = value; },
+    getSize: () => [canvasWidth, canvasHeight],
+    setSize: value => { canvasWidth = value[0]; canvasHeight = value[1]; },
+    getPresetMeta: () => ({ ...presetMeta }),
+    setPresetMeta: value => { presetMeta = { ...value }; },
+    getSkeletonName: () => skeletonName,
+    getSelectedBone: () => bonesView?.getSelectedBone?.(),
+    getSliceItems: () => app.getSlicePieces?.() || [],
+    snapshot: () => snapshot(),
+    commit: before => recordChange(before),
+    refreshViews: () => {
+      bonesView?.refresh();
+      presetView?.refresh();
+      motionView?.refresh();
+    },
   });
   motionView = mountMotion(app, {
     getBones: () => bones,
@@ -138,49 +136,17 @@ export function mountRig(app) {
     setAnimations: value => { animations = normalizeAnimations(value, bones); },
     getSize: () => [canvasWidth, canvasHeight],
     getBackdrop: () => toHex(KEY),
-    getItem: () => (piecesView ? piecesView.getItem() : currentItem),
+    getItem: () => currentItem,
     snapshot: () => snapshot(),
     commit: before => recordChange(before),
   });
-  exportView = mountRigExport(app, { getProject: () => projectSnapshot() });
-  playView = mountCharacterPlay(app, {
-    getProject: () => projectSnapshot(),
-    getPresetStack: () => app.getPresetStack?.(),
-  });
-
-  function setBaseImage(img, name = '캐릭터') {
-    baseImage = img;
-    baseTitle = baseName(name);
-    canvasWidth = img.width;
-    canvasHeight = img.height;
-    mask = createMask(canvasWidth, canvasHeight);
-    sliceView.sync();
-    piecesView.sync();
-    sliceView.fit();
-    bonesView?.refresh();
-  }
-
-  function clearBaseImage() {
-    baseImage = null;
-    baseTitle = '캐릭터';
-    mask = createMask(canvasWidth, canvasHeight);
-    sliceView.sync();
-    piecesView.sync();
-    sliceView.render();
-    bonesView?.refresh();
-  }
 
   // 작업 열기와 자동 복원의 단일 통합 함수
-  async function loadProjectData(proj) {
+  async function loadProjectData(proj, role = null) {
     const loadedPieces = [];
     for (const p of proj.pieces) {
       const img = await readDataUrl(p.png);
       loadedPieces.push({ ...p, image: img });
-    }
-
-    let loadedBase = null;
-    if (proj.basePng) {
-      loadedBase = await readDataUrl(proj.basePng);
     }
 
     // 상태 일괄 교체
@@ -192,29 +158,29 @@ export function mountRig(app) {
     animations = proj.animations;
     restPose = proj.restPose || null;
     pieces = loadedPieces;
+    skeletonName = String(role?.skeletonName || 'character_skeleton');
+    const draft = role?.presetDraft || role?.presetDrafts?.[0];
+    presetMeta = draft
+      ? { id: draft.id || 'preset', name: draft.name || '새 프리셋', kind: draft.kind || 'bare' }
+      : { id: 'preset', name: currentItem || '새 프리셋', kind: currentSlot || 'bare' };
 
-    piecesView.sync(currentSlot, currentItem);
-
-    if (loadedBase) {
-      setBaseImage(loadedBase, currentItem);
-    } else if (pieces.length > 0) {
-      // basePng 없이 조각만 있으면 빈 투명 판을 만들어 작업할 수 있게 함
-      setBaseImage({ width: canvasWidth, height: canvasHeight, data: new Uint8ClampedArray(canvasWidth * canvasHeight * 4) }, currentItem);
-    } else {
-      // basePng도 없고 조각도 없으면 원본도 깨끗이 비움
-      clearBaseImage();
-    }
-    piecesView.render();
+    bonesView?.refresh();
+    presetView?.refresh();
+    motionView?.refresh();
     history.clear();
     updateUndoRedo();
+  }
+
+  function currentPreset() {
+    return presetView.currentPreset();
   }
 
   function projectSnapshot() {
     return toProject({
       canvas: [canvasWidth, canvasHeight],
-      slot: piecesView ? piecesView.getSlot() : currentSlot,
-      item: piecesView ? piecesView.getItem() : currentItem,
-      basePng: baseImage ? toPngDataUrl(baseImage) : null,
+      slot: currentSlot,
+      item: currentItem,
+      basePng: null,
       pieces,
       bones,
       animations,
@@ -227,34 +193,11 @@ export function mountRig(app) {
     undoBtn?.addEventListener('click', undo);
     redoBtn?.addEventListener('click', redo);
 
-    // 원본 그림 올리기 (기존 조각이 있고 크기가 다르면 거절)
-    $('#rig-open-base').addEventListener('click', async () => {
-      try {
-        const [file] = await pickFiles({ accept: 'image/*' });
-        if (!file) return;
-        const before = snapshot();
-        const img = await readImageFile(file);
-        const dropped = dropKey(img);
-
-        if (pieces.length > 0 && (dropped.width !== canvasWidth || dropped.height !== canvasHeight)) {
-          app.toast(`새 그림 크기(${dropped.width}×${dropped.height})가 기존 조각 판 크기(${canvasWidth}×${canvasHeight})와 다릅니다. 기존 조각을 먼저 비우거나 같은 크기 그림을 올려 주세요`);
-          return;
-        }
-
-        setBaseImage(dropped, file.name);
-        recordChange(before);
-        app.toast(`「${file.name}」을 불러왔습니다`);
-      } catch (err) {
-        if (err.message) app.toast(err.message);
-      }
-    });
-
     // 프로젝트 저장
     $('#rig-save-project').addEventListener('click', () => {
-      const item = piecesView ? piecesView.getItem() : currentItem;
       const proj = projectSnapshot();
-      saveJson(`rig-${item}.json`, proj);
-      app.toast(`「rig-${item}.json」으로 저장했습니다`);
+      saveJson(`rig-${currentItem}.json`, proj);
+      app.toast(`「rig-${currentItem}.json」으로 저장했습니다`);
     });
 
     // 프로젝트 열기 — rig-1 JSON, 고도 장면, 웹에서 만든 무압축 ZIP을 한 자리에서 받습니다.
@@ -275,16 +218,30 @@ export function mountRig(app) {
           warnings = loaded.warnings;
         } else if (name.endsWith('.json')) {
           proj = parseProject(JSON.parse(await file.text()));
+          await app.loadLegacyRig(proj);
+          if (importReport) {
+            importReport.textContent = '';
+            importReport.hidden = true;
+          }
+          app.toast('옛 작업 파일을 자르기와 뼈대 작업으로 나누어 불러왔습니다');
+          return;
         } else {
           throw new Error('JSON, TSCN 또는 무압축 ZIP 파일을 골라 주세요');
         }
         await loadProjectData(proj);
         if (warnings) {
-          exportView.report(file.name, warnings);
-          app.show('export');
+          if (importReport) {
+            importReport.textContent = warnings.length
+              ? `「${file.name}」에서 확인할 내용 ${warnings.length}개\n${warnings.map(item => `• ${item}`).join('\n')}`
+              : `「${file.name}」의 뼈와 움직임을 모두 읽었습니다.`;
+            importReport.hidden = false;
+          }
           app.toast(warnings.length ? `뼈와 움직임을 읽고, 확인할 내용 ${warnings.length}개를 보고했습니다` : '고도 장면의 뼈와 움직임을 불러왔습니다');
         } else {
-          exportView.clearReport();
+          if (importReport) {
+            importReport.textContent = '';
+            importReport.hidden = true;
+          }
           app.toast('뼈 애니메이션 작업 파일을 불러왔습니다');
         }
         app.changed();
@@ -295,30 +252,17 @@ export function mountRig(app) {
   }
 
   function setStep(step) {
-    if (step === 'slice') {
-      sliceView.render();
-      sliceView.fit();
-    }
     $('#rig').classList.toggle('rig-mode-bones', step === 'rig');
     $('#rig').classList.toggle('rig-mode-motion', step === 'motion');
-    $('#rig').classList.toggle('rig-mode-export', step === 'export');
     if (step === 'rig') bonesView.show();
     else bonesView.hide();
     if (step === 'motion') motionView.show();
     else motionView.hide();
-    if (step === 'export') {
-      exportView.show();
-      playView.show();
-    } else {
-      exportView.hide();
-      playView.hide();
-    }
   }
 
   function initUI() {
     bindEvents();
-    sliceView.render();
-    piecesView.render();
+    presetView.refresh();
     updateUndoRedo();
   }
 
@@ -326,15 +270,29 @@ export function mountRig(app) {
 
   return {
     shown() {
-      sliceView.fit();
-      sliceView.render();
       bonesView.shown();
       motionView.shown();
     },
     setStep,
+    getBasis: () => ({
+      canvas: [canvasWidth, canvasHeight],
+      skeletonName,
+      bones,
+      restPose,
+    }),
     getPieces: () => pieces,
+    getPreset: () => currentPreset(),
     snapshot() {
       return projectSnapshot();
+    },
+    roleSnapshot() {
+      return workingRigToRoleState({
+        canvas: [canvasWidth, canvasHeight], item: currentItem, slot: currentSlot, skeletonName,
+        bones, restPose, attachedPieces: pieces, animations, preset: currentPreset(),
+      });
+    },
+    async restoreRole(saved) {
+      await loadProjectData(roleRigToWorkingState(saved), saved);
     },
     async restore(saved) {
       if (!saved) return;

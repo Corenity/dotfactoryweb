@@ -7,20 +7,19 @@ export const SUBTAB_CATEGORY = {
   assemble: 'image',
   bones: 'animation',
   motion: 'animation',
-  preset: 'character',
-  export: 'character',
+  character: 'character',
 };
 
 export const CATEGORY_DEFAULTS = {
   image: 'shrink',
   animation: 'bones',
-  character: 'preset',
+  character: 'character',
 };
 
 export const TAB_ALIASES = {
   rig: 'slice',
-  play: 'export',
-  export: 'export',
+  play: 'character',
+  export: 'character',
   다듬기: 'paint',
   편집: 'paint',
   축소: 'shrink',
@@ -29,9 +28,11 @@ export const TAB_ALIASES = {
   뼈대: 'bones',
   키잡기: 'motion',
   움직임: 'motion',
-  뽑기: 'export',
-  플레이: 'export',
-  프리셋: 'preset',
+  뽑기: 'character',
+  플레이: 'character',
+  프리셋: 'character',
+  character: 'character',
+  캐릭터: 'character',
 };
 
 export function mountNav({ onSwitch }) {
@@ -39,6 +40,7 @@ export function mountNav({ onSwitch }) {
   let currentSubtab = 'shrink';
   const categoryMemory = { ...CATEGORY_DEFAULTS };
 
+  const subtabsNav = document.querySelector('.nav-subtabs');
   const catButtons = document.querySelectorAll('.nav-categories [data-category]');
   const subGroups = document.querySelectorAll('.nav-subtabs [data-for-category]');
   const subButtons = document.querySelectorAll('.nav-subtabs [data-tab]');
@@ -47,8 +49,16 @@ export function mountNav({ onSwitch }) {
     for (const b of catButtons) {
       b.setAttribute('aria-selected', String(b.dataset.category === category));
     }
+    let visibleSubCount = 0;
     for (const g of subGroups) {
-      g.hidden = g.dataset.forCategory !== category;
+      const isMatch = g.dataset.forCategory === category;
+      g.hidden = !isMatch;
+      if (isMatch) {
+        visibleSubCount = g.querySelectorAll('[data-tab]').length;
+      }
+    }
+    if (subtabsNav) {
+      subtabsNav.hidden = visibleSubCount <= 1;
     }
     for (const b of subButtons) {
       b.setAttribute('aria-selected', String(b.dataset.tab === subtab));

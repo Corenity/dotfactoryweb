@@ -28,6 +28,16 @@ export const PRESET_KIND_NAMES = Object.freeze({
   extra: '기타/장신구',
 });
 
+function uniqueLayerId(value, used) {
+  const fallback = 'piece';
+  const base = String(value || fallback).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/^_+|_+$/g, '') || fallback;
+  let id = base;
+  let suffix = 2;
+  while (used.has(id)) id = `${base}_${suffix++}`;
+  used.add(id);
+  return id;
+}
+
 /**
  * 옛 dotfactory-web/rig-1 작업 파일을 세 파일 형식으로 분할 변환합니다.
  * @param {object} project - rig-1 프로젝트 객체
@@ -69,9 +79,10 @@ export function migrateRig1(project) {
     const list = groups.get(kind);
     if (!list || list.length === 0) continue;
 
+    const usedIds = new Set();
     const layers = list.map((p, idx) => {
       const pieceName = p.piece || p.name || `piece_${idx + 1}`;
-      const layerId = `${p.slot}_${pieceName}`.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+      const layerId = uniqueLayerId(`${p.slot}_${pieceName}`, usedIds);
       return {
         id: layerId,
         bone: p.bone,

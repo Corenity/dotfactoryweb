@@ -1,11 +1,20 @@
 /* 뼈 탭 및 조각 자르기 화면 스타일 */
 
-#rig {
+#rig,
+#slice {
   gap: 8px;
 }
 
-#rig .segmented button { min-height: 44px; }
+#rig .segmented button,
+#slice .segmented button { min-height: 44px; }
 #rig .icon {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
+#slice .icon {
   min-width: 44px;
   min-height: 44px;
   padding: 0;
@@ -14,7 +23,8 @@
 }
 
 /* 그림판 스테이지 — 다듬기와 같은 규칙으로 절대 위치 캔버스를 가운데로 옮겨 띄웁니다 */
-#rig .stage {
+#rig .stage,
+#slice .stage {
   position: relative;
   height: 48vh;
   min-height: 220px;
@@ -28,14 +38,18 @@
   -webkit-user-select: none;
 }
 
-#rig .stage canvas {
+#slice .stage { background: rgb(3, 192, 55); }
+
+#rig .stage canvas,
+#slice .stage canvas {
   position: absolute;
   left: 0;
   top: 0;
   transform-origin: 0 0;
 }
 
-#rig .stage canvas[hidden] {
+#rig .stage canvas[hidden],
+#slice .stage canvas[hidden] {
   display: none;
 }
 
@@ -89,12 +103,14 @@
 
 .rig-piece-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 4px;
   width: 100%;
 }
 
 .rig-piece-actions .btn {
   flex: 1;
+  flex-basis: 44px;
   min-height: 44px;
   padding: 0 2px;
   font-size: 11px;
@@ -102,15 +118,11 @@
 }
 
 #rig.rig-mode-bones .rig-slice-only,
-#rig.rig-mode-motion .rig-slice-only,
-#rig.rig-mode-export .rig-slice-only { display: none; }
+#rig.rig-mode-motion .rig-slice-only { display: none; }
 .rig-bones-only { display: grid; gap: 8px; }
 .rig-bones-only[hidden] { display: none; }
-.rig-export-only { display: grid; gap: 8px; min-width: 0; }
-.rig-export-only[hidden] { display: none; }
-.rig-export-card { min-width: 0; }
-.rig-export-card .btn { min-height: 44px; max-width: 100%; }
 .rig-import-report { margin-bottom: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.rig-import-report[hidden] { display: none; }
 
 .rig-editor-grid {
   display: grid;
@@ -135,6 +147,25 @@
 .rig-bone-tree .btn { justify-content: flex-start; min-height: 44px; text-align: left; }
 .rig-bone-tree .btn[aria-pressed="true"] { border-color: var(--accent); background: #26304a; color: var(--text); }
 
+.rig-skeleton-label strong { color: var(--text); overflow-wrap: anywhere; }
+.rig-preset-meta {
+  display: grid;
+  grid-template-columns: minmax(110px, .8fr) minmax(120px, 1fr) minmax(140px, 1.2fr);
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.rig-preset-meta label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+.rig-preset-meta input, .rig-preset-meta select { width: 100%; min-height: 44px; font-size: 16px; }
+.rig-preset-warning { margin: 0; padding: 8px 10px; color: #ff9f0a; border: 1px solid #ff9f0a; border-radius: 8px; }
+.rig-preset-warning[hidden], .rig-piece-picker[hidden] { display: none; }
+.rig-piece-picker { display: grid; gap: 8px; }
+.rig-piece-picker .btn, .rig-piece-library .btn { min-height: 44px; }
+.rig-piece-library { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; max-height: 220px; overflow-y: auto; }
+.rig-library-choice { justify-content: flex-start; overflow-wrap: anywhere; }
+
 .rig-number-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .rig-dpad { display: grid; grid-template-columns: repeat(3, 44px); justify-content: center; gap: 4px; margin-top: 8px; }
 .rig-dpad .btn { width: 44px; min-height: 44px; padding: 0; }
@@ -145,94 +176,127 @@
 
 .rig-assign-row {
   display: grid;
-  grid-template-columns: minmax(90px, 1fr) minmax(95px, 1fr) 68px 44px 44px;
+  grid-template-columns: minmax(90px, 1fr) minmax(105px, 1fr) 70px 70px 60px;
   align-items: end;
   gap: 5px;
 }
 .rig-assign-row strong { align-self: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rig-assign-row label { margin: 0; }
 .rig-assign-row .btn { min-width: 44px; min-height: 44px; padding: 0; }
+.rig-assign-row.mismatch { border-left: 3px solid #ff453a; padding-left: 6px; }
+.rig-assign-row.mismatch select { border-color: #ff453a; color: #ff9f0a; }
 
-/* 플레이 화면 전용 스타일 */
-.rig-play-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: center;
+/* 자르기 방식별 행 숨김 — .row 의 display: flex 가 hidden 을 덮지 않도록 강제 숨김 */
+.rig-slice-only[hidden],
+.rig-manual-slice-only[hidden],
+.rig-auto-slice-only[hidden],
+#rig .row[hidden],
+#slice .row[hidden] {
+  display: none !important;
 }
 
-.play-toolbar {
-  width: 100%;
+/* 종류별 자르기 전용 스타일 */
+.rig-palette-wrap {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  gap: 6px;
   align-items: center;
-  gap: 10px;
 }
 
-.play-toolbar .btn,
-.play-toolbar select {
+.rig-palette-btn {
   min-height: 44px;
-}
-
-/* 플레이 캔버스는 일반 흐름(static)에 두고 4배(288x256) 크기로 선명하게 표시 */
-#rig .play-stage {
-  height: auto;
-  min-height: unset;
-  max-height: unset;
-  position: static;
-  background: #03c037;
-  display: flex;
-  justify-content: center;
+  display: inline-flex;
   align-items: center;
-  padding: 12px;
-  width: 100%;
-  box-sizing: border-box;
-  border-radius: 8px;
-  border: 1px solid var(--line);
+  gap: 6px;
+  padding: 0 10px;
+  font-size: 13px;
 }
 
-#rig .play-stage canvas {
-  position: static;
-  display: block;
-  width: 288px;
-  height: 256px;
-  max-width: 100%;
-  aspect-ratio: 72 / 64;
-  image-rendering: pixelated;
-  background: #03c037;
-}
-
-.bundle-options {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 10px 0;
-}
-
-/* 375px 화면에서도 상자와 글자가 한 줄로 나란히 오도록 설정 */
-.rig-editor-card .bundle-check-label {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 10px;
-  min-height: 44px;
-  cursor: pointer;
-  font-size: 13.5px;
-  white-space: nowrap;
-}
-
-.rig-editor-card .bundle-check-label input[type="checkbox"] {
+.rig-palette-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
   flex-shrink: 0;
-  margin: 0;
-  width: 22px;
-  height: 22px;
-  min-height: 22px;
+}
+
+.rig-palette-drop .rig-drop-dot {
+  width: 14px;
+  height: 14px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: bold;
+  color: var(--danger, #ff453a);
+}
+
+.rig-auto-ellipse-row,
+.rig-auto-skin-row,
+.rig-auto-deco-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.rig-auto-ellipse-row .icon {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+.rig-auto-deco-row .btn,
+.rig-auto-skin-row .btn {
+  min-height: 44px;
+}
+
+.rig-auto-deco-row input[type="text"] {
+  min-height: 44px;
+  padding: 0 8px;
+  background: var(--bg, #111114);
+  border: 1px solid var(--line, #2c2d38);
+  color: var(--text, #e2e2ea);
+  border-radius: 4px;
+}
+
+.rig-skin-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.rig-skin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 4px;
+  border: 1px solid var(--line, #2c2d38);
+  background: var(--surface, #1b1c24);
+  color: var(--text, #e2e2ea);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.rig-skin-chip-color {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.rig-skin-chip-remove {
+  font-size: 13px;
+  color: var(--muted, #8e8e93);
+  margin-left: 2px;
 }
 
 @media (max-width: 520px) {
   .rig-editor-grid { grid-template-columns: 1fr; }
-  .rig-assign-row { grid-template-columns: minmax(85px, 1fr) minmax(95px, 1fr) 64px; }
+  .rig-preset-meta { grid-template-columns: 1fr; }
+  .rig-assign-row { grid-template-columns: minmax(90px, 1fr) minmax(105px, 1fr) 68px; }
   .rig-assign-row .btn { grid-row: 2; }
 }

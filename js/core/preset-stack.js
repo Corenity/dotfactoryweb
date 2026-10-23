@@ -8,8 +8,6 @@ export const DEFAULT_BARE_LAYERS_META = Object.freeze([
   { id: 'bare_leg_l', bone: 'LegL', zIndex: 6, slot: 'bare', piece: 'leg_l', file: 'assets/bare/bare_leg_l.png' },
   { id: 'bare_leg_r', bone: 'LegR', zIndex: 6, slot: 'bare', piece: 'leg_r', file: 'assets/bare/bare_leg_r.png' },
   { id: 'bare_torso', bone: 'Torso', zIndex: 7, slot: 'bare', piece: 'torso', file: 'assets/bare/bare_torso.png' },
-  { id: 'bare_foot_l', bone: 'FootL', zIndex: 7, slot: 'bare', piece: 'foot_l', file: 'assets/bare/bare_foot_l.png' },
-  { id: 'bare_foot_r', bone: 'FootR', zIndex: 7, slot: 'bare', piece: 'foot_r', file: 'assets/bare/bare_foot_r.png' },
   { id: 'bare_arm_l', bone: 'ArmL', zIndex: 11, slot: 'bare', piece: 'arm_l', file: 'assets/bare/bare_arm_l.png' },
   { id: 'bare_arm_r', bone: 'ArmR', zIndex: 11, slot: 'bare', piece: 'arm_r', file: 'assets/bare/bare_arm_r.png' },
 ]);

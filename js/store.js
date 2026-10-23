@@ -13,6 +13,18 @@ export function saveLater(value) {
   }, 800);
 }
 
+export function saveNow(value) {
+  clearTimeout(timer);
+  localStorage.setItem(KEY, JSON.stringify(value));
+}
+
+export function saveVerifiedMigration(migration) {
+  if (migration?.report?.verified !== true || !migration.value) {
+    throw new Error('검증되지 않은 자동 보관 변환은 저장할 수 없습니다');
+  }
+  saveNow(migration.value);
+}
+
 export async function loadSaved() {
   const text = localStorage.getItem(KEY);
   return text ? JSON.parse(text) : null;

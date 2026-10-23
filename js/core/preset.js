@@ -108,3 +108,21 @@ export function deserializePreset(text) {
   if (typeof text !== 'string') throw new Error('프리셋 텍스트 자료가 올바르지 않습니다');
   return parsePreset(JSON.parse(text));
 }
+
+/** 프리셋을 고치지 않고, 붙는 뼈 이름이 현재 뼈대에 모두 있는지 검사합니다. */
+export function checkPresetCompatibility(preset, targetBones) {
+  const safePreset = parsePreset(preset);
+  const targetNames = new Set(
+    (Array.isArray(targetBones) ? targetBones : [])
+      .map(bone => (typeof bone === 'string' ? bone : bone && bone.name))
+      .filter(Boolean)
+  );
+  const missingBones = [...new Set(
+    safePreset.layers.map(layer => layer.bone).filter(name => !targetNames.has(name))
+  )];
+  return {
+    compatible: missingBones.length === 0,
+    missingBones,
+    warnings: missingBones.map(name => `뼈대에 없는 뼈 「${name}」에 붙는 그림은 표시할 수 없습니다`),
+  };
+}

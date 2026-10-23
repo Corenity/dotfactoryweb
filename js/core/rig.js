@@ -7,14 +7,12 @@ export const DEFAULT_MOTION_NAME = 'walk';
 
 /** 캐릭터가 보는 방향을 기준으로 L·R을 붙인 기본 뼈 나무입니다. */
 export const DEFAULT_BONES = Object.freeze([
-  { name: 'Torso', parent: null, pos: [38, 44], angle: 90, length: 4 },
-  { name: 'Head', parent: 'Torso', pos: [0, -6], angle: 90, length: 4 },
-  { name: 'ArmL', parent: 'Torso', pos: [4, -2], angle: 90, length: 4 },
-  { name: 'ArmR', parent: 'Torso', pos: [-6, -2], angle: 90, length: 4 },
-  { name: 'LegL', parent: null, pos: [40, 53], angle: 90, length: 4 },
-  { name: 'FootL', parent: 'LegL', pos: [1, 3], angle: 90, length: 4 },
-  { name: 'LegR', parent: null, pos: [32, 52], angle: 90, length: 4 },
-  { name: 'FootR', parent: 'LegR', pos: [-1, 4], angle: 90, length: 4 },
+  { name: 'Torso', parent: null, pos: [37, 46], angle: 90, length: 4 },
+  { name: 'Head', parent: 'Torso', pos: [0, -9], angle: 90, length: 4 },
+  { name: 'ArmL', parent: 'Torso', pos: [4, -8], angle: 90, length: 4 },
+  { name: 'ArmR', parent: 'Torso', pos: [-3, -8], angle: 90, length: 4 },
+  { name: 'LegL', parent: null, pos: [40, 46], angle: 90, length: 4 },
+  { name: 'LegR', parent: null, pos: [34, 47], angle: 90, length: 4 },
 ]);
 
 const BONE_LABELS = Object.freeze({
@@ -70,10 +68,8 @@ function slotDefaultBone(piece = '') {
   if (p === 'torso' || p === 'body') return 'Torso';
   if (p.startsWith('arm_l')) return 'ArmL';
   if (p.startsWith('arm_r')) return 'ArmR';
-  if (p.startsWith('leg_l')) return 'LegL';
-  if (p.startsWith('leg_r')) return 'LegR';
-  if (p.startsWith('foot_l') || p.startsWith('shoe_l')) return 'FootL';
-  if (p.startsWith('foot_r') || p.startsWith('shoe_r')) return 'FootR';
+  if (p.startsWith('leg_l') || p.startsWith('foot_l') || p.startsWith('shoe_l')) return 'LegL';
+  if (p.startsWith('leg_r') || p.startsWith('foot_r') || p.startsWith('shoe_r')) return 'LegR';
   return 'Head';
 }
 

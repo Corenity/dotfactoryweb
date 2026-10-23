@@ -135,33 +135,49 @@ export function deserializeAnimation(text) {
  * 다른 뼈대에 애니메이션을 붙일 때, 대상 뼈대에 없는 뼈 트랙을 찾아 경고를 보고합니다.
  * @param {object} animation - dotfactory-web/animation-1 객체
  * @param {Array<object|string>} targetBones - 대상 뼈 목록 (Bone 객체 배열 또는 이름 배열)
- * @returns {{ compatible: boolean, missingBones: string[], warnings: string[] }}
+ * @param {string|null} [targetSkeleton] - 현재 뼈대의 표시 이름. 이름만 다르면 경고하되 호환으로 봅니다.
+ * @returns {{ compatible: boolean, missingBones: string[], allMissingBones: string[], declaredMissingBones: string[], trackMissingBones: string[], skeletonNameMatches: boolean|null, warnings: string[] }}
  */
-export function checkSkeletonCompatibility(animation, targetBones) {
+export function checkSkeletonCompatibility(animation, targetBones, targetSkeleton = null) {
   const targetNames = new Set(
     (Array.isArray(targetBones) ? targetBones : [])
       .map(b => (typeof b === 'string' ? b : b && b.name))
       .filter(Boolean)
   );
 
-  const missingSet = new Set();
+  const declaredMissingBones = [...new Set(
+    (Array.isArray(animation?.bones) ? animation.bones : []).filter(name => !targetNames.has(name))
+  )];
+  const trackMissingSet = new Set();
   const motions = animation && animation.motions ? animation.motions : {};
 
   for (const motion of Object.values(motions)) {
     if (!motion || !motion.tracks) continue;
     for (const boneName of Object.keys(motion.tracks)) {
       if (!targetNames.has(boneName)) {
-        missingSet.add(boneName);
+        trackMissingSet.add(boneName);
       }
     }
   }
 
-  const missingBones = Array.from(missingSet);
-  const warnings = missingBones.map(b => `뼈대에 없는 뼈 「${b}」의 움직임 키는 보존되지만 화면에는 반영되지 않습니다`);
+  const trackMissingBones = Array.from(trackMissingSet);
+  const allMissingBones = [...new Set([...trackMissingBones, ...declaredMissingBones])];
+  const warnings = allMissingBones.map(b => `뼈대에 없는 뼈 「${b}」의 움직임 키는 보존되지만 화면에는 반영되지 않습니다`);
+  const normalizedTargetSkeleton = targetSkeleton == null ? null : String(targetSkeleton).trim();
+  const skeletonNameMatches = normalizedTargetSkeleton == null || normalizedTargetSkeleton === ''
+    ? null
+    : String(animation?.skeleton || '').trim() === normalizedTargetSkeleton;
+  if (skeletonNameMatches === false) {
+    warnings.push(`애니메이션의 기준 뼈대 이름은 「${animation?.skeleton || ''}」이고 현재 이름은 「${normalizedTargetSkeleton}」입니다`);
+  }
 
   return {
-    compatible: missingBones.length === 0,
-    missingBones,
+    compatible: allMissingBones.length === 0,
+    missingBones: trackMissingBones,
+    allMissingBones,
+    declaredMissingBones,
+    trackMissingBones,
+    skeletonNameMatches,
     warnings,
   };
 }

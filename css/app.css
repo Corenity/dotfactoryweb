@@ -73,6 +73,7 @@ main { padding: 12px; max-width: 960px; margin: 0 auto; }
 .fields { display: flex; flex-wrap: wrap; gap: 10px; }
 
 .fields label, label.inline { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; }
+label.inline[hidden], .fields label[hidden] { display: none; }
 
 input[type="number"], select {
   min-height: 40px; width: 84px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px;

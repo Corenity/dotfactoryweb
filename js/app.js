@@ -1,19 +1,23 @@
 // 도트 공장 웹 — 큰 분류 셋과 서브탭으로 화면을 잇고 작업을 자동 저장합니다.
 import { mountShrink } from './shrink-view.js';
 import { mountPaint } from './paint-view.js';
+import { mountSlice } from './slice-view.js';
 import { mountRig } from './rig-view.js';
 import { mountAssemble } from './assemble-view.js';
-import { mountPreset } from './preset-view.js';
+import { mountCharacter } from './character-view.js';
 import { mountNav } from './nav.js';
-import { loadSaved, saveLater } from './store.js';
+import { loadSaved, saveLater, saveVerifiedMigration } from './store.js';
+import {
+  ROLE_STATE_VERSION,
+  migrateLegacyAutosave,
+  migrateRig1ToRoleState,
+} from './core/role-flow.js';
 
 const $ = sel => document.querySelector(sel);
 
 const RIG_STEPS = {
-  slice: 'slice',
   bones: 'rig',
   motion: 'motion',
-  export: 'export',
 };
 
 let toastTimer = 0;
@@ -56,19 +60,35 @@ function show(tab) {
   nav.show(tab);
 }
 
+let characterState = { barePreset: null, loadedPresets: [], animations: [], selectedMotion: '' };
+let legacyExtra = {};
+
 const app = {
   show,
   toast,
   sendToPaint(image, name) { views.paint.load(image, name); show('paint'); },
   addToAssemble(image, name) { views.assemble.add(image, name); show('assemble'); toast(`합치기에 「${name}」을 더했습니다`); },
   getPieces() { return views.rig?.getPieces?.() || []; },
-  getPresetStack() { return views.preset?.getPresetStack?.() || null; },
+  getSlicePieces() { return views.slice?.getPieces?.() || []; },
+  getRigPreset() { return views.rig?.getPreset?.() || null; },
+  getPresetStack() { return views.character?.getPresetStack?.() || null; },
+  async loadLegacyRig(project) {
+    const migrated = migrateRig1ToRoleState(project);
+    if (migrated.report.verified !== true) throw new Error('옛 작업 파일을 안전하게 나눌 수 없습니다');
+    await views.slice.restore(migrated.value.slice);
+    await views.rig.restoreRole(migrated.value.rig);
+    app.changed();
+  },
   changed() {
+    characterState = views.character?.snapshot?.() || characterState;
     saveLater({
+      version: ROLE_STATE_VERSION,
       paint: views.paint.snapshot(),
-      rig: views.rig.snapshot(),
       assemble: views.assemble.snapshot(),
-      preset: views.preset?.snapshot(),
+      slice: views.slice.snapshot(),
+      rig: views.rig.roleSnapshot(),
+      character: characterState,
+      legacyExtra,
     });
   },
 };
@@ -76,9 +96,13 @@ const app = {
 const views = {
   shrink: mountShrink(app),
   paint: mountPaint(app),
+  slice: mountSlice(app),
   rig: mountRig(app),
   assemble: mountAssemble(app),
-  preset: mountPreset(app),
+  character: mountCharacter(app, {
+    getRigBasis: () => views.rig?.getBasis?.() || null,
+    getProject: () => views.rig?.snapshot?.() || null,
+  }),
 };
 
 // 머리 높이를 CSS 에 알려 줍니다. 화면을 돌려 높이가 바뀌어도 따라갑니다.
@@ -88,11 +112,24 @@ new ResizeObserver(() => document.documentElement.style.setProperty('--top-h', `
 // 지난번 작업을 되살립니다. 아이폰은 오래 안 쓴 사이트의 저장 자료를 지울 수 있어 내려받기가 기본입니다.
 loadSaved().then(async saved => {
   if (!saved) return;
+  if (saved.version == null) {
+    const migrated = migrateLegacyAutosave(saved);
+    if (migrated.report.verified !== true) throw new Error('옛 자동 보관 자료의 변환을 확인하지 못했습니다');
+    saveVerifiedMigration(migrated);
+    saved = migrated.value;
+    toast('옛 자동 보관 자료를 안전하게 나누어 불러왔습니다');
+  }
+  if (saved.version !== ROLE_STATE_VERSION) throw new Error('이 자동 보관 자료의 판을 읽을 수 없습니다');
+  characterState = saved.character || characterState;
+  legacyExtra = saved.legacyExtra || {};
   if (saved.paint) await views.paint.restore(saved.paint);
-  if (saved.rig) await views.rig.restore(saved.rig);
+  if (saved.slice) await views.slice.restore(saved.slice);
+  if (saved.rig) await views.rig.restoreRole(saved.rig);
   if (saved.assemble) await views.assemble.restore(saved.assemble);
-  if (saved.preset) await views.preset?.restore(saved.preset);
-}).catch(() => {});
+  await views.character?.restore(characterState);
+}).catch(error => {
+  toast(`${error.message || '자동 보관 자료를 읽지 못했습니다'} 원본은 그대로 두었습니다`);
+});
 
 const initialTab = new URLSearchParams(location.search).get('tab') || location.hash.slice(1);
 if (initialTab) show(initialTab);

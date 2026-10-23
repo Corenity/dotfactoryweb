@@ -107,7 +107,7 @@ export function deserializeSkeleton(text) {
 
 /**
  * 새로 불러온 뼈대를 현재 작업(조각, 움직임, 초기값)에 맞추어 정합성을 보정합니다.
- * - 없는 뼈에 붙은 조각은 defaultBoneFor 로 살아 있는 뼈로 옮깁니다.
+ * - 기본값에서는 없는 뼈에 붙은 조각을 살아 있는 뼈로 옮깁니다. preserveMissingPieces면 원문을 보존합니다.
  * - 움직임에서 없는 뼈 트랙은 제외합니다.
  * - restPose 는 새로 연 뼈 파일의 위치와 각도를 기준으로 새 초기값을 만듭니다.
  * @returns {{ bones: object[], pieces: object[], animations: object, restPose: object, selectedBone: string|null, movedPiecesCount: number, droppedKeyCount: number }}
@@ -117,6 +117,7 @@ export function applySkeletonToRig({
   pieces = [],
   animations = null,
   selectedBone = null,
+  preserveMissingPieces = false,
 } = {}) {
   const safeSkeleton = skeleton && skeleton.schema === SCHEMA ? skeleton : parseSkeleton(skeleton);
   const newBones = safeSkeleton.bones;
@@ -128,6 +129,7 @@ export function applySkeletonToRig({
   const newPieces = (Array.isArray(pieces) ? pieces : []).map(p => {
     if (!p) return p;
     if (!newBoneNames.has(p.bone)) {
+      if (preserveMissingPieces) return { ...p };
       movedPiecesCount++;
       const targetBone = defaultBoneFor(p.slot, p.piece || p.name, newBones, fallbackSelected);
       return { ...p, bone: targetBone };

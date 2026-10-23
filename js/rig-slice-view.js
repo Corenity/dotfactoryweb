@@ -1,17 +1,23 @@
-// 뼈 조각 자르기 화면 — 원본 그림판, 마스크 선택(네모·올가미·붓·지우개)과 줌·이동을 다룹니다.
+// 이미지 자르기 그림판 — 마스크 선택(손으로 자르기) 및 종류별 자르기와 줌·이동을 다룹니다.
 import { clearMask, fillMask, setMaskRect, fillPolygonMask, paintBrushMask } from './core/slice.js';
 import { KEY, toHex } from './core/paint.js';
 import { drawPixels } from './io.js';
+import { mountRigAutoSlice } from './rig-auto-slice-view.js';
 
 const $ = sel => document.querySelector(sel);
 
 export function mountRigSlice(app, model) {
   let cell = 4;
   let panX = 0, panY = 0;
+  let sliceMode = 'manual'; // 'manual' | 'auto'
+  try {
+    const qMode = new URLSearchParams(window.location.search).get('sliceMode');
+    if (qMode === 'auto') sliceMode = 'auto';
+  } catch (e) {}
   let tool = 'box'; // 'box' | 'lasso' | 'brush' | 'eraser'
   let brushSize = 1;
 
-  // 두 손가락 이동 및 포인터 제어 (paint-view 와 동일)
+  // 두 손가락 이동 및 포인터 제어
   const pointers = new Map();
   let pan = null;
   let maskBeforeStroke = null;
@@ -37,7 +43,38 @@ export function mountRigSlice(app, model) {
     mask = model.getMask();
   }
 
-  // 다듬기와 같은 규칙: 스테이지 크기에 맞춰 정수 배율 계산 후 중앙 translate
+  // 종류별 자르기 뷰 마운트
+  const autoSliceView = mountRigAutoSlice(app, {
+    getBaseImage: () => model.getBaseImage(),
+    getSize: () => model.getSize(),
+    getPieces: () => model.getPieces(),
+    snapshot: () => model.snapshot(),
+    commit: before => model.commit(before),
+    renderPiecesList: () => model.renderPiecesList(),
+    drawOverlay: () => drawOverlay(),
+  });
+
+  function updateModeUI() {
+    $('#rig-mode-manual')?.setAttribute('aria-pressed', String(sliceMode === 'manual'));
+    $('#rig-mode-auto')?.setAttribute('aria-pressed', String(sliceMode === 'auto'));
+
+    const manualRows = document.querySelectorAll('.rig-manual-slice-only');
+    const autoRows = document.querySelectorAll('.rig-auto-slice-only');
+
+    for (const el of manualRows) el.hidden = (sliceMode !== 'manual');
+    for (const el of autoRows) el.hidden = (sliceMode !== 'auto');
+  }
+
+  function setSliceMode(mode) {
+    sliceMode = mode;
+    updateModeUI();
+
+    if (mode === 'auto') {
+      autoSliceView.init();
+    }
+    render();
+  }
+
   function fit() {
     if (!baseImage) return;
     const w = stage.clientWidth || 320;
@@ -63,6 +100,8 @@ export function mountRigSlice(app, model) {
   }
 
   function render() {
+    updateModeUI();
+
     emptyHint.hidden = !!baseImage;
     baseCanvas.hidden = !baseImage;
     overlayCanvas.hidden = !baseImage;
@@ -70,8 +109,16 @@ export function mountRigSlice(app, model) {
 
     if (!baseImage) return;
 
-    // 1. 원본 그림판 렌더링 (정수 배율로 확대하여 그리고 위치 translate)
-    drawPixels(baseCanvas, baseImage, cell, toHex(KEY));
+    // 1. 원본 그림판 렌더링
+    if (sliceMode === 'auto') {
+      const ctx = baseCanvas.getContext('2d');
+      baseCanvas.width = canvasWidth * cell;
+      baseCanvas.height = canvasHeight * cell;
+      ctx.fillStyle = toHex(KEY);
+      ctx.fillRect(0, 0, baseCanvas.width, baseCanvas.height);
+    } else {
+      drawPixels(baseCanvas, baseImage, cell, toHex(KEY));
+    }
     baseCanvas.style.transform = `translate(${panX}px, ${panY}px)`;
 
     // 2. 오버레이 캔버스 크기 및 위치 맞춤
@@ -87,7 +134,12 @@ export function mountRigSlice(app, model) {
     const ctx = overlayCanvas.getContext('2d');
     ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
-    // 마스크 영역 표시 (반투명 파랑)
+    if (sliceMode === 'auto') {
+      autoSliceView.drawOverlay(ctx, cell, canvasWidth, canvasHeight);
+      return;
+    }
+
+    // 손으로 자르기: 마스크 영역 표시 (반투명 파랑)
     ctx.fillStyle = 'rgba(40, 160, 255, 0.45)';
     for (let y = 0; y < canvasHeight; y++) {
       for (let x = 0; x < canvasWidth; x++) {
@@ -128,6 +180,11 @@ export function mountRigSlice(app, model) {
   }
 
   function strokeStart(at) {
+    if (sliceMode === 'auto') {
+      autoSliceView.paintCell(at[0], at[1]);
+      drawOverlay();
+      return;
+    }
     dragStart = at;
     dragCurrent = at;
     maskBeforeStroke = new Uint8Array(mask);
@@ -142,6 +199,11 @@ export function mountRigSlice(app, model) {
   }
 
   function strokeMove(at) {
+    if (sliceMode === 'auto') {
+      autoSliceView.paintCell(at[0], at[1]);
+      drawOverlay();
+      return;
+    }
     dragCurrent = at;
     if (tool === 'lasso') {
       const last = lassoPoints[lassoPoints.length - 1];
@@ -157,6 +219,7 @@ export function mountRigSlice(app, model) {
   }
 
   function strokeEnd() {
+    if (sliceMode === 'auto') return;
     if (tool === 'box' && dragStart && dragCurrent) {
       setMaskRect(mask, canvasWidth, canvasHeight, dragStart, dragCurrent, 1);
     } else if (tool === 'lasso' && lassoPoints.length >= 3) {
@@ -170,6 +233,7 @@ export function mountRigSlice(app, model) {
   }
 
   function strokeCancel() {
+    if (sliceMode === 'auto') return;
     if (maskBeforeStroke) {
       mask.set(maskBeforeStroke);
       maskBeforeStroke = null;
@@ -181,38 +245,42 @@ export function mountRigSlice(app, model) {
   }
 
   function bindEvents() {
+    // 모드 선택 단추
+    $('#rig-mode-manual')?.addEventListener('click', () => setSliceMode('manual'));
+    $('#rig-mode-auto')?.addEventListener('click', () => setSliceMode('auto'));
+
     // 도구 선택
     const tools = ['box', 'lasso', 'brush', 'eraser'];
     for (const t of tools) {
-      $(`#rig-tool-${t}`).addEventListener('click', () => {
+      $(`#rig-tool-${t}`)?.addEventListener('click', () => {
         tool = t;
-        for (const o of tools) $(`#rig-tool-${o}`).setAttribute('aria-pressed', String(o === t));
+        for (const o of tools) $(`#rig-tool-${o}`)?.setAttribute('aria-pressed', String(o === t));
       });
     }
 
     // 붓 크기
-    $('#rig-brush-size').addEventListener('change', e => {
+    $('#rig-brush-size')?.addEventListener('change', e => {
       brushSize = Number(e.target.value) || 1;
     });
 
     // 전체 선택 / 해제
-    $('#rig-select-all').addEventListener('click', () => {
+    $('#rig-select-all')?.addEventListener('click', () => {
       if (!baseImage) return;
       fillMask(mask);
       drawOverlay();
     });
-    $('#rig-clear-selection').addEventListener('click', () => {
+    $('#rig-clear-selection')?.addEventListener('click', () => {
       if (!baseImage) return;
       clearMask(mask);
       drawOverlay();
     });
 
     // 줌 조작
-    $('#rig-zoom-in').addEventListener('click', () => zoomStep(1));
-    $('#rig-zoom-out').addEventListener('click', () => zoomStep(-1));
-    $('#rig-zoom-fit').addEventListener('click', fit);
+    $('#rig-zoom-in')?.addEventListener('click', () => zoomStep(1));
+    $('#rig-zoom-out')?.addEventListener('click', () => zoomStep(-1));
+    $('#rig-zoom-fit')?.addEventListener('click', fit);
 
-    // pointer 이벤트 — 한 손가락: 도구, 두 손가락: 이동 (paint-view 와 동일)
+    // pointer 이벤트
     stage.addEventListener('pointerdown', e => {
       if (!baseImage) return;
       stage.setPointerCapture(e.pointerId);
@@ -249,7 +317,7 @@ export function mountRigSlice(app, model) {
         return;
       }
 
-      if (pointers.size === 1 && dragStart) {
+      if (pointers.size === 1) {
         const at = cellAt(e.clientX, e.clientY);
         strokeMove(at);
       }
@@ -277,11 +345,14 @@ export function mountRigSlice(app, model) {
   }
 
   bindEvents();
+  setSliceMode(sliceMode);
 
   return {
     fit,
     render,
     drawOverlay,
     sync,
+    setSliceMode,
+    updateModeUI,
   };
 }
