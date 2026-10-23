@@ -1,18 +1,20 @@
-// 도트 공장 웹 — 네 화면(축소 · 다듬기 · 합치기 · 재생)을 잇고, 작업을 자동 저장합니다.
+// 도트 공장 웹 — 큰 분류 셋과 서브탭으로 화면을 잇고 작업을 자동 저장합니다.
 import { mountShrink } from './shrink-view.js';
 import { mountPaint } from './paint-view.js';
 import { mountRig } from './rig-view.js';
 import { mountAssemble } from './assemble-view.js';
-import { mountPlay } from './play-view.js';
+import { mountPreset } from './preset-view.js';
+import { mountNav } from './nav.js';
 import { loadSaved, saveLater } from './store.js';
 
 const $ = sel => document.querySelector(sel);
 
-function show(tab) {
-  for (const b of document.querySelectorAll('[data-tab]')) b.setAttribute('aria-selected', String(b.dataset.tab === tab));
-  for (const v of document.querySelectorAll('[data-view]')) v.hidden = v.dataset.view !== tab;
-  views[tab]?.shown?.();
-}
+const RIG_STEPS = {
+  slice: 'slice',
+  bones: 'rig',
+  motion: 'motion',
+  export: 'export',
+};
 
 let toastTimer = 0;
 function toast(text) {
@@ -23,12 +25,52 @@ function toast(text) {
   toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
 }
 
+function switchView(tab) {
+  const rigStep = RIG_STEPS[tab];
+  const rigView = document.querySelector('[data-view="rig"]');
+  const wasRigHidden = !rigView || rigView.hidden;
+
+  for (const v of document.querySelectorAll('[data-view]')) {
+    if (rigStep) {
+      v.hidden = v.dataset.view !== 'rig';
+    } else {
+      v.hidden = v.dataset.view !== tab;
+    }
+  }
+
+  if (rigStep) {
+    if (wasRigHidden) {
+      views.rig.shown?.();
+    }
+    views.rig.setStep(rigStep);
+  } else {
+    views[tab]?.shown?.();
+  }
+}
+
+const nav = mountNav({
+  onSwitch: (subtab) => switchView(subtab),
+});
+
+function show(tab) {
+  nav.show(tab);
+}
+
 const app = {
   show,
   toast,
   sendToPaint(image, name) { views.paint.load(image, name); show('paint'); },
   addToAssemble(image, name) { views.assemble.add(image, name); show('assemble'); toast(`합치기에 「${name}」을 더했습니다`); },
-  changed() { saveLater({ paint: views.paint.snapshot(), rig: views.rig.snapshot(), assemble: views.assemble.snapshot(), play: views.play.snapshot() }); },
+  getPieces() { return views.rig?.getPieces?.() || []; },
+  getPresetStack() { return views.preset?.getPresetStack?.() || null; },
+  changed() {
+    saveLater({
+      paint: views.paint.snapshot(),
+      rig: views.rig.snapshot(),
+      assemble: views.assemble.snapshot(),
+      preset: views.preset?.snapshot(),
+    });
+  },
 };
 
 const views = {
@@ -36,12 +78,10 @@ const views = {
   paint: mountPaint(app),
   rig: mountRig(app),
   assemble: mountAssemble(app),
-  play: mountPlay(app),
+  preset: mountPreset(app),
 };
 
-for (const b of document.querySelectorAll('[data-tab]')) b.addEventListener('click', () => show(b.dataset.tab));
-
-// 다듬기 도구 줄이 위쪽 머리 바로 아래에 붙도록 머리 높이를 CSS 에 알려 줍니다. 화면을 돌려 높이가 바뀌어도 따라갑니다.
+// 머리 높이를 CSS 에 알려 줍니다. 화면을 돌려 높이가 바뀌어도 따라갑니다.
 const header = $('.top');
 new ResizeObserver(() => document.documentElement.style.setProperty('--top-h', `${header.offsetHeight}px`)).observe(header);
 
@@ -51,8 +91,11 @@ loadSaved().then(async saved => {
   if (saved.paint) await views.paint.restore(saved.paint);
   if (saved.rig) await views.rig.restore(saved.rig);
   if (saved.assemble) await views.assemble.restore(saved.assemble);
-  if (saved.play) await views.play.restore(saved.play);
+  if (saved.preset) await views.preset?.restore(saved.preset);
 }).catch(() => {});
+
+const initialTab = new URLSearchParams(location.search).get('tab') || location.hash.slice(1);
+if (initialTab) show(initialTab);
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

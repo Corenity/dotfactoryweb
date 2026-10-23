@@ -1,11 +1,13 @@
 // 오프라인에서도 열리게 화면 파일을 휴대폰에 담아 둡니다. VERSION 은 손으로 올리지 않습니다 —
 // 공개판 복사(tools/publish.mjs)가 화면 파일 내용으로 정한 값으로 바꿔 넣습니다.
-const VERSION = 'dotfactory-web-5597a8227c84';
+const VERSION = 'dotfactory-web-c8ca239c2cd6';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'icon.svg',
-  'css/app.css', 'css/paint.css', 'css/rig.css', 'css/motion.css', 'css/play.css',
-  'js/app.js', 'js/store.js', 'js/io.js', 'js/shrink-view.js', 'js/paint-view.js', 'js/rig-view.js', 'js/rig-bones-view.js', 'js/motion-view.js', 'js/rig-export-view.js', 'js/assemble-view.js', 'js/play-view.js', 'js/backdrop.js', 'js/restore-worker.js',
-  'js/core/numeric.js', 'js/core/background.js', 'js/core/resample.js', 'js/core/restore.js', 'js/core/paint.js', 'js/core/select.js', 'js/core/assemble.js', 'js/core/frames.js', 'js/core/gif.js', 'js/core/slice.js', 'js/core/rig.js', 'js/core/rig-render.js', 'js/core/motion.js', 'js/core/zip.js', 'js/core/godot-tscn.js', 'js/core/godot-export.js', 'js/core/rig-history.js',
+  'assets/bare/bare_arm_l.png', 'assets/bare/bare_arm_r.png', 'assets/bare/bare_foot_l.png', 'assets/bare/bare_foot_r.png',
+  'assets/bare/bare_leg_l.png', 'assets/bare/bare_leg_r.png', 'assets/bare/bare_torso.png', 'assets/bare/face_frame.png',
+  'css/app.css', 'css/paint.css', 'css/rig.css', 'css/motion.css', 'css/preset.css',
+  'js/app.js', 'js/nav.js', 'js/store.js', 'js/io.js', 'js/shrink-view.js', 'js/paint-view.js', 'js/rig-view.js', 'js/rig-slice-view.js', 'js/rig-pieces-view.js', 'js/rig-bones-view.js', 'js/motion-view.js', 'js/rig-export-view.js', 'js/character-play-view.js', 'js/assemble-view.js', 'js/preset-view.js', 'js/backdrop.js', 'js/restore-worker.js',
+  'js/core/numeric.js', 'js/core/background.js', 'js/core/resample.js', 'js/core/restore.js', 'js/core/paint.js', 'js/core/select.js', 'js/core/assemble.js', 'js/core/gif.js', 'js/core/slice.js', 'js/core/rig.js', 'js/core/rig-render.js', 'js/core/motion.js', 'js/core/zip.js', 'js/core/godot-tscn.js', 'js/core/godot-export.js', 'js/core/rig-history.js', 'js/core/skeleton.js', 'js/core/animation.js', 'js/core/preset.js', 'js/core/preset-stack.js', 'js/core/rig-migrate.js', 'js/core/hash.js',
 ];
 
 self.addEventListener('install', event => {

@@ -95,23 +95,34 @@ function animationText(id, motion, paths, bones, reset = false) {
   let index = 0;
   for (const bone of bones) {
     const path = paths.get(bone.name);
+    if (!path) continue;
     if (reset) {
       lines.push(trackText(index++, path, [0], [bone.pos], 'position'));
       lines.push(trackText(index++, path, [0], [bone.angle], 'rotation'));
       continue;
     }
-    const track = motion.tracks[bone.name];
-    if (!track || track.times.length === 0) continue;
+    const track = motion.tracks ? motion.tracks[bone.name] : null;
+    if (!track || !track.times || track.times.length === 0) continue;
     lines.push(trackText(index++, path, track.times, track.positions, 'position'));
     lines.push(trackText(index++, path, track.times, track.rotations, 'rotation'));
   }
   return lines.join('\n');
 }
 
-function spriteText(slot, piece, parent, position, zIndex) {
+function filePart(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return 'extra';
+  const safe = raw.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').replace(/[. ]+$/g, '');
+  if (!safe || safe === '.' || safe === '..') return 'extra';
+  return safe;
+}
+
+function spriteText(slot, piece, parent, position, zIndex, textureId = null) {
   const lines = [`[node name="${slot}_${piece}" type="Sprite2D" parent="${quoted(parent)}"]`];
   if (zIndex !== 0) lines.push(`z_index = ${Math.trunc(zIndex)}`);
-  lines.push(`position = ${vector(position)}`, 'centered = false');
+  lines.push(`position = ${vector(position)}`);
+  if (textureId) lines.push(`texture = ExtResource("${textureId}")`);
+  lines.push('centered = false');
   return lines.join('\n');
 }
 
@@ -121,7 +132,21 @@ export function makeGodotTscn(project) {
   const paths = bonePaths(bones);
   const restWorld = boneWorldTransforms(bones.map(bone => ({ ...bone, angle: 90 })));
   const animationEntries = Object.entries(animations);
-  const sections = [`[gd_scene load_steps=${animationEntries.length + 4} format=3]`, '[ext_resource type="Script" path="res://character/character_rig.gd" id="1_rig"]'];
+  const extraPieces = (project.pieces || []).filter(piece => piece.slot === 'extra');
+  const extraExtResources = [];
+  const extraTextureIds = new Map();
+  extraPieces.forEach((piece, index) => {
+    const extId = `${index + 2}_${piece.piece}`;
+    const item = filePart(piece.item);
+    extraExtResources.push(`[ext_resource type="Texture2D" path="res://character/parts/extra/${item}_${piece.piece}.png" id="${extId}"]`);
+    extraTextureIds.set(piece.piece, extId);
+  });
+  const totalLoadSteps = animationEntries.length + 4 + extraExtResources.length;
+  const sections = [
+    `[gd_scene load_steps=${totalLoadSteps} format=3]`,
+    '[ext_resource type="Script" path="res://character/character_rig.gd" id="1_rig"]',
+    ...extraExtResources,
+  ];
   sections.push(animationText('Animation_RESET', {}, paths, bones, true));
   const ids = [];
   animationEntries.forEach(([name, motion], index) => {
@@ -142,9 +167,16 @@ export function makeGodotTscn(project) {
   const pieces = new Map((project.pieces || []).map(piece => [`${piece.slot}_${piece.piece}`, piece]));
   const spritesByBone = new Map();
   for (const [slot, piece] of SPRITES) {
-    const saved = pieces.get(`${slot}_${piece}`), bone = saved?.bone || defaultBoneFor(slot, piece);
+    const saved = pieces.get(`${slot}_${piece}`), bone = saved?.bone || defaultBoneFor(slot, piece, bones);
     if (!spritesByBone.has(bone)) spritesByBone.set(bone, []);
     spritesByBone.get(bone).push({ slot, piece, zIndex: saved?.zIndex ?? defaultZIndex(slot, piece) });
+  }
+  for (const piece of project.pieces || []) {
+    if (piece.slot === 'extra') {
+      const bone = piece.bone || defaultBoneFor('extra', piece.piece, bones);
+      if (!spritesByBone.has(bone)) spritesByBone.set(bone, []);
+      spritesByBone.get(bone).push({ slot: 'extra', piece: piece.piece, zIndex: piece.zIndex ?? defaultZIndex('extra', piece.piece), textureId: extraTextureIds.get(piece.piece) });
+    }
   }
 
   for (const bone of orderedBones(bones)) {
@@ -158,10 +190,56 @@ export function makeGodotTscn(project) {
     sections.push(lines.join('\n'));
     for (const sprite of spritesByBone.get(bone.name) || []) {
       const pivot = restWorld.get(bone.name);
-      sections.push(spriteText(sprite.slot, sprite.piece, paths.get(bone.name), [-pivot.x, -pivot.y], sprite.zIndex));
+      sections.push(spriteText(sprite.slot, sprite.piece, paths.get(bone.name), [-pivot.x, -pivot.y], sprite.zIndex, sprite.textureId));
     }
   }
   sections.push('[node name="AnimationPlayer" type="AnimationPlayer" parent="."]\nlibraries/ = SubResource("AnimationLibrary_main")');
+  return `${sections.join('\n\n')}\n`;
+}
+
+/** 순수 Skeleton2D/Bone2D 골격 트리만 담은 고도 씬(.tscn)을 만듭니다 (Sprite2D 미포함). */
+export function makeGodotSkeletonTscn(skeleton) {
+  const bones = normalizeBones(skeleton?.bones || []);
+  const paths = bonePaths(bones);
+  const sections = [
+    '[gd_scene format=3]',
+    '[node name="CharacterSkeleton" type="Node2D"]',
+    'texture_filter = 1',
+    '[node name="Skeleton2D" type="Skeleton2D" parent="."]',
+  ];
+  for (const bone of orderedBones(bones)) {
+    const parent = bone.parent ? paths.get(bone.parent) : 'Skeleton2D';
+    const lines = [
+      `[node name="${quoted(bone.name)}" type="Bone2D" parent="${quoted(parent)}"]`,
+      `position = ${vector(bone.pos)}`,
+    ];
+    if (bone.angle !== 90) lines.push(`rotation = ${number((bone.angle - 90) * DEG)}`);
+    lines.push(`rest = ${restTransform(bone)}`, 'auto_calculate_length_and_angle = false', `length = ${number(bone.length)}`, 'bone_angle = 90.0');
+    sections.push(lines.join('\n'));
+  }
+  return `${sections.join('\n\n')}\n`;
+}
+
+/** 뼈대 기준 AnimationLibrary 리소스(.tres) 텍스트를 만듭니다. */
+export function makeGodotAnimationLibrary(animations, skeleton) {
+  const bones = normalizeBones(skeleton?.bones || []);
+  const safeAnimations = normalizeAnimations(animations?.motions || animations || {}, bones);
+  const paths = bonePaths(bones);
+  const entries = Object.entries(safeAnimations);
+  const totalLoadSteps = entries.length + 1;
+  const sections = [`[gd_resource type="AnimationLibrary" load_steps=${totalLoadSteps} format=3]`];
+  const ids = [];
+  entries.forEach(([name, motion], index) => {
+    const id = `Animation_${index + 1}`;
+    ids.push([name, id]);
+    sections.push(animationText(id, motion, paths, bones));
+  });
+  sections.push([
+    '[resource]',
+    '_data = {',
+    ...ids.map(([name, id], index) => `&"${quoted(name)}": SubResource("${id}")${index === ids.length - 1 ? '' : ','}`),
+    '}',
+  ].join('\n'));
   return `${sections.join('\n\n')}\n`;
 }
 
@@ -242,12 +320,13 @@ export function readGodotTscn(text) {
     }
     if (!head.startsWith('node ')) continue;
     const attr = attributes(head), type = attr.type || '', name = attr.name || '';
+    const isExtraSprite = type === 'Sprite2D' && /^extra_[a-z0-9_]+$/.test(name);
     const known = SUPPORTED_NODES.has(type) && (
       type === 'Bone2D'
-      || (type === 'Node2D' && name === 'CharacterRig')
+      || (type === 'Node2D' && (name === 'CharacterRig' || name === 'CharacterSkeleton'))
       || (type === 'Skeleton2D' && name === 'Skeleton2D')
       || (type === 'AnimationPlayer' && name === 'AnimationPlayer')
-      || (type === 'Sprite2D' && SPRITE_NAMES.has(name))
+      || (type === 'Sprite2D' && (SPRITE_NAMES.has(name) || isExtraSprite))
     );
     if (!known) { warnings.push(`노드 「${name || '(이름 없음)'}」(${type || '형식 없음'})는 지원하지 않아 건너뛰었습니다`); continue; }
     if (type !== 'Bone2D') continue;

@@ -15,17 +15,33 @@
   <link rel="stylesheet" href="css/paint.css">
   <link rel="stylesheet" href="css/rig.css">
   <link rel="stylesheet" href="css/motion.css">
-  <link rel="stylesheet" href="css/play.css">
+  <link rel="stylesheet" href="css/preset.css">
 </head>
 <body>
   <header class="top">
-    <h1>도트 공장</h1>
-    <nav class="tabs" role="tablist">
-      <button role="tab" data-tab="shrink" aria-selected="true">축소</button>
-      <button role="tab" data-tab="paint" aria-selected="false">다듬기</button>
-      <button role="tab" data-tab="rig" aria-selected="false">뼈</button>
-      <button role="tab" data-tab="assemble" aria-selected="false">합치기</button>
-      <button role="tab" data-tab="play" aria-selected="false">재생</button>
+    <div class="top-row">
+      <h1 class="top-title">도트 공장</h1>
+      <nav class="tabs nav-categories" role="tablist" aria-label="큰 분류">
+        <button role="tab" data-category="image" aria-selected="true">이미지</button>
+        <button role="tab" data-category="animation" aria-selected="false">애니메이션</button>
+        <button role="tab" data-category="character" aria-selected="false">캐릭터</button>
+      </nav>
+    </div>
+    <nav class="tabs nav-subtabs" role="tablist" aria-label="서브탭">
+      <div class="subtab-group" data-for-category="image">
+        <button role="tab" data-tab="shrink" aria-selected="true">축소</button>
+        <button role="tab" data-tab="paint" aria-selected="false">편집</button>
+        <button role="tab" data-tab="slice" aria-selected="false">자르기</button>
+        <button role="tab" data-tab="assemble" aria-selected="false">합치기</button>
+      </div>
+      <div class="subtab-group" data-for-category="animation" hidden>
+        <button role="tab" data-tab="bones" aria-selected="false">뼈대</button>
+        <button role="tab" data-tab="motion" aria-selected="false">키잡기</button>
+      </div>
+      <div class="subtab-group" data-for-category="character" hidden>
+        <button role="tab" data-tab="preset" aria-selected="false">프리셋 만들기</button>
+        <button role="tab" data-tab="export" aria-selected="false">플레이</button>
+      </div>
     </nav>
   </header>
 
@@ -57,7 +73,7 @@
         <div class="row">
           <button class="btn clear-toggle" id="shrink-clear" aria-pressed="false">투명화</button>
           <button class="btn" id="shrink-save">PNG 내려받기</button>
-          <button class="btn primary" id="shrink-to-paint">다듬기로</button>
+          <button class="btn primary" id="shrink-to-paint">편집으로</button>
           <button class="btn" id="shrink-to-assemble">합치기에 더하기</button>
         </div>
       </div>
@@ -121,13 +137,55 @@
       </div>
     </section>
 
-    <section id="rig" class="view" data-view="rig" hidden>
-      <div class="row segmented" id="rig-steps">
-        <button class="btn" id="rig-step-slice" aria-selected="true">자르기</button>
-        <button class="btn" id="rig-step-rig" aria-selected="false">뼈대</button>
-        <button class="btn" id="rig-step-motion" aria-selected="false">움직임</button>
-        <button class="btn" id="rig-step-export" aria-selected="false">뽑기</button>
+    <section id="preset" class="view" data-view="preset" hidden>
+      <div class="row">
+        <button class="btn" id="preset-load-default">기본 맨몸 불러오기</button>
+        <button class="btn" id="preset-open-json">프리셋 열기</button>
+        <button class="btn" id="preset-save-json">프리셋 저장</button>
+        <button class="btn primary" id="preset-save-png">그림 받기</button>
       </div>
+
+      <div class="preset-meta-card">
+        <div class="preset-meta-grid">
+          <label>식별자<input type="text" id="preset-id" value="preset" placeholder="id"></label>
+          <label>이름<input type="text" id="preset-name" value="새 프리셋" placeholder="이름"></label>
+          <label class="full">종류<select id="preset-kind">
+            <option value="bare">맨몸 (bare)</option>
+            <option value="outfit">의상 (outfit)</option>
+            <option value="face">얼굴틀 (face)</option>
+            <option value="expression">표정 (expression)</option>
+            <option value="hair">헤어 (hair)</option>
+            <option value="shoes">신발 (shoes)</option>
+            <option value="sweat">상태 (sweat)</option>
+            <option value="extra">기타 (extra)</option>
+          </select></label>
+        </div>
+      </div>
+
+      <div class="stage small"><canvas id="preset-canvas" class="pixels"></canvas></div>
+
+      <div class="row">
+        <button class="btn" id="preset-add-piece">자르기 조각에서 넣기</button>
+        <button class="btn" id="preset-add-file">그림 파일 올리기</button>
+      </div>
+
+      <div class="preset-section">
+        <h3>레이어 목록 (현재 프리셋)</h3>
+        <p class="hint">층(zIndex)이 낮을수록 아래에 깔립니다. 맨몸은 늘 가장 아래에 깔려 유지됩니다.</p>
+        <div id="preset-layer-list" class="preset-layer-list"></div>
+      </div>
+
+      <div class="preset-section">
+        <div class="row">
+          <h3>겹친 프리셋 (오버레이)</h3>
+          <button class="btn small" id="preset-add-overlay">프리셋 얹기</button>
+          <button class="btn small" id="preset-clear-overlays">모두 빼기</button>
+        </div>
+        <div id="preset-overlay-list" class="preset-overlay-list"></div>
+      </div>
+    </section>
+
+    <section id="rig" class="view" data-view="rig" hidden>
       <div class="row">
         <button class="btn primary" id="rig-open-base">원본 그림 올리기</button>
         <button class="btn" id="rig-open-project">작업 열기</button>
@@ -161,7 +219,8 @@
       <div class="row rig-slice-only">
         <label class="inline">칸<select id="rig-slot-select"></select></label>
         <label class="inline">부위<input type="text" id="rig-item-name" value="맨몸" size="6"></label>
-        <label class="inline">조각<select id="rig-piece-select"></select></label>
+        <label class="inline" id="rig-piece-select-wrap">조각<select id="rig-piece-select"></select></label>
+        <label class="inline" id="rig-piece-custom-wrap" hidden>조각<input type="text" id="rig-piece-custom" placeholder="sword" size="8"></label>
       </div>
       <div class="row rig-slice-only">
         <button class="btn primary" id="rig-save-piece" style="flex:1;">선택 영역을 조각으로 저장</button>
@@ -171,6 +230,8 @@
 
       <div class="rig-bones-only" id="rig-bones-panel" hidden>
         <div class="row">
+          <button class="btn" id="rig-bones-open">뼈 열기</button>
+          <button class="btn" id="rig-bones-save">뼈 저장</button>
           <button class="btn" id="rig-bones-zoom-out" aria-label="뼈 미리보기 작게 보기">−</button>
           <span class="hint" id="rig-bones-zoom-text">4배</span>
           <button class="btn" id="rig-bones-zoom-in" aria-label="뼈 미리보기 크게 보기">+</button>
@@ -185,6 +246,10 @@
           <section class="rig-editor-card">
             <h3>뼈 나무</h3>
             <div class="rig-bone-tree" id="rig-bone-tree"></div>
+            <div class="row" style="margin-top: 8px; gap: 8px;">
+              <input id="rig-bone-new-name" type="text" placeholder="새 뼈 이름" style="flex:1;">
+              <button class="btn" id="rig-bone-add">뼈 더하기</button>
+            </div>
           </section>
           <section class="rig-editor-card">
             <h3>고른 뼈</h3>
@@ -205,10 +270,13 @@
               <button class="btn" id="rig-bones-reset-rest" style="flex:1;">초기값으로</button>
               <button class="btn" id="rig-bones-save-rest" style="flex:1;">초기값 저장</button>
             </div>
+            <div class="row" style="margin-top: 8px;">
+              <button class="btn" id="rig-bone-delete" style="flex:1;">뼈 지우기</button>
+            </div>
           </section>
         </div>
         <section class="rig-editor-card">
-          <h3>조각의 뼈와 층</h3>
+            <h3>조각의 뼈와 층</h3>
           <div class="rig-assign-list" id="rig-assign-list"></div>
         </section>
       </div>
@@ -218,6 +286,8 @@
           <label class="inline">움직임<select id="motion-select"></select></label>
           <button class="btn" id="motion-add">새 움직임</button>
           <button class="btn" id="motion-drop">지우기</button>
+          <button class="btn" id="motion-open">애니메이션 열기</button>
+          <button class="btn" id="motion-save">애니메이션 저장</button>
         </div>
         <div class="motion-settings">
           <label>이름<input id="motion-name" type="text"></label>
@@ -276,6 +346,30 @@
       </div>
 
       <div class="rig-export-only" id="rig-export-panel" hidden>
+        <section class="rig-editor-card rig-play-card">
+          <div class="play-toolbar row">
+            <button class="btn primary" id="play-toggle-btn">▶ 재생</button>
+            <label class="inline">움직임
+              <select id="play-motion-select"></select>
+            </label>
+            <span class="hint" id="play-time-display">0.0s / 0.8s</span>
+          </div>
+          <div class="stage small play-stage">
+            <canvas id="play-canvas" class="pixels" width="72" height="64"></canvas>
+          </div>
+        </section>
+
+        <section class="rig-editor-card rig-export-card">
+          <h3>통합 묶음 ZIP 내보내기</h3>
+          <p class="hint">뼈 장면(.tscn), 애니메이션(.tres), 프리셋 그림(PNG)을 단일 번들(package.json)로 묶어 내려받습니다.</p>
+          <div class="bundle-options">
+            <label class="bundle-check-label"><input type="checkbox" id="bundle-check-skeleton" checked> 뼈대 (character_skeleton.tscn)</label>
+            <label class="bundle-check-label"><input type="checkbox" id="bundle-check-animation" checked> 애니메이션 (character_animations.tres)</label>
+            <label class="bundle-check-label"><input type="checkbox" id="bundle-check-presets" checked> 프리셋 (parts/ 및 presets/)</label>
+          </div>
+          <button class="btn primary" id="play-save-bundle">통합 묶음 ZIP 내려받기</button>
+        </section>
+
         <section class="rig-editor-card rig-export-card">
           <h3>고도 엔진으로 뽑기</h3>
           <p class="hint">project-c의 <code>res://</code> 자리에 그대로 풀 수 있는 장면, 프리셋, 72×64 조각 PNG와 웹 작업 파일을 ZIP 하나에 담습니다.</p>
@@ -309,30 +403,6 @@
       <div class="stage small"><canvas id="asm-canvas" class="pixels"></canvas></div>
       <p class="hint">층 번호가 큰 그림이 위에 옵니다. ▲ ▼ 는 한 층씩 올리고 내리며, 가장 낮은 층은 1 입니다. 그림마다 진하기는 화면에서만 비치고, 합친 그림 내려받기는 늘 100% 입니다. 화살표는 한 칸씩 옮깁니다. 대볼 그림은 맨 위에 진하기만큼 비쳐 보이고, 합친 그림 내려받기에는 들어가지 않습니다.</p>
       <ol class="layers" id="asm-list"></ol>
-    </section>
-
-    <section id="play" class="view" data-view="play" hidden>
-      <div class="row">
-        <button class="btn primary" id="play-add">그림 더하기</button>
-        <button class="btn primary" id="play-save-gif" disabled>GIF 내려받기</button>
-        <button class="btn" id="play-drop-all" disabled>모두 빼기</button>
-      </div>
-      <div class="stage small play-stage">
-        <canvas id="play-canvas" class="pixels" hidden></canvas>
-        <p class="empty" id="play-empty">움직임 순서대로 PNG 를 여러 장 고르세요.</p>
-      </div>
-      <div class="row">
-        <button class="btn primary" id="play-toggle" disabled>▶ 재생</button>
-        <select id="play-loop" aria-label="재생 방식"><option value="loop">반복 재생</option><option value="once">한 번 재생</option></select>
-        <button class="btn clear-toggle" id="play-clear" aria-pressed="false">투명화</button>
-        <span class="hint" id="play-at"></span>
-      </div>
-      <div class="row">
-        <label class="inline">새 그림 시간<input id="play-default-ms" type="number" inputmode="numeric" min="20" max="10000" step="10" value="130">ms</label>
-        <span class="hint" id="play-count"></span>
-      </div>
-      <p class="hint">위에서부터 차례로 넘어갑니다. 크기가 다른 그림은 가장 큰 판의 바닥 가운데에 세웁니다. 한 번에 고른 그림은 이름 순서로 붙습니다.</p>
-      <ol class="layers" id="play-list"></ol>
     </section>
   </main>
 

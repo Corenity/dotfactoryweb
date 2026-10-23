@@ -1,8 +1,12 @@
 // rig-1과 project-c용 장면·프리셋·PNG를 한 무압축 ZIP으로 묶고 다시 읽습니다.
-import { SLOTS } from './slice.js';
-import { toProject, parseProject } from './rig.js';
-import { makeGodotTscn, readGodotTscn } from './godot-tscn.js';
+import { SLOTS, isValidPieceName } from './slice.js';
+import { toProject, parseProject, DEFAULT_BONES } from './rig.js';
+import { makeGodotTscn, readGodotTscn, makeGodotSkeletonTscn, makeGodotAnimationLibrary } from './godot-tscn.js';
 import { createStoredZip, readStoredZip, textFromBytes } from './zip.js';
+import { normalizeSkeletonBones } from './skeleton.js';
+import { boneWorldTransforms } from './rig-render.js';
+import { sha256Hex } from './hash.js';
+import { toPreset } from './preset.js';
 
 const RIG_FILE = 'dotfactory-rig.json';
 const TSCN_FILE = 'character/character_rig.tscn';
@@ -72,16 +76,27 @@ function presetText(items) {
 }
 
 function exportParts(project) {
-  const entries = [], items = new Map(), names = new Set();
+  const entries = [], items = new Map(), names = new Set(), extraPieceNames = new Set();
   for (const piece of project.pieces) {
-    if (!Object.hasOwn(SLOTS, piece.slot) || !SLOTS[piece.slot].includes(piece.piece)) {
-      throw new Error(`조각 「${piece.name}」의 칸·조각 이름은 project-c가 모르는 값입니다`);
+    if (piece.slot === 'extra') {
+      if (!isValidPieceName(piece.piece)) {
+        throw new Error(`조각 「${piece.name}」의 이름이 올바르지 않습니다`);
+      }
+      if (extraPieceNames.has(piece.piece)) {
+        throw new Error(`기타 조각 이름 「${piece.piece}」이 둘 이상입니다`);
+      }
+      extraPieceNames.add(piece.piece);
+    } else {
+      if (!Object.hasOwn(SLOTS, piece.slot) || !SLOTS[piece.slot].includes(piece.piece)) {
+        throw new Error(`조각 「${piece.name}」의 칸·조각 이름은 project-c가 모르는 값입니다`);
+      }
+      const item = filePart(piece.item, `조각 「${piece.name}」의 부위`);
+      if (items.has(piece.slot) && items.get(piece.slot) !== item) {
+        throw new Error(`칸 「${piece.slot}」에 부위 「${items.get(piece.slot)}」와 「${item}」이 함께 있습니다. 고도 프리셋은 한 칸에 부위 하나만 쓸 수 있습니다`);
+      }
+      items.set(piece.slot, item);
     }
     const item = filePart(piece.item, `조각 「${piece.name}」의 부위`);
-    if (items.has(piece.slot) && items.get(piece.slot) !== item) {
-      throw new Error(`칸 「${piece.slot}」에 부위 「${items.get(piece.slot)}」와 「${item}」이 함께 있습니다. 고도 프리셋은 한 칸에 부위 하나만 쓸 수 있습니다`);
-    }
-    items.set(piece.slot, item);
     const path = `character/parts/${piece.slot}/${item}_${piece.piece}.png`;
     if (names.has(path)) throw new Error(`고도 PNG 경로 「${path}」가 둘 이상입니다`);
     names.add(path);
@@ -129,3 +144,149 @@ export function projectFromGodotZip(bytes) {
 }
 
 export const GODOT_EXPORT_PATHS = Object.freeze({ rig: RIG_FILE, scene: TSCN_FILE, preset: PRESET_FILE });
+
+/**
+ * 뼈·애니메이션·프리셋을 단일 번들 ZIP(package.json 매니페스트 포함)으로 패키징합니다.
+ * 부분 내보내기(selected)를 지원하며, 선택하지 않은 항목은 targets에서 null이고 파일이 번들에 포함되지 않습니다.
+ *
+ * @param {object} params
+ * @param {object|null} [params.skeleton] - skeleton-1 객체 ({ canvas, bones })
+ * @param {object|null} [params.animation] - animation-1 객체 ({ skeleton, bones, motions })
+ * @param {Array<object>} [params.presets] - preset-1 객체 배열
+ * @param {object} [params.selected] - { skeleton: boolean, animation: boolean, presets: boolean }
+ * @param {string|null} [params.createdAt] - package.json created_at (null이면 현재 시각)
+ * @param {string} [params.generator='DotFactoryWeb']
+ * @param {[number, number]} [params.canvas=[72, 64]]
+ * @returns {{ bytes: Uint8Array, entries: Array<{ name: string, data: string|Uint8Array }>, packageJson: object }}
+ */
+export function makeBundle({
+  skeleton = null,
+  animation = null,
+  presets = [],
+  selected = { skeleton: true, animation: true, presets: true },
+  createdAt = null,
+  generator = 'DotFactoryWeb',
+  canvas = [72, 64],
+} = {}) {
+  const isSkeletonSelected = Boolean(selected?.skeleton && skeleton);
+  const isAnimationSelected = Boolean(selected?.animation && animation);
+  const isPresetsSelected = Boolean(selected?.presets && presets && presets.length > 0);
+
+  const targets = {
+    skeleton: null,
+    animation: null,
+    presets_dir: null,
+    images_dir: null,
+  };
+
+  const entries = [];
+  const items = [];
+
+  // 1. 뼈대 (Skeleton)
+  if (isSkeletonSelected) {
+    targets.skeleton = {
+      bundle_file: 'character_skeleton.tscn',
+      suggested_dest: 'res://character/character_skeleton.tscn',
+      type: 'PackedScene',
+    };
+    entries.push({
+      name: 'character_skeleton.tscn',
+      data: makeGodotSkeletonTscn(skeleton),
+    });
+  }
+
+  // 2. 애니메이션 (Animation)
+  if (isAnimationSelected) {
+    const motions = Object.keys(animation?.motions || {});
+    targets.animation = {
+      bundle_file: 'character_animations.tres',
+      suggested_dest: 'res://character/character_animations.tres',
+      type: 'AnimationLibrary',
+      motions,
+    };
+    entries.push({
+      name: 'character_animations.tres',
+      data: makeGodotAnimationLibrary(animation, skeleton),
+    });
+  }
+
+  // 3. 프리셋 (Presets)
+  if (isPresetsSelected) {
+    targets.presets_dir = 'res://character/presets';
+    targets.images_dir = 'res://character/images';
+
+    const bones = normalizeSkeletonBones(skeleton?.bones || DEFAULT_BONES);
+    const restWorld = boneWorldTransforms(bones.map(b => ({ ...b, angle: 90 })));
+    const addedImages = new Set();
+
+    for (const rawPreset of presets) {
+      if (!rawPreset) continue;
+      const preset = toPreset(rawPreset);
+      const presetId = filePart(preset.id, '프리셋 ID');
+
+      // 프리셋 JSON 파일: presets/<preset_id>.json
+      const presetPath = `presets/${presetId}.json`;
+      entries.push({
+        name: presetPath,
+        data: `${JSON.stringify(preset, null, 2)}\n`,
+      });
+
+      // 각 레이어 처리
+      for (const layer of preset.layers || []) {
+        const rawDataUrl = layer.image || layer.png;
+        if (!rawDataUrl) continue;
+        const pieceId = layer.id || `${presetId}_${layer.piece}`;
+        const bundlePngPath = `parts/${presetId}/${pieceId}.png`;
+        const bytes = pngBytes(rawDataUrl, pieceId);
+        const hash = sha256Hex(bytes).slice(0, 16);
+        const pivot = restWorld.get(layer.bone) || { x: 0, y: 0 };
+        const offset = [-Math.round(pivot.x), -Math.round(pivot.y)];
+
+        items.push({
+          preset_id: preset.id,
+          preset_name: preset.name,
+          kind: preset.kind,
+          piece_id: pieceId,
+          bundle_file: bundlePngPath,
+          original_name: layer.original_name || `${pieceId}.png`,
+          content_hash: hash,
+          suggested_table_id: pieceId,
+          suggested_dest_file: `res://character/images/${pieceId}.png`,
+          bone: layer.bone,
+          zIndex: layer.zIndex ?? 0,
+          slot: layer.slot || preset.kind,
+          piece: layer.piece,
+          offset,
+        });
+
+        if (!addedImages.has(bundlePngPath)) {
+          addedImages.add(bundlePngPath);
+          entries.push({
+            name: bundlePngPath,
+            data: bytes,
+          });
+        }
+      }
+    }
+  }
+
+  const pkg = {
+    schema: 'dotfactory-bundle-1',
+    created_at: createdAt || new Date().toISOString(),
+    generator,
+    canvas: canvas || [72, 64],
+    targets,
+    items,
+  };
+
+  entries.unshift({
+    name: 'package.json',
+    data: `${JSON.stringify(pkg, null, 2)}\n`,
+  });
+
+  return {
+    bytes: createStoredZip(entries),
+    entries,
+    packageJson: pkg,
+  };
+}

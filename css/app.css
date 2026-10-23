@@ -21,17 +21,33 @@ body {
 
 .top {
   position: sticky; top: 0; z-index: 2;
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 8px 12px; background: var(--bg); border-bottom: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 6px 8px; background: var(--bg); border-bottom: 1px solid var(--line);
 }
 
-.top h1 { margin: 0; font-size: 18px; }
+.top-row {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+}
 
-.tabs { display: flex; gap: 3px; flex: 1; }
+.top-title {
+  margin: 0; font-size: 14px; font-weight: 700; color: var(--muted);
+  white-space: nowrap; flex-shrink: 0;
+}
+
+.tabs { display: flex; gap: 3px; width: 100%; }
+
+.nav-categories { flex: 1; }
+
+.nav-subtabs { width: 100%; }
+
+.subtab-group {
+  display: flex; gap: 3px; width: 100%;
+}
+.subtab-group[hidden] { display: none !important; }
 
 .tabs button {
-  flex: 1; min-height: 44px; padding: 0 2px; border: 1px solid var(--line); border-radius: 10px;
-  background: var(--panel); color: var(--muted); font-size: 14px;
+  flex: 1; min-height: 44px; min-width: 0; padding: 0 4px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel); color: var(--muted); font-size: 14px; white-space: nowrap;
 }
 
 .tabs button[aria-selected="true"] { color: var(--text); border-color: var(--accent); background: #26304a; }

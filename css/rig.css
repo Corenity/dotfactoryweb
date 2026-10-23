@@ -13,18 +13,6 @@
   place-items: center;
 }
 
-/* 단계 선택 바 */
-#rig-steps button[aria-selected="true"] {
-  border-color: var(--accent);
-  color: var(--text);
-  background: #26304a;
-}
-
-#rig-steps button[disabled] {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 /* 그림판 스테이지 — 다듬기와 같은 규칙으로 절대 위치 캔버스를 가운데로 옮겨 띄웁니다 */
 #rig .stage {
   position: relative;
@@ -165,9 +153,85 @@
 .rig-assign-row label { margin: 0; }
 .rig-assign-row .btn { min-width: 44px; min-height: 44px; padding: 0; }
 
+/* 플레이 화면 전용 스타일 */
+.rig-play-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+.play-toolbar {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.play-toolbar .btn,
+.play-toolbar select {
+  min-height: 44px;
+}
+
+/* 플레이 캔버스는 일반 흐름(static)에 두고 4배(288x256) 크기로 선명하게 표시 */
+#rig .play-stage {
+  height: auto;
+  min-height: unset;
+  max-height: unset;
+  position: static;
+  background: #03c037;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+#rig .play-stage canvas {
+  position: static;
+  display: block;
+  width: 288px;
+  height: 256px;
+  max-width: 100%;
+  aspect-ratio: 72 / 64;
+  image-rendering: pixelated;
+  background: #03c037;
+}
+
+.bundle-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+/* 375px 화면에서도 상자와 글자가 한 줄로 나란히 오도록 설정 */
+.rig-editor-card .bundle-check-label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 13.5px;
+  white-space: nowrap;
+}
+
+.rig-editor-card .bundle-check-label input[type="checkbox"] {
+  flex-shrink: 0;
+  margin: 0;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+}
+
 @media (max-width: 520px) {
-  #rig-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
-  #rig-steps .btn { min-width: 0; padding-inline: 8px; }
   .rig-editor-grid { grid-template-columns: 1fr; }
   .rig-assign-row { grid-template-columns: minmax(85px, 1fr) minmax(95px, 1fr) 64px; }
   .rig-assign-row .btn { grid-row: 2; }

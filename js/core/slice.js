@@ -14,6 +14,7 @@ export const SLOTS = {
   shoes: ['shoe_l', 'shoe_r'],
   hairpin: ['hairpin'],
   earring: ['earring'],
+  extra: [],
 };
 
 /** UI 표시용 한국어 친절 이름 표입니다. */
@@ -27,6 +28,7 @@ export const SLOT_NAMES = {
   shoes: '신발',
   hairpin: '머리핀',
   earring: '귀걸이',
+  extra: '기타',
 };
 
 export const PIECE_NAMES = {
@@ -52,6 +54,13 @@ export const PIECE_NAMES = {
   hairpin: '머리핀',
   earring: '귀걸이',
 };
+
+export function isValidPieceName(name) {
+  if (typeof name !== 'string') return false;
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+  return /^[a-z0-9_]+$/.test(trimmed);
+}
 
 export function piecesOf(slot) {
   return SLOTS[slot] || [];

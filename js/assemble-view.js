@@ -81,7 +81,7 @@ export function mountAssemble(app) {
       const tools = document.createElement('span');
       tools.className = 'item-tools';
       tools.append(
-        button('다듬기', () => app.sendToPaint(item.image, item.name)),
+        button('편집', () => app.sendToPaint(item.image, item.name)),
         button('빼기', () => { if (confirm(`「${item.name}」을 합치기에서 뺄까요?`)) { items = items.filter(i => i !== item); changed(); } }),
       );
       const top = document.createElement('div');

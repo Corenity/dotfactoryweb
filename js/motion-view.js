@@ -3,7 +3,8 @@ import { boneLabel, defaultAnimations } from './core/rig.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
 import { changeMotionLength, changeMotionStep, copyPreviousKey, deleteKey, frameTimes, hasKey, poseAt, renderMotionFrames, setKey } from './core/motion.js';
 import { encodeGif } from './core/gif.js';
-import { drawPixels, saveFile } from './io.js';
+import { drawPixels, saveFile, saveJson, pickFiles } from './io.js';
+import { toAnimation, parseAnimation, checkSkeletonCompatibility, adaptAnimationToBones, mergeAnimations } from './core/animation.js';
 
 const $ = selector => document.querySelector(selector);
 const rounded = value => Number(Number(value).toFixed(9));
@@ -395,6 +396,53 @@ export function mountMotion(app, model) {
       const result = await saveFile(`${safeName}.gif`, new Blob([bytes], { type: 'image/gif' }));
       if (result !== 'cancelled') app.toast(`「${safeName}.gif」을 만들었습니다`);
     });
+    const saveAnimBtn = $('#motion-save');
+    if (saveAnimBtn) {
+      saveAnimBtn.addEventListener('click', async () => {
+        const activeMotions = model.getAnimations();
+        const boneNames = bones().map(b => b.name);
+        const animObj = toAnimation({
+          skeleton: 'character_skeleton',
+          bones: boneNames,
+          motions: activeMotions,
+        });
+        const item = model.getItem?.() || currentName || '캐릭터';
+        const fileName = `${item}_애니.json`;
+        const result = await saveJson(fileName, animObj);
+        if (result !== 'cancelled') {
+          app.toast(`「${fileName}」으로 저장했습니다`);
+        }
+      });
+    }
+
+    const openAnimBtn = $('#motion-open');
+    if (openAnimBtn) {
+      openAnimBtn.addEventListener('click', async () => {
+        try {
+          const [file] = await pickFiles({ accept: '.json,application/json,text/plain' });
+          if (!file) return;
+          const animObj = parseAnimation(JSON.parse(await file.text()));
+          const compat = checkSkeletonCompatibility(animObj, bones());
+          const adaptedMotions = adaptAnimationToBones(animObj, bones());
+          const before = model.snapshot?.();
+          const merge = mergeAnimations(model.getAnimations(), adaptedMotions);
+          model.setAnimations(merge.motions);
+          const firstIncomingName = Object.keys(adaptedMotions)[0];
+          if (firstIncomingName) currentName = firstIncomingName;
+          currentTime = 0;
+          refresh();
+          model.commit?.(before);
+
+          let msg = `애니메이션 ${merge.totalIncomingCount}개를 불러왔습니다`;
+          if (merge.overwrittenCount > 0) msg += ` (덮어씀 ${merge.overwrittenCount}개)`;
+          if (compat.warnings.length > 0) msg += ` · ${compat.warnings[0]}`;
+          app.toast(msg);
+        } catch (err) {
+          app.toast(err.message || '애니메이션 파일을 열 수 없습니다');
+        }
+      });
+    }
+
     bindPointers();
   }
 

@@ -1,4 +1,0 @@
-/* 재생 화면 — 미리보기와 프레임 목록. 목록 칸 모양은 합치기 목록(.layers · .layer)을 같이 씁니다. */
-.play-stage { min-height: 160px; }
-.layer.selected { border-color: var(--accent); }
-.layer button.name { min-height: 44px; padding: 0; border: 0; background: none; color: var(--text); font-size: 15px; text-align: left; }

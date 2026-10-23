@@ -1,0 +1,172 @@
+/* 캐릭터 > 프리셋 만들기 화면 전용 스타일 */
+#preset .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+#preset .preset-meta-card {
+  background: var(--card-bg, #1e1e24);
+  border: 1px solid var(--line, #333);
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+
+#preset .preset-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+#preset .preset-meta-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--hint, #aaa);
+  min-width: 0;
+}
+
+#preset .preset-meta-grid label.full {
+  grid-column: 1 / -1;
+}
+
+#preset .preset-meta-grid input,
+#preset .preset-meta-grid select {
+  width: 100%;
+  min-height: 44px;
+  font-size: 15px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line, #444);
+  background: var(--bg, #111);
+  color: var(--text, #eee);
+  box-sizing: border-box;
+}
+
+#preset .stage {
+  height: auto;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #03c037; /* 도트 공장 표준 초록 */
+  border: 1px solid var(--line, #333);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  touch-action: auto;
+}
+
+#preset .stage canvas {
+  position: static;
+  width: 216px; /* 72 * 3 */
+  height: 192px; /* 64 * 3 */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: transparent;
+}
+
+#preset .preset-section {
+  background: var(--card-bg, #1e1e24);
+  border: 1px solid var(--line, #333);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+#preset .preset-section h3 {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+  color: var(--text, #eee);
+}
+
+.preset-layer-list,
+.preset-overlay-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.preset-layer-item,
+.preset-overlay-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg, #18181c);
+  border: 1px solid var(--line, #3a3a42);
+  border-radius: 6px;
+  padding: 4px 8px;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.preset-layer-item img,
+.preset-layer-item canvas {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  background: #03c037;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.preset-layer-item .layer-info {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.preset-layer-item .layer-id {
+  font-weight: bold;
+  font-size: 13px;
+  color: var(--accent, #6db3f2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
+
+.preset-layer-item select,
+.preset-layer-item input[type="number"] {
+  min-height: 44px;
+  padding: 0 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line, #444);
+  background: var(--bg, #111);
+  color: var(--text, #eee);
+  font-size: 13px;
+}
+
+.preset-layer-item input[type="number"] {
+  width: 60px;
+}
+
+.preset-layer-item .btn.small,
+.preset-overlay-item .btn.small {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 10px;
+  flex-shrink: 0;
+}
+
+.preset-overlay-item .overlay-title {
+  flex: 1;
+  font-size: 14px;
+}
+
+.preset-overlay-item .overlay-badge {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #2a3a50;
+  color: #7bc4ff;
+}

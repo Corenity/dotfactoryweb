@@ -1,5 +1,6 @@
 // 뼈 애니메이션 작업 파일 — 조각 목록 · 뼈대 트리 · 동작 키프레임을 저장하고 복원합니다.
 // 화면(DOM)을 쓰지 않는 순수 모듈로 Node 시험이 그대로 돌립니다.
+import { boneWorldTransforms, invert, transformPoint } from './rig-render.js';
 
 export const SCHEMA = 'dotfactory-web/rig-1';
 export const DEFAULT_MOTION_NAME = 'walk';
@@ -48,7 +49,23 @@ export function defaultZIndex(slot = '', piece = '') {
   return 5;
 }
 
-export function defaultBoneFor(slot = '', piece = '') {
+export function defaultBoneFor(slot = '', piece = '', bones = null, selectedBone = null) {
+  if (slot !== 'extra') {
+    const target = slotDefaultBone(piece);
+    if (!bones || !Array.isArray(bones) || bones.some(b => b.name === target)) return target;
+  }
+  if (slot === 'extra' || bones) {
+    if (selectedBone) return selectedBone;
+    if (bones && Array.isArray(bones)) {
+      if (bones.some(b => b.name === 'Torso')) return 'Torso';
+      return bones[0]?.name || 'Torso';
+    }
+    return 'Torso';
+  }
+  return 'Torso';
+}
+
+function slotDefaultBone(piece = '') {
   const p = String(piece || '');
   if (p === 'torso' || p === 'body') return 'Torso';
   if (p.startsWith('arm_l')) return 'ArmL';
@@ -58,6 +75,148 @@ export function defaultBoneFor(slot = '', piece = '') {
   if (p.startsWith('foot_l') || p.startsWith('shoe_l')) return 'FootL';
   if (p.startsWith('foot_r') || p.startsWith('shoe_r')) return 'FootR';
   return 'Head';
+}
+
+export function isValidBoneName(name) {
+  if (typeof name !== 'string') return false;
+  const trimmed = name.trim();
+  if (!trimmed) return false;
+  return /^[A-Za-z0-9_]+$/.test(trimmed);
+}
+
+export function addBone(bones, { name, parent = null } = {}) {
+  const safeBones = normalizeBones(bones);
+  if (!name || !isValidBoneName(name)) {
+    throw new Error('뼈 이름은 영문, 숫자, _ 만 쓸 수 있습니다');
+  }
+  const cleanName = name.trim();
+  if (safeBones.some(b => b.name === cleanName)) {
+    throw new Error(`뼈 이름 「${cleanName}」이 이미 있습니다`);
+  }
+  const cleanParent = parent ? String(parent).trim() : null;
+  if (cleanParent && !safeBones.some(b => b.name === cleanParent)) {
+    throw new Error(`부모 뼈 「${cleanParent}」를 찾을 수 없습니다`);
+  }
+  const newBone = {
+    name: cleanName,
+    parent: cleanParent,
+    pos: [0, -4],
+    angle: 90,
+    length: 4,
+  };
+  return [...safeBones, newBone];
+}
+
+export function removeBone({ bones, pieces = [], animations = null, restPose = null } = {}, boneName = '') {
+  const safeBones = normalizeBones(bones);
+  if (safeBones.length <= 1) {
+    throw new Error('마지막 뼈는 지울 수 없습니다');
+  }
+  const target = safeBones.find(b => b.name === boneName);
+  if (!target) {
+    throw new Error(`뼈 「${boneName}」를 찾을 수 없습니다`);
+  }
+
+  const worlds = boneWorldTransforms(safeBones);
+  const parentName = target.parent;
+  const parentWorld = parentName ? worlds.get(parentName) : null;
+  const parentInv = parentWorld ? invert(parentWorld.matrix) : null;
+
+  const reparentedChildren = [];
+  const newBones = [];
+  for (const b of safeBones) {
+    if (b.name === boneName) continue;
+    if (b.parent === boneName) {
+      reparentedChildren.push(b.name);
+      const childWorld = worlds.get(b.name);
+      let newPos, newAngle;
+      if (parentWorld) {
+        const p = transformPoint(parentInv, childWorld.x, childWorld.y);
+        newPos = [Math.round(p[0]), Math.round(p[1])];
+        newAngle = Math.round((childWorld.angle - parentWorld.angle + 90) * 10000) / 10000;
+      } else {
+        newPos = [Math.round(childWorld.x), Math.round(childWorld.y)];
+        newAngle = Math.round((childWorld.angle + 90) * 10000) / 10000;
+      }
+      newBones.push({
+        name: b.name,
+        parent: parentName,
+        pos: newPos,
+        angle: newAngle,
+        length: b.length,
+      });
+    } else {
+      newBones.push({
+        name: b.name,
+        parent: b.parent,
+        pos: [...b.pos],
+        angle: b.angle,
+        length: b.length,
+      });
+    }
+  }
+
+  const fallbackBone = parentName || (newBones.find(b => !b.parent)?.name ?? newBones[0].name);
+  const newPieces = pieces.map(p => {
+    if (p.bone === boneName) {
+      return { ...p, bone: fallbackBone };
+    }
+    return { ...p };
+  });
+
+  const restAppliedBones = applyRestPose(safeBones, restPose).bones;
+  const restWorlds = boneWorldTransforms(restAppliedBones);
+  const restParentWorld = parentName ? restWorlds.get(parentName) : null;
+  const restParentInv = restParentWorld ? invert(restParentWorld.matrix) : null;
+
+  const baseRest = (restPose && typeof restPose === 'object') ? restPose : defaultRestPose();
+  const newRestPose = {};
+  for (const [k, v] of Object.entries(baseRest)) {
+    if (k !== boneName) {
+      newRestPose[k] = { ...v, pos: [...v.pos] };
+    }
+  }
+  for (const childName of reparentedChildren) {
+    const childRestWorld = restWorlds.get(childName);
+    if (!childRestWorld) continue;
+    let restPos, restAngle;
+    if (restParentWorld) {
+      const p = transformPoint(restParentInv, childRestWorld.x, childRestWorld.y);
+      restPos = [Math.round(p[0]), Math.round(p[1])];
+      restAngle = Math.round((childRestWorld.angle - restParentWorld.angle + 90) * 10000) / 10000;
+    } else {
+      restPos = [Math.round(childRestWorld.x), Math.round(childRestWorld.y)];
+      restAngle = Math.round((childRestWorld.angle + 90) * 10000) / 10000;
+    }
+    newRestPose[childName] = { pos: restPos, angle: restAngle };
+  }
+
+  let newAnimations = null;
+  if (animations && typeof animations === 'object') {
+    newAnimations = {};
+    for (const [motionName, motion] of Object.entries(animations)) {
+      const newTracks = {};
+      if (motion.tracks) {
+        for (const [k, v] of Object.entries(motion.tracks)) {
+          if (k !== boneName) {
+            newTracks[k] = { ...v };
+          }
+        }
+      }
+      newAnimations[motionName] = {
+        ...motion,
+        tracks: newTracks,
+      };
+    }
+  }
+
+  return {
+    bones: newBones,
+    pieces: newPieces,
+    animations: newAnimations,
+    restPose: newRestPose,
+    reparentedChildren,
+  };
 }
 
 function finite(value, label) {
@@ -235,15 +394,16 @@ function normalizeCanvas(value) {
   return [width, height];
 }
 
-function normalizePieces(value, slot, item, boneNames) {
+function normalizePieces(value, slot, item, bones) {
   if (value == null) return [];
   if (!Array.isArray(value)) throw new Error('조각 목록이 깨졌습니다');
+  const boneNames = new Set(bones.map(bone => bone.name));
   return value.map((piece, index) => {
     if (!piece || typeof piece !== 'object') throw new Error(`${index + 1}번째 조각이 깨졌습니다`);
     const pieceSlot = String(piece.slot || slot);
     const pieceItem = String(piece.item || item);
     const pieceName = String(piece.piece || `piece_${index + 1}`);
-    const bone = String(piece.bone || defaultBoneFor(pieceSlot, pieceName));
+    const bone = String(piece.bone || defaultBoneFor(pieceSlot, pieceName, bones));
     if (!boneNames.has(bone)) throw new Error(`조각 「${piece.name || pieceName}」이 모르는 뼈 「${bone}」를 가리킵니다`);
     if (typeof piece.png !== 'string' || !piece.png.startsWith('data:image/png')) throw new Error(`조각 「${piece.name || pieceName}」의 PNG가 깨졌습니다`);
     return {
@@ -270,7 +430,7 @@ export function toProject({ canvas = [72, 64], slot = 'bare', item = '맨몸', b
     slot: safeSlot,
     item: safeItem,
     basePng,
-    pieces: normalizePieces(pieces, safeSlot, safeItem, new Set(safeBones.map(bone => bone.name))),
+    pieces: normalizePieces(pieces, safeSlot, safeItem, safeBones),
     bones: safeBones,
     animations: normalizeAnimations(animations, safeBones),
     restPose: normalizeRestPose(restPose),
