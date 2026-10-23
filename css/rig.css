@@ -5,6 +5,13 @@
 }
 
 #rig .segmented button { min-height: 44px; }
+#rig .icon {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
 
 /* 단계 선택 바 */
 #rig-steps button[aria-selected="true"] {

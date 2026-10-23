@@ -24,6 +24,7 @@ export function mountRigBones(app, model) {
   let panX = 0, panY = 0;
   const pointers = new Map();
   let dragging = null;
+  let dragBefore = null;
   let panning = null;
 
   function bones() { return model.getBones(); }
@@ -135,7 +136,13 @@ export function mountRigBones(app, model) {
         select.appendChild(option);
       }
       select.value = piece.bone;
-      select.addEventListener('change', () => { piece.bone = select.value; notify(); render(); });
+      select.addEventListener('change', () => {
+        const before = model.snapshot?.();
+        piece.bone = select.value;
+        notify();
+        render();
+        model.commit?.(before);
+      });
       boneField.appendChild(select);
 
       const layerLabel = document.createElement('label');
@@ -143,18 +150,35 @@ export function mountRigBones(app, model) {
       const layer = document.createElement('input');
       layer.type = 'number'; layer.step = '1'; layer.min = '0'; layer.value = String(piece.zIndex);
       layer.addEventListener('change', () => {
+        const before = model.snapshot?.();
         piece.zIndex = Math.max(0, Math.trunc(Number(layer.value) || 0));
         layer.value = String(piece.zIndex);
-        notify(); render();
+        notify();
+        render();
+        model.commit?.(before);
       });
       layerLabel.appendChild(layer);
 
       const down = document.createElement('button');
       down.className = 'btn'; down.textContent = '▼'; down.setAttribute('aria-label', `${piece.name} 한 층 아래로`);
-      down.addEventListener('click', () => { piece.zIndex = Math.max(0, piece.zIndex - 1); notify(); refreshControls(); render(); });
+      down.addEventListener('click', () => {
+        const before = model.snapshot?.();
+        piece.zIndex = Math.max(0, piece.zIndex - 1);
+        notify();
+        refreshControls();
+        render();
+        model.commit?.(before);
+      });
       const up = document.createElement('button');
       up.className = 'btn'; up.textContent = '▲'; up.setAttribute('aria-label', `${piece.name} 한 층 위로`);
-      up.addEventListener('click', () => { piece.zIndex += 1; notify(); refreshControls(); render(); });
+      up.addEventListener('click', () => {
+        const before = model.snapshot?.();
+        piece.zIndex += 1;
+        notify();
+        refreshControls();
+        render();
+        model.commit?.(before);
+      });
 
       row.append(title, boneField, layerLabel, down, up);
       assignments.appendChild(row);
@@ -228,10 +252,12 @@ export function mountRigBones(app, model) {
         if (hit) {
           selected = hit; refreshControls(); render();
           const bone = selectedBone();
+          dragBefore = model.snapshot?.();
           dragging = { x: event.clientX, y: event.clientY, pos: [...bone.pos], changed: false };
         }
       } else if (pointers.size === 2) {
         dragging = null;
+        dragBefore = null;
         const points = [...pointers.values()];
         panning = { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2, panX, panY };
       }
@@ -257,9 +283,15 @@ export function mountRigBones(app, model) {
     const end = event => {
       if (!pointers.has(event.pointerId)) return;
       pointers.delete(event.pointerId);
-      if (dragging?.changed) notify();
+      if (dragging?.changed) {
+        notify();
+        if (dragBefore) model.commit?.(dragBefore);
+      }
       if (pointers.size < 2) panning = null;
-      if (!pointers.size) dragging = null;
+      if (!pointers.size) {
+        dragging = null;
+        dragBefore = null;
+      }
     };
     stage.addEventListener('pointerup', end);
     stage.addEventListener('pointercancel', end);
@@ -272,15 +304,31 @@ export function mountRigBones(app, model) {
     nameInput.addEventListener('change', () => {
       const oldName = selectedBone().name, next = nameInput.value.trim();
       if (!next || next === oldName) { refreshControls(); return; }
+      const before = model.snapshot?.();
       const candidate = bones().map(bone => ({ ...bone, pos: [...bone.pos], name: bone.name === oldName ? next : bone.name, parent: bone.parent === oldName ? next : bone.parent }));
       selected = next;
       if (!replaceBones(candidate, oldName)) selected = oldName;
+      else model.commit?.(before);
     });
-    parentSelect.addEventListener('change', () => editSelected({ parent: parentSelect.value || null }));
-    const updatePosition = () => editSelected({ pos: [Number(xInput.value), Number(yInput.value)] });
+    parentSelect.addEventListener('change', () => {
+      const before = model.snapshot?.();
+      if (editSelected({ parent: parentSelect.value || null })) model.commit?.(before);
+    });
+    const updatePosition = () => {
+      const before = model.snapshot?.();
+      if (editSelected({ pos: [Number(xInput.value), Number(yInput.value)] })) model.commit?.(before);
+    };
     xInput.addEventListener('change', updatePosition); yInput.addEventListener('change', updatePosition);
-    angleInput.addEventListener('change', () => editSelected({ angle: Number(angleInput.value) }));
-    const nudge = (dx, dy) => { const bone = selectedBone(); editSelected({ pos: [bone.pos[0] + dx, bone.pos[1] + dy] }); };
+    angleInput.addEventListener('change', () => {
+      const before = model.snapshot?.();
+      if (editSelected({ angle: Number(angleInput.value) })) model.commit?.(before);
+    });
+    const nudge = (dx, dy) => {
+      const bone = selectedBone();
+      if (!bone) return;
+      const before = model.snapshot?.();
+      if (editSelected({ pos: [bone.pos[0] + dx, bone.pos[1] + dy] })) model.commit?.(before);
+    };
     $('#rig-bone-up').addEventListener('click', () => nudge(0, -1));
     $('#rig-bone-left').addEventListener('click', () => nudge(-1, 0));
     $('#rig-bone-down').addEventListener('click', () => nudge(0, 1));

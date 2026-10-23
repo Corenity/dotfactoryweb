@@ -1,9 +1,9 @@
 // 뼈 탭 화면 — 조각 자르기, 뼈대 연결, 작업 파일 저장을 다룹니다.
 import { SLOTS, SLOT_NAMES, PIECE_NAMES, piecesOf, createMask, clearMask, fillMask, setMaskRect, fillPolygonMask, paintBrushMask, hasSelection, extractPiece } from './core/slice.js';
 import { toProject, parseProject, defaultZIndex, defaultBoneFor, cloneDefaultBones, defaultAnimations, normalizeAnimations } from './core/rig.js';
-import { dropKey } from './core/paint.js';
+import { KEY, toHex, dropKey } from './core/paint.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, toPngDataUrl, savePng, saveJson, baseName } from './io.js';
-import { backdropToggle } from './backdrop.js';
+import { RigHistory, cloneRigState } from './core/rig-history.js';
 import { mountRigBones } from './rig-bones-view.js';
 import { mountMotion } from './motion-view.js';
 import { mountRigExport } from './rig-export-view.js';
@@ -45,16 +45,73 @@ export function mountRig(app) {
   const pieceSelect = $('#rig-piece-select');
   const piecesList = $('#rig-pieces-list');
   const zoomText = $('#rig-zoom-text');
+  const undoBtn = $('#rig-undo');
+  const redoBtn = $('#rig-redo');
+
+  const history = new RigHistory();
+  let itemBefore = null;
+
+  function snapshot() {
+    return cloneRigState({
+      canvas: [canvasWidth, canvasHeight],
+      baseTitle,
+      baseImage,
+      pieces,
+      bones,
+      animations,
+    });
+  }
+
+  function updateUndoRedo() {
+    if (undoBtn) undoBtn.disabled = !history.canUndo;
+    if (redoBtn) redoBtn.disabled = !history.canRedo;
+  }
+
+  function recordChange(before) {
+    if (!before) return;
+    if (history.push(before, snapshot())) {
+      updateUndoRedo();
+      app.changed();
+    }
+  }
+
+  function applySnapshot(snap) {
+    if (!snap) return;
+    const copy = cloneRigState(snap);
+    canvasWidth = copy.canvas[0];
+    canvasHeight = copy.canvas[1];
+    baseTitle = copy.baseTitle;
+    baseImage = copy.baseImage;
+    pieces = copy.pieces;
+    bones = copy.bones;
+    animations = copy.animations;
+    mask = createMask(canvasWidth, canvasHeight);
+    updatePieceSelect();
+    renderPiecesList();
+    render();
+    bonesView?.refresh();
+    motionView?.refresh();
+    updateUndoRedo();
+    app.changed();
+  }
+
+  function undo() {
+    const prev = history.undo(snapshot());
+    if (prev) applySnapshot(prev);
+  }
+
+  function redo() {
+    const next = history.redo(snapshot());
+    if (next) applySnapshot(next);
+  }
 
   let bonesView = null, motionView = null, exportView = null;
-  // 투명화 단추 — 자르기와 뼈 미리보기가 같은 초록 ↔ 체크무늬 상태를 씁니다.
-  const bg = backdropToggle($('#rig-clear'), () => { render(); bonesView?.refresh(); motionView?.refresh(); });
   bonesView = mountRigBones(app, {
     getBones: () => bones,
     setBones: value => { bones = value; },
     getPieces: () => pieces,
     getSize: () => [canvasWidth, canvasHeight],
-    getBackdrop: () => bg.backdrop,
+    getBackdrop: () => toHex(KEY),
     changed: () => {},
     renameBone: (from, to) => {
       for (const motion of Object.values(animations)) {
@@ -63,6 +120,8 @@ export function mountRig(app) {
         delete motion.tracks[from];
       }
     },
+    snapshot: () => snapshot(),
+    commit: before => recordChange(before),
   });
   motionView = mountMotion(app, {
     getBones: () => bones,
@@ -70,8 +129,9 @@ export function mountRig(app) {
     getAnimations: () => animations,
     setAnimations: value => { animations = normalizeAnimations(value, bones); },
     getSize: () => [canvasWidth, canvasHeight],
-    getBackdrop: () => bg.backdrop,
-    forSave: image => bg.forSave(image),
+    getBackdrop: () => toHex(KEY),
+    snapshot: () => snapshot(),
+    commit: before => recordChange(before),
   });
   exportView = mountRigExport(app, { getProject: () => projectSnapshot() });
 
@@ -80,6 +140,7 @@ export function mountRig(app) {
     updatePieceSelect();
     bindEvents();
     render();
+    updateUndoRedo();
   }
 
   function initSlotSelect() {
@@ -168,7 +229,7 @@ export function mountRig(app) {
     if (!baseImage) return;
 
     // 1. 원본 그림판 렌더링 (정수 배율로 확대하여 그리고 위치 translate)
-    drawPixels(baseCanvas, baseImage, cell, bg.backdrop);
+    drawPixels(baseCanvas, baseImage, cell, toHex(KEY));
     baseCanvas.style.transform = `translate(${panX}px, ${panY}px)`;
 
     // 2. 오버레이 캔버스 크기 및 위치 맞춤
@@ -312,6 +373,8 @@ export function mountRig(app) {
       clearBaseImage();
     }
     renderPiecesList();
+    history.clear();
+    updateUndoRedo();
   }
 
   function projectSnapshot() {
@@ -327,6 +390,10 @@ export function mountRig(app) {
   }
 
   function bindEvents() {
+    // 되돌리기 / 다시하기 단추
+    undoBtn?.addEventListener('click', undo);
+    redoBtn?.addEventListener('click', redo);
+
     // 탭 단계 단추
     $('#rig-step-slice').addEventListener('click', () => setStep('slice'));
     $('#rig-step-rig').addEventListener('click', () => setStep('rig'));
@@ -369,8 +436,17 @@ export function mountRig(app) {
       currentSlot = e.target.value;
       updatePieceSelect();
     });
+    itemInput.addEventListener('focus', () => {
+      itemBefore = snapshot();
+    });
     itemInput.addEventListener('input', e => {
       currentItem = e.target.value.trim() || '맨몸';
+    });
+    itemInput.addEventListener('change', () => {
+      if (itemBefore) {
+        recordChange(itemBefore);
+        itemBefore = null;
+      }
     });
     pieceSelect.addEventListener('change', e => {
       currentPiece = e.target.value;
@@ -381,6 +457,7 @@ export function mountRig(app) {
       try {
         const [file] = await pickFiles({ accept: 'image/*' });
         if (!file) return;
+        const before = snapshot();
         const img = await readImageFile(file);
         const dropped = dropKey(img);
 
@@ -390,8 +467,8 @@ export function mountRig(app) {
         }
 
         setBaseImage(dropped, file.name);
+        recordChange(before);
         app.toast(`「${file.name}」을 불러왔습니다`);
-        app.changed();
       } catch (err) {
         if (err.message) app.toast(err.message);
       }
@@ -407,6 +484,7 @@ export function mountRig(app) {
         app.toast('선택된 칸이 없습니다. 네모나 올가미로 영역을 골라 주세요');
         return;
       }
+      const before = snapshot();
       const pieceImg = extractPiece(baseImage, mask);
       const pngUrl = toPngDataUrl(pieceImg);
       const pieceName = `${currentSlot}_${currentPiece}`;
@@ -432,7 +510,7 @@ export function mountRig(app) {
         app.toast(`조각 「${pieceName}」을 등록했습니다`);
       }
       renderPiecesList();
-      app.changed();
+      recordChange(before);
     });
 
     // 조각 PNG 파일 올리기 (판 크기와 다르면 거절)
@@ -440,6 +518,7 @@ export function mountRig(app) {
       try {
         const [file] = await pickFiles({ accept: 'image/*' });
         if (!file) return;
+        const before = snapshot();
         const img = await readImageFile(file);
         const dropped = dropKey(img);
 
@@ -471,8 +550,8 @@ export function mountRig(app) {
         if (existing >= 0) pieces[existing] = pieceObj;
         else pieces.push(pieceObj);
         renderPiecesList();
+        recordChange(before);
         app.toast(`조각 「${pieceName}」을 파일에서 가져왔습니다`);
-        app.changed();
       } catch (err) {
         if (err.message) app.toast(err.message);
       }
@@ -663,10 +742,11 @@ export function mountRig(app) {
       delBtn.className = 'btn';
       delBtn.textContent = '삭제';
       delBtn.addEventListener('click', () => {
+        const before = snapshot();
         pieces.splice(idx, 1);
         renderPiecesList();
+        recordChange(before);
         app.toast(`조각 「${p.name}」을 지웠습니다`);
-        app.changed();
       });
 
       actions.appendChild(reselectBtn);

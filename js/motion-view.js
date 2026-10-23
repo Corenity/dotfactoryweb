@@ -41,6 +41,7 @@ export function mountMotion(app, model) {
   let startedAt = 0;
   const pointers = new Map();
   let dragging = null;
+  let dragBefore = null;
   let panning = null;
 
   const animations = () => model.getAnimations();
@@ -195,15 +196,21 @@ export function mountMotion(app, model) {
     const active = motion(), at = slotTime(currentTime);
     const bone = selectedBone(poseAt(bones(), active, at));
     if (!bone) return;
+    const before = model.snapshot?.();
     const nextPose = { ...bone, pos: [...bone.pos], ...change };
-    if (replaceMotion(setKey(active, bone.name, at, nextPose))) refresh();
+    if (replaceMotion(setKey(active, bone.name, at, nextPose))) {
+      refresh();
+      model.commit?.(before);
+    }
   }
 
   function updateSettings(change) {
     stop();
+    const before = model.snapshot?.();
     if (replaceMotion({ ...motion(), ...change })) {
       currentTime = Math.min(currentTime, Math.max(0, motion().length - motion().step));
       refresh();
+      model.commit?.(before);
     } else refreshMotionPick();
   }
 
@@ -214,8 +221,9 @@ export function mountMotion(app, model) {
     const world = boneWorldTransforms(posed);
     let best = null, distance = 22 * 22;
     for (const bone of posed) {
-      const point = world.get(bone.name), dx = point.x * cell - x, dy = point.y * cell - y, value = dx * dx + dy * dy;
-      if (value <= distance) { best = bone.name; distance = value; }
+      const point = world.get(bone.name);
+      const dx = point.x * cell - x, dy = point.y * cell - y, d = dx * dx + dy * dy;
+      if (d <= distance) { best = bone.name; distance = d; }
     }
     return best;
   }
@@ -229,11 +237,13 @@ export function mountMotion(app, model) {
         if (hit) {
           stop(); selected = hit;
           const pose = selectedBone(poseAt(bones(), motion(), slotTime(currentTime)));
+          dragBefore = model.snapshot?.();
           dragging = { x: event.clientX, y: event.clientY, pose: { ...pose, pos: [...pose.pos] }, changed: false };
           refresh();
         }
       } else if (pointers.size === 2) {
         dragging = null;
+        dragBefore = null;
         const points = [...pointers.values()];
         panning = { x: (points[0].x + points[1].x) / 2, y: (points[0].y + points[1].y) / 2, panX, panY };
       }
@@ -259,9 +269,16 @@ export function mountMotion(app, model) {
     const end = event => {
       if (!pointers.has(event.pointerId)) return;
       pointers.delete(event.pointerId);
-      if (dragging?.changed) { app.changed(); refreshTimeline(); }
+      if (dragging?.changed) {
+        app.changed();
+        refreshTimeline();
+        if (dragBefore) model.commit?.(dragBefore);
+      }
       if (pointers.size < 2) panning = null;
-      if (!pointers.size) dragging = null;
+      if (!pointers.size) {
+        dragging = null;
+        dragBefore = null;
+      }
     };
     stage.addEventListener('pointerup', end);
     stage.addEventListener('pointercancel', end);
@@ -273,7 +290,7 @@ export function mountMotion(app, model) {
     if (!active.loop && elapsed >= active.length) {
       currentTime = Math.max(0, active.length - 1e-7); stop(); refresh(); return;
     }
-    currentTime = active.loop ? elapsed % active.length : elapsed;
+    currentTime = active.loop ? elapsed % active.length : Math.min(elapsed, Math.max(0, active.length - 1e-7));
     refreshTimeline(); refreshKeyControls(); render();
     animationFrame = requestAnimationFrame(playFrame);
   }
@@ -284,29 +301,38 @@ export function mountMotion(app, model) {
       stop();
       let index = 1, name = 'motion';
       while (name in animations()) name = `motion${++index}`;
+      const before = model.snapshot?.();
       model.setAnimations({ ...animations(), [name]: defaultAnimations().walk });
       currentName = name; currentTime = 0; app.changed(); refresh();
+      model.commit?.(before);
     });
     $('#motion-drop').addEventListener('click', () => {
       if (Object.keys(animations()).length <= 1) return;
-      stop(); const next = { ...animations() }; delete next[currentName]; model.setAnimations(next);
+      stop();
+      const before = model.snapshot?.();
+      const next = { ...animations() }; delete next[currentName]; model.setAnimations(next);
       currentName = Object.keys(next)[0]; currentTime = 0; app.changed(); refresh();
+      model.commit?.(before);
     });
     nameInput.addEventListener('change', () => {
       const nextName = nameInput.value.trim();
       if (!nextName || (nextName !== currentName && nextName in animations())) { app.toast('움직임 이름이 비었거나 겹칩니다'); refreshMotionPick(); return; }
       if (nextName === currentName) return;
+      const before = model.snapshot?.();
       const next = {};
       for (const [name, value] of Object.entries(animations())) next[name === currentName ? nextName : name] = value;
       model.setAnimations(next); currentName = nextName; app.changed(); refresh();
+      model.commit?.(before);
     });
     lengthInput.addEventListener('change', () => {
       stop();
       const length = Number(lengthInput.value);
+      const before = model.snapshot?.();
       const changed = changeMotionLength(motion(), length);
       if (replaceMotion(changed.motion)) {
         currentTime = Math.min(currentTime, Math.max(0, motion().length - motion().step));
         refresh();
+        model.commit?.(before);
         if (changed.removed) app.toast(`${rounded(length)}초 뒤 키 ${changed.removed}개를 지웠습니다`);
       } else refreshMotionPick();
     });
@@ -319,9 +345,11 @@ export function mountMotion(app, model) {
         refreshMotionPick();
         return;
       }
+      const before = model.snapshot?.();
       if (replaceMotion(changed.motion)) {
         currentTime = Math.min(currentTime, Math.max(0, motion().length - motion().step));
         refresh();
+        model.commit?.(before);
       } else refreshMotionPick();
     });
     loopInput.addEventListener('change', () => updateSettings({ loop: loopInput.checked }));
@@ -344,12 +372,24 @@ export function mountMotion(app, model) {
     $('#motion-bone-right').addEventListener('click', () => nudge(1, 0));
     $('#motion-angle-minus').addEventListener('click', () => { const bone = selectedBone(poseAt(bones(), motion(), slotTime(currentTime))); updateKey({ angle: bone.angle - 15 }); });
     $('#motion-angle-plus').addEventListener('click', () => { const bone = selectedBone(poseAt(bones(), motion(), slotTime(currentTime))); updateKey({ angle: bone.angle + 15 }); });
-    $('#motion-drop-key').addEventListener('click', () => { replaceMotion(deleteKey(motion(), selected, slotTime(currentTime))); refresh(); });
-    $('#motion-copy-key').addEventListener('click', () => { replaceMotion(copyPreviousKey(bones(), motion(), selected, slotTime(currentTime))); refresh(); });
+    $('#motion-drop-key').addEventListener('click', () => {
+      const before = model.snapshot?.();
+      if (replaceMotion(deleteKey(motion(), selected, slotTime(currentTime)))) {
+        refresh();
+        model.commit?.(before);
+      }
+    });
+    $('#motion-copy-key').addEventListener('click', () => {
+      const before = model.snapshot?.();
+      if (replaceMotion(copyPreviousKey(bones(), motion(), selected, slotTime(currentTime)))) {
+        refresh();
+        model.commit?.(before);
+      }
+    });
     $('#motion-save-gif').addEventListener('click', async () => {
       const active = motion(), [width, height] = model.getSize();
       const made = renderMotionFrames(pieces(), bones(), active, width, height);
-      const frames = made.frames.map(frame => model.forSave(frame));
+      const frames = made.frames;
       const bytes = encodeGif(frames, made.delays, { loop: active.loop });
       const safeName = currentName.replace(/[\\/:*?"<>|]/g, '_');
       const result = await saveFile(`${safeName}.gif`, new Blob([bytes], { type: 'image/gif' }));
