@@ -4,6 +4,22 @@ import { composeRig } from './rig-render.js';
 
 const EPSILON = 1e-7;
 
+/** 움직임 목록에서 현재 이름을 안전하게 고릅니다. 빈 목록은 motion: null로 돌려줍니다. */
+export function resolveMotion(animations, currentName = '') {
+  const safe = animations && typeof animations === 'object' && !Array.isArray(animations) ? animations : {};
+  const names = Object.keys(safe);
+  const name = names.includes(currentName) ? currentName : (names[0] || '');
+  return { names, name, motion: name ? safe[name] : null };
+}
+
+/** 기존 이름 규칙대로 겹치지 않는 새 움직임을 더합니다. */
+export function addMotion(animations, motion) {
+  const safe = animations && typeof animations === 'object' && !Array.isArray(animations) ? animations : {};
+  let index = 1, name = 'motion';
+  while (name in safe) name = `motion${++index}`;
+  return { name, animations: { ...safe, [name]: motion } };
+}
+
 function cloneMotion(motion) {
   const tracks = {};
   for (const [name, track] of Object.entries(motion.tracks)) {

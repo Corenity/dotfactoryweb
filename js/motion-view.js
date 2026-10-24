@@ -1,8 +1,9 @@
 // 뼈 애니메이션 3단계 화면 — 시간 줄, 끊어지는 키, 양파 껍질, 재생과 GIF를 다룹니다.
 import { boneLabel, defaultAnimations } from './core/rig.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
-import { changeMotionLength, changeMotionStep, copyPreviousKey, deleteKey, frameTimes, hasKey, poseAt, renderMotionFrames, setKey } from './core/motion.js';
+import { addMotion, changeMotionLength, changeMotionStep, copyPreviousKey, deleteKey, frameTimes, hasKey, poseAt, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
 import { encodeGif } from './core/gif.js';
+import { sortRigPiecesByLayers } from './core/preset-layers.js';
 import { drawPixels, saveFile, saveJson, pickFiles } from './io.js';
 import { toAnimation, parseAnimation, checkSkeletonCompatibility, adaptAnimationToBones, mergeAnimations } from './core/animation.js';
 
@@ -26,10 +27,23 @@ export function mountMotion(app, model) {
   const xInput = $('#motion-bone-x');
   const yInput = $('#motion-bone-y');
   const angleInput = $('#motion-bone-angle');
+  const rotSlider = $('#motion-rot-slider');
   const status = $('#motion-key-status');
   const zoomText = $('#motion-zoom-text');
   const playButton = $('#motion-play');
   const onionButton = $('#motion-onion');
+  const toolPosButton = $('#motion-tool-pos');
+  const toolRotButton = $('#motion-tool-rot');
+  const barPos = $('#motion-bar-pos');
+  const barRot = $('#motion-bar-rot');
+  const viewModeButton = $('#motion-view-mode-btn');
+  const motionEditControls = [
+    select, nameInput, lengthInput, stepInput, loopInput, playButton, onionButton,
+    toolPosButton, toolRotButton, xInput, yInput, angleInput, rotSlider,
+    $('#motion-bone-left'), $('#motion-bone-right'), $('#motion-bone-up'), $('#motion-bone-down'),
+    $('#motion-angle-minus'), $('#motion-angle-plus'), $('#motion-copy-key'), $('#motion-drop-key'),
+    $('#motion-save-gif'), $('#motion-save'),
+  ].filter(Boolean);
 
   let currentName = 'walk';
   let selected = 'Torso';
@@ -44,20 +58,25 @@ export function mountMotion(app, model) {
   let dragging = null;
   let dragBefore = null;
   let panning = null;
+  let activeTool = 'P';
+  let rotDragBefore = null;
 
   const animations = () => model.getAnimations();
   const bones = () => model.getBones();
   const pieces = () => model.getPieces();
-  const motion = () => animations()[currentName] || Object.values(animations())[0];
+  const motionState = () => resolveMotion(animations(), currentName);
+  const motion = () => motionState().motion;
+  const previewMotion = () => motion() || defaultAnimations().walk;
   const selectedBone = posed => posed.find(bone => bone.name === selected) || posed[0];
   const slotTime = time => {
-    const times = frameTimes(motion());
+    const times = frameTimes(previewMotion());
     let found = times[0];
     for (const value of times) if (value <= time + 1e-7) found = value;
     return found;
   };
 
   function replaceMotion(next, quiet = false) {
+    if (!currentName || !motion()) return false;
     try {
       model.setAnimations({ ...animations(), [currentName]: next });
       if (!quiet) app.changed();
@@ -76,8 +95,8 @@ export function mountMotion(app, model) {
 
   function fit() {
     const [width, height] = model.getSize();
-    const stageWidth = stage.clientWidth || 320, stageHeight = stage.clientHeight || 240;
-    cell = Math.max(1, Math.floor(Math.min(stageWidth / width, stageHeight / height)));
+    const stageWidth = stage.clientWidth || 200, stageHeight = stage.clientHeight || 256;
+    cell = Math.max(1, Math.round(stageHeight / height));
     panX = Math.round((stageWidth - width * cell) / 2);
     panY = Math.round((stageHeight - height * cell) / 2);
     render();
@@ -113,17 +132,20 @@ export function mountMotion(app, model) {
   }
 
   function render() {
-    const active = motion();
-    if (!active) return;
+    const active = previewMotion();
+    const hasMotion = Boolean(motion());
     const posed = poseAt(bones(), active, currentTime);
     const [width, height] = model.getSize();
-    drawPixels(canvas, composeRig(pieces(), posed, width, height, bones(), model.getPresetLayers?.() || []), cell, model.getBackdrop());
+    const layers = model.getPresetLayers?.() || [];
+    const mode = model.getVisibilityMode?.() || 'individual';
+    const visiblePieces = sortRigPiecesByLayers(pieces(), layers, { screen: true, visibilityMode: mode });
+    drawPixels(canvas, composeRig(visiblePieces, posed, width, height, bones(), layers), cell, model.getBackdrop());
     const transform = `translate(${panX}px, ${panY}px)`;
     canvas.style.transform = transform;
 
     const previous = Math.max(0, slotTime(currentTime) - active.step);
-    onionCanvas.hidden = !onion || currentTime < active.step - 1e-7;
-    if (!onionCanvas.hidden) drawPixels(onionCanvas, composeRig(pieces(), poseAt(bones(), active, previous), width, height, bones(), model.getPresetLayers?.() || []), cell, null);
+    onionCanvas.hidden = !hasMotion || !onion || currentTime < active.step - 1e-7;
+    if (!onionCanvas.hidden) drawPixels(onionCanvas, composeRig(visiblePieces, poseAt(bones(), active, previous), width, height, bones(), layers), cell, null);
     onionCanvas.style.transform = transform;
     drawBones(posed); bonesCanvas.style.transform = transform;
     zoomText.textContent = `${cell}배`;
@@ -131,24 +153,27 @@ export function mountMotion(app, model) {
   }
 
   function refreshMotionPick() {
-    const names = Object.keys(animations());
-    if (!names.includes(currentName)) currentName = names[0];
+    const resolved = motionState();
+    const { names, motion: active } = resolved;
+    currentName = resolved.name;
     select.textContent = '';
     for (const name of names) {
       const option = document.createElement('option'); option.value = name; option.textContent = name; select.append(option);
     }
     select.value = currentName;
-    const active = motion();
     nameInput.value = currentName;
-    lengthInput.value = String(active.length);
-    stepInput.value = String(active.step);
-    loopInput.checked = active.loop;
+    lengthInput.value = active ? String(active.length) : '';
+    stepInput.value = active ? String(active.step) : '';
+    loopInput.checked = active?.loop === true;
+    for (const control of motionEditControls) control.disabled = !active;
     $('#motion-drop').disabled = names.length <= 1;
   }
 
   function refreshTimeline() {
     timeline.textContent = '';
-    const active = motion(), at = slotTime(currentTime);
+    const active = motion();
+    if (!active) return;
+    const at = slotTime(currentTime);
     for (const time of frameTimes(active)) {
       const button = document.createElement('button');
       button.className = 'btn motion-time';
@@ -160,13 +185,23 @@ export function mountMotion(app, model) {
     }
   }
 
+  function depthOf(bone, byName) {
+    let depth = 0, current = bone;
+    while (current.parent && depth < bones().length) { depth++; current = byName.get(current.parent); }
+    return depth;
+  }
+
   function refreshTree() {
-    const posed = poseAt(bones(), motion(), currentTime);
+    const posed = poseAt(bones(), previewMotion(), currentTime);
     if (!posed.some(bone => bone.name === selected)) selected = posed[0]?.name || '';
     tree.textContent = '';
+    const byName = new Map(posed.map(bone => [bone.name, bone]));
     for (const bone of posed) {
       const button = document.createElement('button');
-      button.className = 'btn'; button.textContent = boneLabel(bone.name);
+      button.className = 'btn';
+      button.style.paddingLeft = `${6 + depthOf(bone, byName) * 10}px`;
+      button.textContent = `${bone.parent ? '↳ ' : ''}${bone.name}`;
+      button.title = boneLabel(bone.name);
       button.setAttribute('aria-pressed', String(bone.name === selected));
       button.addEventListener('click', () => { selected = bone.name; refresh(); });
       tree.append(button);
@@ -174,14 +209,44 @@ export function mountMotion(app, model) {
   }
 
   function refreshKeyControls() {
-    const active = motion(), at = slotTime(currentTime);
+    const active = motion();
+    if (!active) {
+      xInput.value = ''; yInput.value = ''; angleInput.value = '';
+      if (rotSlider) rotSlider.value = '0';
+      status.textContent = '움직임이 없습니다. 「새 움직임」으로 다시 시작할 수 있습니다.';
+      $('#motion-drop-key').disabled = true;
+      $('#motion-copy-key').disabled = true;
+      return;
+    }
+    const at = slotTime(currentTime);
     const bone = selectedBone(poseAt(bones(), active, currentTime));
     if (!bone) return;
     xInput.value = String(bone.pos[0]); yInput.value = String(bone.pos[1]); angleInput.value = String(bone.angle);
+    if (rotSlider) rotSlider.value = String(bone.angle);
     const keyed = hasKey(active, bone.name, at);
     status.textContent = `${Number(at.toFixed(3))}초 · ${keyed ? '이 뼈의 키가 있습니다' : '뼈대 자세 또는 앞 키를 보여 줍니다'}`;
     $('#motion-drop-key').disabled = !keyed;
     $('#motion-copy-key').disabled = at < active.step - 1e-7;
+  }
+
+  function updateViewModeBadge() {
+    const mode = model.getVisibilityMode?.() || 'individual';
+    const update = button => {
+      if (!button) return;
+      button.textContent = mode === 'group' ? '보기: 그룹' : '보기: 개별';
+      button.title = `보기 방식 전환 (현재: ${mode === 'group' ? '그룹 보기' : '개별 보기'})`;
+      button.setAttribute('aria-pressed', String(mode === 'group'));
+    };
+    update(viewModeButton);
+    update($('#rig-view-mode-btn'));
+  }
+
+  function switchTool(tool) {
+    activeTool = tool;
+    toolPosButton.setAttribute('aria-pressed', String(tool === 'P'));
+    toolRotButton.setAttribute('aria-pressed', String(tool === 'R'));
+    barPos.hidden = tool !== 'P';
+    barRot.hidden = tool !== 'R';
   }
 
   function refresh() {
@@ -189,24 +254,33 @@ export function mountMotion(app, model) {
     refreshTimeline();
     refreshTree();
     refreshKeyControls();
+    updateViewModeBadge();
     render();
   }
 
-  function updateKey(change) {
+  function updateKey(change, { quiet = false, before = null } = {}) {
     stop();
-    const active = motion(), at = slotTime(currentTime);
+    const active = motion();
+    if (!active) return;
+    const at = slotTime(currentTime);
     const bone = selectedBone(poseAt(bones(), active, at));
     if (!bone) return;
-    const before = model.snapshot?.();
+    const snapshot = before || model.snapshot?.();
     const nextPose = { ...bone, pos: [...bone.pos], ...change };
-    if (replaceMotion(setKey(active, bone.name, at, nextPose))) {
-      refresh();
-      model.commit?.(before);
+    if (replaceMotion(setKey(active, bone.name, at, nextPose), quiet)) {
+      if (quiet) {
+        refreshKeyControls();
+        render();
+      } else {
+        refresh();
+        model.commit?.(snapshot);
+      }
     }
   }
 
   function updateSettings(change) {
     stop();
+    if (!motion()) return;
     const before = model.snapshot?.();
     if (replaceMotion({ ...motion(), ...change })) {
       currentTime = Math.min(currentTime, Math.max(0, motion().length - motion().step));
@@ -218,7 +292,7 @@ export function mountMotion(app, model) {
   function hitBone(clientX, clientY) {
     const rect = stage.getBoundingClientRect();
     const x = clientX - rect.left - panX, y = clientY - rect.top - panY;
-    const posed = poseAt(bones(), motion(), currentTime);
+    const posed = poseAt(bones(), previewMotion(), currentTime);
     const world = boneWorldTransforms(posed);
     let best = null, distance = 22 * 22;
     for (const bone of posed) {
@@ -237,6 +311,7 @@ export function mountMotion(app, model) {
         const hit = hitBone(event.clientX, event.clientY);
         if (hit) {
           stop(); selected = hit;
+          if (!motion()) { refresh(); return; }
           const pose = selectedBone(poseAt(bones(), motion(), slotTime(currentTime)));
           dragBefore = model.snapshot?.();
           dragging = { x: event.clientX, y: event.clientY, pose: { ...pose, pos: [...pose.pos] }, changed: false };
@@ -287,7 +362,9 @@ export function mountMotion(app, model) {
 
   function playFrame(now) {
     if (!playing) return;
-    const active = motion(), elapsed = (now - startedAt) / 1000;
+    const active = motion();
+    if (!active) { stop(); return; }
+    const elapsed = (now - startedAt) / 1000;
     if (!active.loop && elapsed >= active.length) {
       currentTime = Math.max(0, active.length - 1e-7); stop(); refresh(); return;
     }
@@ -300,11 +377,10 @@ export function mountMotion(app, model) {
     select.addEventListener('change', () => { stop(); currentName = select.value; currentTime = 0; refresh(); });
     $('#motion-add').addEventListener('click', () => {
       stop();
-      let index = 1, name = 'motion';
-      while (name in animations()) name = `motion${++index}`;
       const before = model.snapshot?.();
-      model.setAnimations({ ...animations(), [name]: defaultAnimations().walk });
-      currentName = name; currentTime = 0; app.changed(); refresh();
+      const added = addMotion(animations(), defaultAnimations().walk);
+      model.setAnimations(added.animations);
+      currentName = added.name; currentTime = 0; app.changed(); refresh();
       model.commit?.(before);
     });
     $('#motion-drop').addEventListener('click', () => {
@@ -356,6 +432,7 @@ export function mountMotion(app, model) {
     loopInput.addEventListener('change', () => updateSettings({ loop: loopInput.checked }));
     playButton.addEventListener('click', () => {
       if (playing) { stop(); return; }
+      if (!motion()) return;
       playing = true; currentTime = 0; startedAt = performance.now(); playButton.textContent = '■ 정지';
       animationFrame = requestAnimationFrame(playFrame);
     });
@@ -363,16 +440,48 @@ export function mountMotion(app, model) {
     $('#motion-zoom-in').addEventListener('click', () => zoom(1));
     $('#motion-zoom-out').addEventListener('click', () => zoom(-1));
     $('#motion-zoom-fit').addEventListener('click', fit);
+    toolPosButton.addEventListener('click', () => switchTool('P'));
+    toolRotButton.addEventListener('click', () => switchTool('R'));
+    viewModeButton?.addEventListener('click', () => {
+      const before = model.snapshot?.();
+      const current = model.getVisibilityMode?.() || 'individual';
+      model.setVisibilityMode?.(current === 'group' ? 'individual' : 'group');
+      updateViewModeBadge();
+      render();
+      model.commit?.(before);
+    });
     const updatePosition = () => updateKey({ pos: [Math.trunc(Number(xInput.value)), Math.trunc(Number(yInput.value))] });
     xInput.addEventListener('change', updatePosition); yInput.addEventListener('change', updatePosition);
     angleInput.addEventListener('change', () => updateKey({ angle: Math.trunc(Number(angleInput.value)) }));
-    const nudge = (dx, dy) => { const bone = selectedBone(poseAt(bones(), motion(), slotTime(currentTime))); updateKey({ pos: [bone.pos[0] + dx, bone.pos[1] + dy] }); };
+    if (rotSlider) {
+      rotSlider.addEventListener('input', () => {
+        if (!rotDragBefore) rotDragBefore = model.snapshot?.();
+        updateKey({ angle: Math.trunc(Number(rotSlider.value)) }, { quiet: true, before: rotDragBefore });
+      });
+      rotSlider.addEventListener('change', () => {
+        const before = rotDragBefore || model.snapshot?.();
+        rotDragBefore = null;
+        updateKey({ angle: Math.trunc(Number(rotSlider.value)) }, { before });
+      });
+    }
+    const nudge = (dx, dy) => {
+      const active = motion();
+      if (!active) return;
+      const bone = selectedBone(poseAt(bones(), active, slotTime(currentTime)));
+      updateKey({ pos: [bone.pos[0] + dx, bone.pos[1] + dy] });
+    };
+    const nudgeAngle = change => {
+      const active = motion();
+      if (!active) return;
+      const bone = selectedBone(poseAt(bones(), active, slotTime(currentTime)));
+      updateKey({ angle: bone.angle + change });
+    };
     $('#motion-bone-up').addEventListener('click', () => nudge(0, -1));
     $('#motion-bone-left').addEventListener('click', () => nudge(-1, 0));
     $('#motion-bone-down').addEventListener('click', () => nudge(0, 1));
     $('#motion-bone-right').addEventListener('click', () => nudge(1, 0));
-    $('#motion-angle-minus').addEventListener('click', () => { const bone = selectedBone(poseAt(bones(), motion(), slotTime(currentTime))); updateKey({ angle: bone.angle - 15 }); });
-    $('#motion-angle-plus').addEventListener('click', () => { const bone = selectedBone(poseAt(bones(), motion(), slotTime(currentTime))); updateKey({ angle: bone.angle + 15 }); });
+    $('#motion-angle-minus').addEventListener('click', () => nudgeAngle(-15));
+    $('#motion-angle-plus').addEventListener('click', () => nudgeAngle(15));
     $('#motion-drop-key').addEventListener('click', () => {
       const before = model.snapshot?.();
       if (replaceMotion(deleteKey(motion(), selected, slotTime(currentTime)))) {
@@ -388,7 +497,9 @@ export function mountMotion(app, model) {
       }
     });
     $('#motion-save-gif').addEventListener('click', async () => {
-      const active = motion(), [width, height] = model.getSize();
+      const active = motion();
+      if (!active) return;
+      const [width, height] = model.getSize();
       const made = renderMotionFrames(pieces(), bones(), active, width, height, model.getPresetLayers?.() || []);
       const frames = made.frames;
       const bytes = encodeGif(frames, made.delays, { loop: active.loop });
@@ -400,6 +511,7 @@ export function mountMotion(app, model) {
     if (saveAnimBtn) {
       saveAnimBtn.addEventListener('click', async () => {
         const activeMotions = model.getAnimations();
+        if (!Object.keys(activeMotions).length) return;
         const boneNames = bones().map(b => b.name);
         const animObj = toAnimation({
           skeleton: 'character_skeleton',
@@ -447,9 +559,10 @@ export function mountMotion(app, model) {
   }
 
   bindEvents();
+  switchTool(activeTool);
 
   return {
-    show() { panel.hidden = false; refresh(); fit(); },
+    show() { panel.hidden = false; switchTool(activeTool); refresh(); fit(); },
     hide() { stop(); panel.hidden = true; },
     refresh() { refresh(); },
     shown() { if (!panel.hidden) fit(); },

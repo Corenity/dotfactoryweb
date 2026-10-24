@@ -13,11 +13,11 @@ export const DEFAULT_BARE_LAYERS_META = Object.freeze([
 ]);
 
 /**
- * 프리셋들의 모든 그림을 레이어 우선 규칙에 따라 평탄화합니다.
+ * 프리셋들의 모든 그림을 새 깊이 우선 규칙에 따라 평탄화합니다.
  * 정렬 기준:
- * 1. 프리셋 쌓인 순서 (0, 1, 2, ...)
- * 2. 같은 프리셋 안에서 zIndex 오름차순
- * 3. 같은 프리셋 내에서 zIndex 까지 같으면 레이어 인덱스 순서
+ * 1. 깊이(zIndex) 오름차순 (작은 번호가 먼저 깔림)
+ * 2. 같은 깊이면 나중에 읽은(넣은 · 불러온) 그림이 위 (presetIndex 오름차순)
+ * 3. 같은 프리셋 안에서도 나중 레이어가 위 (layerIndex 오름차순)
  *
  * @param {object|null} barePreset - 기본 맨몸 프리셋
  * @param {Array<object>} overlayPresets - 오버레이 프리셋 목록 (옷, 헤어, 표정 등)
@@ -55,10 +55,10 @@ export function flattenPresetStack(barePreset, overlayPresets = []) {
   }
 
   result.sort((a, b) => {
-    if (a.presetIndex !== b.presetIndex) return a.presetIndex - b.presetIndex;
     const zA = Number(a.layer.zIndex) || 0;
     const zB = Number(b.layer.zIndex) || 0;
     if (zA !== zB) return zA - zB;
+    if (a.presetIndex !== b.presetIndex) return a.presetIndex - b.presetIndex;
     return a.layerIndex - b.layerIndex;
   });
 

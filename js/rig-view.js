@@ -8,7 +8,7 @@ import { mountRigBones } from './rig-bones-view.js';
 import { mountRigPreset } from './rig-preset-view.js';
 import { mountMotion } from './motion-view.js';
 import { projectFromGodotTscn, projectFromGodotZip } from './core/godot-export.js';
-import { normalizeRigLayerState } from './core/preset-layers.js';
+import { normalizeRigLayerState, migrateLegacyLayersToDepth } from './core/preset-layers.js';
 
 const $ = sel => document.querySelector(sel);
 
@@ -25,6 +25,7 @@ export function mountRig(app) {
   let presetMeta = { id: 'preset', name: '새 프리셋', kind: 'bare' };
   let presetLayers = [];
   let selectedPresetLayerKey = null;
+  let visibilityMode = 'individual';
 
   const undoBtn = $('#rig-undo');
   const redoBtn = $('#rig-redo');
@@ -44,6 +45,7 @@ export function mountRig(app) {
       bones,
       animations,
       restPose,
+      visibilityMode,
     });
   }
 
@@ -74,6 +76,7 @@ export function mountRig(app) {
     bones = copy.bones;
     animations = copy.animations;
     restPose = copy.restPose || null;
+    visibilityMode = copy.visibilityMode || 'individual';
     bonesView?.refresh();
     presetView?.refresh();
     motionView?.refresh();
@@ -101,6 +104,7 @@ export function mountRig(app) {
     setAnimations: value => { animations = value; },
     getPieces: () => pieces,
     getPresetLayers: () => presetLayers,
+    getVisibilityMode: () => visibilityMode,
     getSize: () => [canvasWidth, canvasHeight],
     getBackdrop: () => toHex(KEY),
     changed: () => presetView?.refresh(),
@@ -123,6 +127,8 @@ export function mountRig(app) {
     setPieces: value => { pieces = value; },
     getPresetLayers: () => presetLayers,
     setPresetLayers: value => { presetLayers = value; },
+    getVisibilityMode: () => visibilityMode,
+    setVisibilityMode: value => { visibilityMode = value === 'group' ? 'group' : 'individual'; },
     getSelectedPresetLayerKey: () => selectedPresetLayerKey,
     setSelectedPresetLayerKey: value => { selectedPresetLayerKey = value || null; },
     getSize: () => [canvasWidth, canvasHeight],
@@ -144,6 +150,8 @@ export function mountRig(app) {
     getBones: () => bones,
     getPieces: () => pieces,
     getPresetLayers: () => presetLayers,
+    getVisibilityMode: () => visibilityMode,
+    setVisibilityMode: value => { visibilityMode = value === 'group' ? 'group' : 'individual'; },
     getAnimations: () => animations,
     setAnimations: value => { animations = normalizeAnimations(value, bones); },
     getSize: () => [canvasWidth, canvasHeight],
@@ -169,9 +177,11 @@ export function mountRig(app) {
     bones = proj.bones;
     animations = proj.animations;
     restPose = proj.restPose || null;
-    const layerState = normalizeRigLayerState(proj.presetLayers || role?.presetLayers, loadedPieces);
-    pieces = layerState.pieces;
-    presetLayers = layerState.layers;
+    const rawLayers = proj.presetLayers || role?.presetLayers;
+    const layerState = normalizeRigLayerState(rawLayers, loadedPieces);
+    const migrated = migrateLegacyLayersToDepth(layerState.layers, layerState.pieces);
+    pieces = migrated.pieces;
+    presetLayers = migrated.layers;
     selectedPresetLayerKey = null;
     skeletonName = String(role?.skeletonName || 'character_skeleton');
     const draft = role?.presetDraft || role?.presetDrafts?.[0];
@@ -210,14 +220,14 @@ export function mountRig(app) {
     redoBtn?.addEventListener('click', redo);
 
     // 프로젝트 저장
-    $('#rig-save-project').addEventListener('click', () => {
+    $('#rig-save-project')?.addEventListener('click', () => {
       const proj = projectSnapshot();
       saveJson(`rig-${currentItem}.json`, proj);
       app.toast(`「rig-${currentItem}.json」으로 저장했습니다`);
     });
 
     // 프로젝트 열기 — rig-1 JSON, 고도 장면, 웹에서 만든 무압축 ZIP을 한 자리에서 받습니다.
-    $('#rig-open-project').addEventListener('click', async () => {
+    $('#rig-open-project')?.addEventListener('click', async () => {
       try {
         const [file] = await pickFiles({ accept: '.json,.tscn,.zip,application/json,application/zip,text/plain' });
         if (!file) return;
@@ -291,7 +301,7 @@ export function mountRig(app) {
       }
     });
 
-    // 뼈대 하위 서브탭 전환
+    // 뼈대 하위 서브탭 전환 (이전 호환용)
     const tabBonePieces = $('#rig-tab-bone-pieces');
     const tabBoneProps = $('#rig-tab-bone-props');
     const tabPresetLayers = $('#rig-tab-preset-layers');
@@ -300,12 +310,8 @@ export function mountRig(app) {
     const panelPresetLayers = $('#rig-panel-preset-layers');
 
     function switchSubTab(mode) {
-      if (tabBonePieces) {
-        tabBonePieces.setAttribute('aria-selected', String(mode === 'pieces'));
-      }
-      if (tabBoneProps) {
-        tabBoneProps.setAttribute('aria-selected', String(mode === 'props'));
-      }
+      if (tabBonePieces) tabBonePieces.setAttribute('aria-selected', String(mode === 'pieces'));
+      if (tabBoneProps) tabBoneProps.setAttribute('aria-selected', String(mode === 'props'));
       if (tabPresetLayers) tabPresetLayers.setAttribute('aria-selected', String(mode === 'layers'));
       if (panelBonePieces) panelBonePieces.hidden = mode !== 'pieces';
       if (panelBoneProps) panelBoneProps.hidden = mode !== 'props';
@@ -352,10 +358,12 @@ export function mountRig(app) {
       return projectSnapshot();
     },
     roleSnapshot() {
-      return workingRigToRoleState({
+      const role = workingRigToRoleState({
         canvas: [canvasWidth, canvasHeight], item: currentItem, slot: currentSlot, skeletonName,
         bones, restPose, attachedPieces: pieces, animations, preset: currentPreset(), presetLayers,
       });
+      role.visibilityMode = visibilityMode;
+      return role;
     },
     async restoreRole(saved) {
       await loadProjectData(roleRigToWorkingState(saved), saved);

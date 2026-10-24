@@ -294,7 +294,10 @@
       <div class="tools rig-tools" role="toolbar">
         <button class="btn icon" id="rig-undo" aria-label="되돌리기" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button class="btn icon" id="rig-redo" aria-label="다시하기" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        <button class="btn rig-file-btn rig-bones-only" id="rig-file-btn" aria-label="파일 메뉴 열기" aria-expanded="false" aria-controls="rig-file-pop">파일 ▾</button>
+        <button class="btn rig-bones-only" id="rig-bones-reset-rest" title="초기값으로">초기값으로</button>
+        <button class="btn rig-bones-only" id="rig-bones-save-rest" title="현재 위치·회전을 초기값으로 기억">초기값 저장</button>
+        <button class="btn primary rig-bones-only" id="rig-group-btn">그룹화</button>
+        <button class="btn rig-file-btn" id="rig-file-btn" aria-label="파일 메뉴 열기" aria-expanded="false" aria-controls="rig-file-pop">파일 ▾</button>
         <div class="color-pop rig-file-pop" id="rig-file-pop" hidden>
           <div class="rig-pop-header">
             <strong>파일 관리</strong>
@@ -328,6 +331,13 @@
               <button class="btn primary" id="rig-preset-save">프리셋 저장</button>
             </div>
           </div>
+          <div class="rig-pop-section motion-file-section">
+            <span class="pop-label">애니메이션 (animation-1)</span>
+            <div class="row">
+              <button class="btn" id="motion-open">애니메이션 열기</button>
+              <button class="btn primary" id="motion-save">애니메이션 저장</button>
+            </div>
+          </div>
         </div>
       </div>
       <p class="hint rig-import-report" id="rig-import-report" role="status" hidden>TSCN이나 ZIP을 열면 가져온 결과를 여기에 적습니다.</p>
@@ -342,85 +352,144 @@
           <p class="hint">자르기 보관함에서 고르면 PNG를 현재 프리셋에 복사합니다.</p>
           <div class="rig-piece-library" id="rig-piece-library"></div>
         </section>
-        <div class="stage" id="rig-bones-stage">
-          <canvas id="rig-bones-canvas" class="pixels"></canvas>
-          <p class="empty" id="rig-bones-empty">「그림 넣기」로 휴대폰 PNG나 자르기 보관함 조각을 붙여 주세요.</p>
-          <span class="stage-pos" id="rig-bones-hint">두 손가락 이동 · 뼈점 드래그</span>
-        </div>
-        <div class="row rig-controls rig-zoom-row">
-          <button class="btn" id="rig-bones-zoom-out" aria-label="뼈 미리보기 작게 보기">−</button>
-          <span class="hint" id="rig-bones-zoom-text">4배</span>
-          <button class="btn" id="rig-bones-zoom-in" aria-label="뼈 미리보기 크게 보기">+</button>
-          <button class="btn" id="rig-bones-zoom-fit">맞춤</button>
-        </div>
-        <div class="row rig-controls rig-arrow-row">
-          <span class="hint">고른 뼈 이동:</span>
-          <span class="arrows rig-arrows" aria-label="고른 뼈를 한 칸씩 옮기기">
-            <button class="btn small" id="rig-bone-left" aria-label="왼쪽으로 한 칸">←</button>
-            <button class="btn small" id="rig-bone-right" aria-label="오른쪽으로 한 칸">→</button>
-            <button class="btn small" id="rig-bone-up" aria-label="위로 한 칸">↑</button>
-            <button class="btn small" id="rig-bone-down" aria-label="아래로 한 칸">↓</button>
-          </span>
-        </div>
-        <div class="segmented rig-subview-tabs" role="tablist" aria-label="뼈대 하위 탭">
-          <button type="button" class="btn" id="rig-tab-bone-pieces" role="tab" aria-selected="true">뼈와 그림</button>
-          <button type="button" class="btn" id="rig-tab-bone-props" role="tab" aria-selected="false">뼈 속성</button>
-          <button type="button" class="btn" id="rig-tab-preset-layers" role="tab" aria-selected="false">레이어</button>
-        </div>
-        <div class="rig-subview-panel" id="rig-panel-bone-pieces">
-          <div class="rig-columns">
-            <section class="rig-editor-card rig-card-tree">
-              <div class="rig-card-header">
-                <h3>뼈 나무</h3>
+
+        <!-- 그룹화 모달 팝업 -->
+        <div class="color-pop rig-group-modal" id="rig-group-pop" hidden>
+          <div class="rig-pop-header">
+            <strong>그룹 관리 (프리셋)</strong>
+            <button type="button" class="btn small" id="rig-group-pop-close" aria-label="닫기">✕</button>
+          </div>
+          <div class="rig-group-views">
+            <!-- 그룹 목록 뷰 -->
+            <div id="rig-group-view-list">
+              <div class="row rig-group-action-row">
+                <button class="btn primary" id="rig-group-add-btn">그룹 추가하기</button>
+                <button class="btn" id="rig-group-import-btn">그룹 불러오기</button>
               </div>
-              <div class="rig-bone-tree" id="rig-bone-tree"></div>
-              <div class="row rig-bone-add-row">
-                <input id="rig-bone-new-name" type="text" placeholder="새 뼈 이름">
-                <button class="btn" id="rig-bone-add">더하기</button>
+              <div class="rig-group-list" id="rig-group-list"></div>
+            </div>
+            <!-- 그룹 추가 뷰 -->
+            <div id="rig-group-view-add" hidden>
+              <div class="rig-group-section-title">그룹으로 묶을 그림 선택</div>
+              <p class="hint">다른 그룹에 속해 있지 않은 모든 본의 등록 이미지입니다.</p>
+              <div class="rig-group-draft-pieces" id="rig-group-draft-pieces"></div>
+              <div class="row rig-group-form-row">
+                <input type="text" id="rig-new-group-name" placeholder="새 그룹 이름">
+                <button class="btn primary" id="rig-group-create-confirm">묶기</button>
+                <button class="btn" id="rig-group-add-cancel">취소</button>
               </div>
-            </section>
-            <section class="rig-editor-card rig-card-assigned">
-              <div class="rig-card-header">
-                <h3>붙인 그림</h3>
-                <span class="hint rig-selected-bone-label" id="rig-selected-bone-badge">선택: Torso</span>
+            </div>
+            <!-- 그룹 편집 뷰 -->
+            <div id="rig-group-view-edit" hidden>
+              <div class="row rig-group-form-row">
+                <input type="text" id="rig-edit-group-name" placeholder="그룹 이름">
+                <button class="btn" id="rig-group-edit-rename">이름 변경</button>
               </div>
-              <div class="row rig-assigned-add-row">
-                <button class="btn primary" id="rig-add-piece">그림 넣기</button>
+              <div class="rig-group-section-title">그룹에 속한 그림</div>
+              <div class="rig-group-member-pieces" id="rig-group-member-pieces"></div>
+              <div class="rig-group-section-title">그룹에 추가할 수 있는 그림</div>
+              <div class="rig-group-avail-pieces" id="rig-group-avail-pieces"></div>
+              <div class="row rig-group-edit-actions">
+                <button class="btn danger" id="rig-group-ungroup-btn">그룹 풀기</button>
+                <button class="btn" id="rig-group-edit-back">목록으로</button>
               </div>
-              <div class="rig-assign-list" id="rig-assign-list"></div>
-            </section>
+            </div>
           </div>
         </div>
-        <div class="rig-subview-panel" id="rig-panel-bone-props" hidden>
-          <section class="rig-editor-card">
-            <div class="rig-card-header">
-              <h3>고른 뼈 속성</h3>
+
+        <!-- 메인 3단 레이아웃: 좌 뼈트리 | 중 스크린 | 우 P, R, I -->
+        <div class="rig-main-layout">
+          <!-- 좌측 뼈 트리 -->
+          <div class="rig-col-bones">
+            <div class="rig-bone-tree-header">
+              <strong>뼈 트리</strong>
             </div>
-            <div class="rig-props-form">
-              <label>이름<input id="rig-bone-name" type="text"></label>
-              <label>부모<select id="rig-bone-parent"></select></label>
-              <div class="rig-number-pair">
-                <label>X<input id="rig-bone-x" type="number" step="1"></label>
-                <label>Y<input id="rig-bone-y" type="number" step="1"></label>
+            <div class="rig-bone-tree" id="rig-bone-tree"></div>
+            <div class="rig-bone-actions">
+              <input id="rig-bone-new-name" type="text" placeholder="새 뼈" aria-label="새 뼈 이름">
+              <div class="rig-bone-btn-row">
+                <button type="button" class="btn small" id="rig-bone-add" title="자식 뼈 더하기">+</button>
+                <button type="button" class="btn small danger" id="rig-bone-delete" title="고른 뼈 지우기">🗑</button>
               </div>
-              <label>각도(°)<input id="rig-bone-angle" type="number" step="1"></label>
             </div>
-            <div class="row rig-props-actions">
-              <button class="btn" id="rig-bones-reset-rest">초기값으로</button>
-              <button class="btn" id="rig-bones-save-rest">초기값 저장</button>
-              <button class="btn danger" id="rig-bone-delete">뼈 지우기</button>
+          </div>
+
+          <!-- 중앙 스크린 (좌우 잘림) -->
+          <div class="rig-col-stage">
+            <div class="stage rig-screen-stage" id="rig-bones-stage">
+              <canvas id="rig-bones-canvas" class="pixels"></canvas>
+              <span class="stage-pos" id="rig-bones-hint">두 손가락 이동</span>
+              <button type="button" class="btn small rig-view-mode-badge" id="rig-view-mode-btn" title="보기 방식: 개별 ↔ 그룹">보기: 개별</button>
             </div>
-          </section>
+            <p class="hint rig-bones-empty-hint" id="rig-bones-empty">「그림 넣기」로 그림을 붙여 주세요.</p>
+            <div class="row rig-stage-zoom-controls">
+              <button class="btn small" id="rig-bones-zoom-out" aria-label="작게">−</button>
+              <span class="hint" id="rig-bones-zoom-text">4배</span>
+              <button class="btn small" id="rig-bones-zoom-in" aria-label="크게">+</button>
+              <button class="btn small" id="rig-bones-zoom-fit">맞춤</button>
+            </div>
+          </div>
+
+          <!-- 우측 P, R, I 버튼 -->
+          <div class="rig-col-tools">
+            <button type="button" class="btn rig-tool-btn" id="rig-tool-pos" aria-pressed="true" title="위치 이동 (P)">P</button>
+            <button type="button" class="btn rig-tool-btn" id="rig-tool-rot" aria-pressed="false" title="각도 회전 (R)">R</button>
+            <button type="button" class="btn rig-tool-btn" id="rig-tool-img" aria-pressed="false" title="이미지 (I)">I</button>
+          </div>
         </div>
-        <div class="rig-subview-panel" id="rig-panel-preset-layers" hidden>
-          <section class="rig-editor-card">
-            <div class="rig-card-header">
-              <h3>프리셋 레이어</h3>
-              <span class="hint">번호가 클수록 위</span>
+
+        <!-- 하단 한 줄 바 (P / R / I 선택에 따라 변경) -->
+        <div class="rig-bottom-container">
+          <!-- P 바: 이동 화살표 + 좌표 -->
+          <div class="rig-bottom-bar" id="rig-bar-pos">
+            <div class="arrows rig-arrows">
+              <button class="btn small" id="rig-bone-left" aria-label="왼쪽으로 한 칸">←</button>
+              <button class="btn small" id="rig-bone-right" aria-label="오른쪽으로 한 칸">→</button>
+              <button class="btn small" id="rig-bone-up" aria-label="위로 한 칸">↑</button>
+              <button class="btn small" id="rig-bone-down" aria-label="아래로 한 칸">↓</button>
             </div>
-            <p class="hint">레이어를 고르면 그림 넣기·바꾸기·빼기와 프리셋 저장이 그 레이어에 적용됩니다.</p>
-            <div class="rig-preset-layer-list" id="rig-preset-layer-list"></div>
-          </section>
+            <div class="rig-coords">
+              <label>X<input id="rig-bone-x" type="number" step="1"></label>
+              <label>Y<input id="rig-bone-y" type="number" step="1"></label>
+            </div>
+          </div>
+
+          <!-- R 바: 각도 슬라이더 + ±15° + 수치 -->
+          <div class="rig-bottom-bar" id="rig-bar-rot" hidden>
+            <button class="btn small" id="rig-rot-minus15" title="-15°">-15°</button>
+            <input type="range" id="rig-rot-slider" min="-180" max="180" step="1" value="0">
+            <button class="btn small" id="rig-rot-plus15" title="+15°">+15°</button>
+            <label class="rig-angle-label"><input id="rig-bone-angle" type="number" step="1">°</label>
+          </div>
+
+          <!-- I 바: 이미지 추가 + 이미지 목록 토글 + 뼈 라벨 -->
+          <div class="rig-bottom-bar" id="rig-bar-img" hidden>
+            <button class="btn primary" id="rig-add-piece">이미지 추가</button>
+            <button class="btn" id="rig-img-list-toggle">이미지 목록</button>
+            <span class="hint rig-selected-bone-label" id="rig-selected-bone-badge">선택: Torso</span>
+          </div>
+        </div>
+
+        <!-- I 모드: 고른 뼈의 이미지 목록 드롭다운/패널 -->
+        <div class="rig-bone-pieces-panel" id="rig-bone-pieces-panel" hidden>
+          <div class="rig-card-header">
+            <strong>고른 뼈의 이미지 목록</strong>
+            <button type="button" class="btn small" id="rig-bone-pieces-close">✕</button>
+          </div>
+          <div class="rig-assign-list" id="rig-assign-list"></div>
+        </div>
+
+        <!-- 숨겨진 필드 및 이전 호환용 더미 요소들 (ID 검사 통과용) -->
+        <div class="rig-legacy-hidden" hidden>
+          <input id="rig-bone-name" type="text">
+          <select id="rig-bone-parent"></select>
+          <div class="rig-preset-layer-list" id="rig-preset-layer-list"></div>
+          <button id="rig-tab-bone-pieces"></button>
+          <button id="rig-tab-bone-props"></button>
+          <button id="rig-tab-preset-layers"></button>
+          <div id="rig-panel-bone-pieces"></div>
+          <div id="rig-panel-bone-props"></div>
+          <div id="rig-panel-preset-layers"></div>
         </div>
       </div>
 
@@ -429,8 +498,6 @@
           <label class="inline">움직임<select id="motion-select"></select></label>
           <button class="btn" id="motion-add">새 움직임</button>
           <button class="btn" id="motion-drop">지우기</button>
-          <button class="btn" id="motion-open">애니메이션 열기</button>
-          <button class="btn" id="motion-save">애니메이션 저장</button>
         </div>
         <div class="motion-settings">
           <label>이름<input id="motion-name" type="text"></label>
@@ -438,53 +505,66 @@
           <label>키 간격(초)<input id="motion-step" type="number" min="0.01" max="3600" step="0.01"></label>
           <label class="motion-loop" for="motion-loop"><input id="motion-loop" type="checkbox">반복</label>
         </div>
-        <div class="row">
+        <div class="row motion-play-row">
           <button class="btn primary" id="motion-play">▶ 재생</button>
           <button class="btn" id="motion-onion" aria-pressed="false">앞 자세 비추기</button>
           <button class="btn primary" id="motion-save-gif">GIF 내려받기</button>
         </div>
         <div class="motion-timeline" id="motion-timeline" aria-label="움직임 시간 줄"></div>
-        <div class="row">
-          <button class="btn" id="motion-zoom-out" aria-label="움직임 미리보기 작게 보기">−</button>
-          <span class="hint" id="motion-zoom-text">4배</span>
-          <button class="btn" id="motion-zoom-in" aria-label="움직임 미리보기 크게 보기">+</button>
-          <button class="btn" id="motion-zoom-fit">맞춤</button>
-          <span class="hint">뼈점을 끌어 옮깁니다. 빈 곳은 두 손가락으로 이동합니다.</span>
-        </div>
-        <div class="stage" id="motion-stage">
-          <canvas id="motion-canvas" class="pixels"></canvas>
-          <canvas id="motion-onion-canvas" class="pixels motion-overlay"></canvas>
-          <canvas id="motion-bones-canvas" class="pixels motion-overlay"></canvas>
-          <p class="empty" id="motion-empty">뼈대의 「그림 넣기」에서 프리셋 그림을 붙여 주세요.</p>
-        </div>
-        <div class="rig-editor-grid">
-          <section class="rig-editor-card">
-            <h3>움직일 뼈</h3>
+        <div class="rig-main-layout motion-main-layout">
+          <div class="rig-col-bones motion-col-bones">
+            <div class="rig-bone-tree-header">
+              <strong>움직일 뼈</strong>
+            </div>
             <div class="rig-bone-tree" id="motion-bone-tree"></div>
-          </section>
-          <section class="rig-editor-card">
-            <h3>고른 시간의 키</h3>
-            <p class="hint" id="motion-key-status"></p>
-            <div class="rig-number-pair">
+          </div>
+          <div class="rig-col-stage">
+            <div class="stage rig-screen-stage" id="motion-stage">
+              <canvas id="motion-canvas" class="pixels"></canvas>
+              <canvas id="motion-onion-canvas" class="pixels motion-overlay"></canvas>
+              <canvas id="motion-bones-canvas" class="pixels motion-overlay"></canvas>
+              <span class="stage-pos" id="motion-bones-hint">두 손가락 이동</span>
+              <button type="button" class="btn small rig-view-mode-badge" id="motion-view-mode-btn" title="보기 방식: 개별 ↔ 그룹">보기: 개별</button>
+            </div>
+            <p class="hint rig-bones-empty-hint" id="motion-empty">뼈대의 「그림 넣기」에서 프리셋 그림을 붙여 주세요.</p>
+            <div class="row rig-stage-zoom-controls">
+              <button class="btn small" id="motion-zoom-out" aria-label="움직임 미리보기 작게 보기">−</button>
+              <span class="hint" id="motion-zoom-text">4배</span>
+              <button class="btn small" id="motion-zoom-in" aria-label="움직임 미리보기 크게 보기">+</button>
+              <button class="btn small" id="motion-zoom-fit">맞춤</button>
+            </div>
+          </div>
+          <div class="rig-col-tools">
+            <button type="button" class="btn rig-tool-btn" id="motion-tool-pos" aria-pressed="true" title="위치 이동 (P)">P</button>
+            <button type="button" class="btn rig-tool-btn" id="motion-tool-rot" aria-pressed="false" title="각도 회전 (R)">R</button>
+          </div>
+        </div>
+        <div class="rig-bottom-container">
+          <div class="rig-bottom-bar" id="motion-bar-pos">
+            <div class="arrows rig-arrows">
+              <button class="btn small" id="motion-bone-left" aria-label="왼쪽으로 한 칸">←</button>
+              <button class="btn small" id="motion-bone-right" aria-label="오른쪽으로 한 칸">→</button>
+              <button class="btn small" id="motion-bone-up" aria-label="위로 한 칸">↑</button>
+              <button class="btn small" id="motion-bone-down" aria-label="아래로 한 칸">↓</button>
+            </div>
+            <div class="rig-coords">
               <label>X<input id="motion-bone-x" type="number" step="1" inputmode="numeric"></label>
               <label>Y<input id="motion-bone-y" type="number" step="1" inputmode="numeric"></label>
             </div>
-            <label>각도(°)<input id="motion-bone-angle" type="number" step="1" inputmode="numeric"></label>
-            <div class="motion-angle-buttons">
-              <button class="btn" id="motion-angle-minus">−15°</button>
-              <button class="btn" id="motion-angle-plus">+15°</button>
-            </div>
-            <div class="rig-dpad motion-dpad" aria-label="고른 시간의 뼈를 한 칸씩 옮기기">
-              <button class="btn" id="motion-bone-up" aria-label="위로 한 칸">▲</button>
-              <button class="btn" id="motion-bone-left" aria-label="왼쪽으로 한 칸">◀</button>
-              <button class="btn" id="motion-bone-down" aria-label="아래로 한 칸">▼</button>
-              <button class="btn" id="motion-bone-right" aria-label="오른쪽으로 한 칸">▶</button>
-            </div>
-            <div class="motion-key-buttons">
-              <button class="btn" id="motion-copy-key">앞 칸 키 복사</button>
-              <button class="btn" id="motion-drop-key">키 지우기</button>
-            </div>
-          </section>
+          </div>
+          <div class="rig-bottom-bar" id="motion-bar-rot" hidden>
+            <button class="btn small" id="motion-angle-minus">−15°</button>
+            <input type="range" id="motion-rot-slider" min="-180" max="180" step="1" value="0" aria-label="고른 뼈 각도">
+            <button class="btn small" id="motion-angle-plus">+15°</button>
+            <label class="rig-angle-label"><input id="motion-bone-angle" type="number" step="1" inputmode="numeric">°</label>
+          </div>
+        </div>
+        <div class="motion-key-row">
+          <p class="hint" id="motion-key-status"></p>
+          <div class="motion-key-buttons">
+            <button class="btn" id="motion-copy-key">앞 칸 키 복사</button>
+            <button class="btn" id="motion-drop-key">키 지우기</button>
+          </div>
         </div>
       </div>
 

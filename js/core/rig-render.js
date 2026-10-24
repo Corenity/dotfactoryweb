@@ -98,10 +98,10 @@ export function rotateNearest(image, pivotX, pivotY, degrees) {
 }
 
 /** 뼈에 붙은 조각을 프리셋 레이어, 층 순서로 그려 미리보기 한 장으로 만듭니다. */
-export function composeRig(pieces, bones, width = 72, height = 64, restBones = null, presetLayers = []) {
+export function composeRig(pieces, bones, width = 72, height = 64, restBones = null, presetLayers = [], options = {}) {
   const transforms = bonePoseTransforms(bones, restBones);
   const out = new Uint8ClampedArray(width * height * 4);
-  const ordered = sortRigPiecesByLayers(pieces, presetLayers).filter(piece => piece.image);
+  const ordered = sortRigPiecesByLayers(pieces, presetLayers, options).filter(piece => piece.image);
 
   for (const piece of ordered) {
     const matrix = transforms.get(piece.bone) || identity();

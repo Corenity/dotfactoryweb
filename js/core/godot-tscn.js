@@ -166,16 +166,17 @@ export function makeGodotTscn(project) {
   sections.push('[node name="Skeleton2D" type="Skeleton2D" parent="."]');
   const pieces = new Map((project.pieces || []).map(piece => [`${piece.slot}_${piece.piece}`, piece]));
   const spritesByBone = new Map();
+  let orderCounter = 0;
   for (const [slot, piece] of SPRITES) {
     const saved = pieces.get(`${slot}_${piece}`), bone = saved?.bone || defaultBoneFor(slot, piece, bones);
     if (!spritesByBone.has(bone)) spritesByBone.set(bone, []);
-    spritesByBone.get(bone).push({ slot, piece, zIndex: saved?.zIndex ?? defaultZIndex(slot, piece) });
+    spritesByBone.get(bone).push({ slot, piece, zIndex: saved?.zIndex ?? defaultZIndex(slot, piece), order: orderCounter++ });
   }
   for (const piece of project.pieces || []) {
     if (piece.slot === 'extra') {
       const bone = piece.bone || defaultBoneFor('extra', piece.piece, bones);
       if (!spritesByBone.has(bone)) spritesByBone.set(bone, []);
-      spritesByBone.get(bone).push({ slot: 'extra', piece: piece.piece, zIndex: piece.zIndex ?? defaultZIndex('extra', piece.piece), textureId: extraTextureIds.get(piece.piece) });
+      spritesByBone.get(bone).push({ slot: 'extra', piece: piece.piece, zIndex: piece.zIndex ?? defaultZIndex('extra', piece.piece), textureId: extraTextureIds.get(piece.piece), order: orderCounter++ });
     }
   }
 
@@ -188,7 +189,12 @@ export function makeGodotTscn(project) {
     if (bone.angle !== 90) lines.push(`rotation = ${number((bone.angle - 90) * DEG)}`);
     lines.push(`rest = ${restTransform(bone)}`, 'auto_calculate_length_and_angle = false', `length = ${number(bone.length)}`, 'bone_angle = 90.0');
     sections.push(lines.join('\n'));
-    for (const sprite of spritesByBone.get(bone.name) || []) {
+    const sprites = (spritesByBone.get(bone.name) || []).slice().sort((a, b) => {
+      const zA = Number(a.zIndex) || 0, zB = Number(b.zIndex) || 0;
+      if (zA !== zB) return zA - zB;
+      return (a.order ?? 0) - (b.order ?? 0);
+    });
+    for (const sprite of sprites) {
       const pivot = restWorld.get(bone.name);
       sections.push(spriteText(sprite.slot, sprite.piece, paths.get(bone.name), [-pivot.x, -pivot.y], sprite.zIndex, sprite.textureId));
     }

@@ -1,6 +1,7 @@
 // 뼈대 단계 화면 — 뼈 나무, 위치·각도, 조각 연결·층과 미리보기를 다룹니다.
 import { boneLabel, normalizeBones, applyRestPose, createRestPose, DEFAULT_BONES, addBone, removeBone, isValidBoneName } from './core/rig.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
+import { sortRigPiecesByLayers } from './core/preset-layers.js';
 import { drawPixels, saveJson, pickFiles, baseName } from './io.js';
 import { toSkeleton, parseSkeleton, applySkeletonToRig } from './core/skeleton.js';
 
@@ -17,6 +18,9 @@ export function mountRigBones(app, model) {
   const xInput = $('#rig-bone-x');
   const yInput = $('#rig-bone-y');
   const angleInput = $('#rig-bone-angle');
+  const rotSlider = $('#rig-rot-slider');
+  const rotMinus15 = $('#rig-rot-minus15');
+  const rotPlus15 = $('#rig-rot-plus15');
   const zoomText = $('#rig-bones-zoom-text');
   const newNameInput = $('#rig-bone-new-name');
   const addBtn = $('#rig-bone-add');
@@ -24,13 +28,22 @@ export function mountRigBones(app, model) {
   const saveSkeletonBtn = $('#rig-bones-save');
   const openSkeletonBtn = $('#rig-bones-open');
 
+  const toolPosBtn = $('#rig-tool-pos');
+  const toolRotBtn = $('#rig-tool-rot');
+  const toolImgBtn = $('#rig-tool-img');
+  const barPos = $('#rig-bar-pos');
+  const barRot = $('#rig-bar-rot');
+  const barImg = $('#rig-bar-img');
+
   let selected = 'Torso';
+  let activeTool = 'P';
   let cell = 4;
   let panX = 0, panY = 0;
   const pointers = new Map();
   let dragging = null;
   let dragBefore = null;
   let panning = null;
+  let rotDragBefore = null;
 
   function bones() { return model.getBones(); }
   function pieces() { return model.getPieces(); }
@@ -84,13 +97,15 @@ export function mountRigBones(app, model) {
   }
 
   function renderTree() {
+    if (!tree) return;
     tree.innerHTML = '';
     const byName = new Map(bones().map(bone => [bone.name, bone]));
     for (const bone of bones()) {
       const button = document.createElement('button');
       button.className = 'btn';
-      button.style.paddingLeft = `${10 + depthOf(bone, byName) * 16}px`;
-      button.textContent = `${bone.parent ? '↳ ' : ''}${boneLabel(bone.name)}`;
+      button.style.paddingLeft = `${6 + depthOf(bone, byName) * 10}px`;
+      button.textContent = `${bone.parent ? '↳ ' : ''}${bone.name}`;
+      button.title = boneLabel(bone.name);
       button.setAttribute('aria-pressed', String(bone.name === selected));
       button.addEventListener('click', () => {
         selected = bone.name;
@@ -102,32 +117,45 @@ export function mountRigBones(app, model) {
     }
   }
 
+  function switchTool(tool) {
+    activeTool = tool;
+    if (toolPosBtn) toolPosBtn.setAttribute('aria-pressed', String(tool === 'P'));
+    if (toolRotBtn) toolRotBtn.setAttribute('aria-pressed', String(tool === 'R'));
+    if (toolImgBtn) toolImgBtn.setAttribute('aria-pressed', String(tool === 'I'));
+    if (barPos) barPos.hidden = tool !== 'P';
+    if (barRot) barRot.hidden = tool !== 'R';
+    if (barImg) barImg.hidden = tool !== 'I';
+  }
+
   function refreshControls() {
     const bone = selectedBone();
     if (!bone) return;
     selected = bone.name;
-    nameInput.value = bone.name;
-    xInput.value = String(bone.pos[0]);
-    yInput.value = String(bone.pos[1]);
-    angleInput.value = String(bone.angle);
+    if (nameInput) nameInput.value = bone.name;
+    if (xInput) xInput.value = String(bone.pos[0]);
+    if (yInput) yInput.value = String(bone.pos[1]);
+    if (angleInput) angleInput.value = String(bone.angle);
+    if (rotSlider) rotSlider.value = String(bone.angle);
     const badge = $('#rig-selected-bone-badge');
     if (badge) badge.textContent = `선택: ${boneLabel(bone.name)}`;
-    parentSelect.innerHTML = '<option value="">없음 (Skeleton2D)</option>';
-    for (const other of bones()) {
-      if (other.name === bone.name) continue;
-      const option = document.createElement('option');
-      option.value = other.name;
-      option.textContent = boneLabel(other.name);
-      parentSelect.appendChild(option);
+    if (parentSelect) {
+      parentSelect.innerHTML = '<option value="">없음 (Skeleton2D)</option>';
+      for (const other of bones()) {
+        if (other.name === bone.name) continue;
+        const option = document.createElement('option');
+        option.value = other.name;
+        option.textContent = boneLabel(other.name);
+        parentSelect.appendChild(option);
+      }
+      parentSelect.value = bone.parent || '';
     }
-    parentSelect.value = bone.parent || '';
     renderTree();
   }
 
   function fit() {
     const [width, height] = model.getSize();
-    const stageWidth = stage.clientWidth || 320, stageHeight = stage.clientHeight || 240;
-    cell = Math.max(1, Math.floor(Math.min(stageWidth / width, stageHeight / height)));
+    const stageWidth = stage.clientWidth || 200, stageHeight = stage.clientHeight || 256;
+    cell = Math.max(1, Math.round(stageHeight / height));
     panX = Math.round((stageWidth - width * cell) / 2);
     panY = Math.round((stageHeight - height * cell) / 2);
     render();
@@ -136,7 +164,7 @@ export function mountRigBones(app, model) {
   function zoom(direction) {
     const next = Math.max(1, Math.min(16, cell + direction));
     if (next === cell) return;
-    const cx = (stage.clientWidth || 320) / 2, cy = (stage.clientHeight || 240) / 2;
+    const cx = (stage.clientWidth || 200) / 2, cy = (stage.clientHeight || 200) / 2;
     const x = (cx - panX) / cell, y = (cy - panY) / cell;
     cell = next; panX = Math.round(cx - x * cell); panY = Math.round(cy - y * cell);
     render();
@@ -145,11 +173,14 @@ export function mountRigBones(app, model) {
   function render() {
     const [width, height] = model.getSize();
     const restBones = applyRestPose(bones(), model.getRestPose?.()).bones;
-    const preview = composeRig(pieces(), bones(), width, height, restBones, model.getPresetLayers?.() || []);
+    const layers = model.getPresetLayers?.() || [];
+    const mode = model.getVisibilityMode?.() || 'individual';
+    const visiblePieces = sortRigPiecesByLayers(pieces(), layers, { screen: true, visibilityMode: mode });
+    const preview = composeRig(visiblePieces, bones(), width, height, restBones, layers);
     drawPixels(canvas, preview, cell, model.getBackdrop());
     canvas.style.transform = `translate(${panX}px, ${panY}px)`;
-    zoomText.textContent = `${cell}배`;
-    empty.hidden = pieces().length > 0;
+    if (zoomText) zoomText.textContent = `${cell}배`;
+    if (empty) empty.hidden = pieces().length > 0;
 
     const ctx = canvas.getContext('2d');
     const world = boneWorldTransforms(bones());
@@ -241,42 +272,92 @@ export function mountRigBones(app, model) {
   }
 
   function bindEvents() {
-    $('#rig-bones-zoom-in').addEventListener('click', () => zoom(1));
-    $('#rig-bones-zoom-out').addEventListener('click', () => zoom(-1));
-    $('#rig-bones-zoom-fit').addEventListener('click', fit);
-    nameInput.addEventListener('change', () => {
-      const oldName = selectedBone().name, next = nameInput.value.trim();
-      if (!next || next === oldName) { refreshControls(); return; }
-      const before = model.snapshot?.();
-      const candidate = bones().map(bone => ({ ...bone, pos: [...bone.pos], name: bone.name === oldName ? next : bone.name, parent: bone.parent === oldName ? next : bone.parent }));
-      selected = next;
-      if (!replaceBones(candidate, oldName)) selected = oldName;
-      else model.commit?.(before);
-    });
-    parentSelect.addEventListener('change', () => {
-      const before = model.snapshot?.();
-      if (editSelected({ parent: parentSelect.value || null })) model.commit?.(before);
-    });
+    $('#rig-bones-zoom-in')?.addEventListener('click', () => zoom(1));
+    $('#rig-bones-zoom-out')?.addEventListener('click', () => zoom(-1));
+    $('#rig-bones-zoom-fit')?.addEventListener('click', fit);
+
+    toolPosBtn?.addEventListener('click', () => switchTool('P'));
+    toolRotBtn?.addEventListener('click', () => switchTool('R'));
+    toolImgBtn?.addEventListener('click', () => switchTool('I'));
+
+    if (nameInput) {
+      nameInput.addEventListener('change', () => {
+        const oldName = selectedBone().name, next = nameInput.value.trim();
+        if (!next || next === oldName) { refreshControls(); return; }
+        const before = model.snapshot?.();
+        const candidate = bones().map(bone => ({ ...bone, pos: [...bone.pos], name: bone.name === oldName ? next : bone.name, parent: bone.parent === oldName ? next : bone.parent }));
+        selected = next;
+        if (!replaceBones(candidate, oldName)) selected = oldName;
+        else model.commit?.(before);
+      });
+    }
+
+    if (parentSelect) {
+      parentSelect.addEventListener('change', () => {
+        const before = model.snapshot?.();
+        if (editSelected({ parent: parentSelect.value || null })) model.commit?.(before);
+      });
+    }
+
     const updatePosition = () => {
       const before = model.snapshot?.();
       if (editSelected({ pos: [Number(xInput.value), Number(yInput.value)] })) model.commit?.(before);
     };
-    xInput.addEventListener('change', updatePosition); yInput.addEventListener('change', updatePosition);
-    angleInput.addEventListener('change', () => {
-      const before = model.snapshot?.();
-      if (editSelected({ angle: Number(angleInput.value) })) model.commit?.(before);
-    });
+    if (xInput) xInput.addEventListener('change', updatePosition);
+    if (yInput) yInput.addEventListener('change', updatePosition);
+
+    if (angleInput) {
+      angleInput.addEventListener('change', () => {
+        const before = model.snapshot?.();
+        if (editSelected({ angle: Number(angleInput.value) })) model.commit?.(before);
+      });
+    }
+
+    if (rotSlider) {
+      rotSlider.addEventListener('input', () => {
+        if (!rotDragBefore) rotDragBefore = model.snapshot?.();
+        editSelected({ angle: Number(rotSlider.value) }, { quiet: true });
+        if (angleInput) angleInput.value = rotSlider.value;
+      });
+      rotSlider.addEventListener('change', () => {
+        const before = rotDragBefore || model.snapshot?.();
+        rotDragBefore = null;
+        if (editSelected({ angle: Number(rotSlider.value) })) model.commit?.(before);
+      });
+    }
+
+    if (rotMinus15) {
+      rotMinus15.addEventListener('click', () => {
+        const bone = selectedBone();
+        if (!bone) return;
+        const before = model.snapshot?.();
+        const nextAngle = Math.round(bone.angle - 15);
+        if (editSelected({ angle: nextAngle })) model.commit?.(before);
+      });
+    }
+
+    if (rotPlus15) {
+      rotPlus15.addEventListener('click', () => {
+        const bone = selectedBone();
+        if (!bone) return;
+        const before = model.snapshot?.();
+        const nextAngle = Math.round(bone.angle + 15);
+        if (editSelected({ angle: nextAngle })) model.commit?.(before);
+      });
+    }
+
     const nudge = (dx, dy) => {
       const bone = selectedBone();
       if (!bone) return;
       const before = model.snapshot?.();
       if (editSelected({ pos: [bone.pos[0] + dx, bone.pos[1] + dy] })) model.commit?.(before);
     };
-    $('#rig-bone-up').addEventListener('click', () => nudge(0, -1));
-    $('#rig-bone-left').addEventListener('click', () => nudge(-1, 0));
-    $('#rig-bone-down').addEventListener('click', () => nudge(0, 1));
-    $('#rig-bone-right').addEventListener('click', () => nudge(1, 0));
-    $('#rig-bones-reset-rest').addEventListener('click', () => {
+    $('#rig-bone-up')?.addEventListener('click', () => nudge(0, -1));
+    $('#rig-bone-left')?.addEventListener('click', () => nudge(-1, 0));
+    $('#rig-bone-down')?.addEventListener('click', () => nudge(0, 1));
+    $('#rig-bone-right')?.addEventListener('click', () => nudge(1, 0));
+
+    $('#rig-bones-reset-rest')?.addEventListener('click', () => {
       const { bones: nextBones, changed } = applyRestPose(bones(), model.getRestPose?.());
       if (!changed) return;
       const before = model.snapshot?.();
@@ -286,7 +367,8 @@ export function mountRigBones(app, model) {
       render();
       model.commit?.(before);
     });
-    $('#rig-bones-save-rest').addEventListener('click', () => {
+
+    $('#rig-bones-save-rest')?.addEventListener('click', () => {
       const before = model.snapshot?.();
       const newRestPose = createRestPose(bones());
       model.setRestPose?.(newRestPose);
@@ -294,6 +376,7 @@ export function mountRigBones(app, model) {
       app.toast('초기값을 저장했습니다');
       model.commit?.(before);
     });
+
     if (addBtn && newNameInput) {
       addBtn.addEventListener('click', () => {
         const name = (newNameInput.value || '').trim();
@@ -373,6 +456,7 @@ export function mountRigBones(app, model) {
         }
       });
     }
+
     if (saveSkeletonBtn) {
       saveSkeletonBtn.addEventListener('click', async () => {
         const skeletonName = model.getSkeletonName?.() || 'character_skeleton';
@@ -432,6 +516,7 @@ export function mountRigBones(app, model) {
   }
 
   bindEvents();
+  switchTool('P');
   refreshControls();
 
   return {
@@ -440,5 +525,6 @@ export function mountRigBones(app, model) {
     refresh() { refreshControls(); render(); },
     getSelectedBone() { return selected; },
     shown() { if (!panel.hidden) fit(); },
+    switchTool,
   };
 }

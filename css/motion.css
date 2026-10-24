@@ -1,11 +1,16 @@
-/* 뼈 애니메이션 3단계 — 움직임 설정, 시간 줄, 키 편집 화면 */
+/* 뼈 애니메이션 — 뼈대 화면과 같은 3열 작업판에 움직임 도구를 얹습니다. */
 
-#rig.rig-mode-motion .rig-slice-only { display: none; }
-.rig-motion-only { display: grid; gap: 8px; }
+#rig.rig-mode-motion .rig-slice-only,
+#rig.rig-mode-motion .rig-tools > .rig-bones-only { display: none; }
+.rig-motion-only { display: grid; gap: 8px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 .rig-motion-only[hidden] { display: none; }
+.motion-file-section { display: none; }
+#rig.rig-mode-motion .motion-file-section { display: flex; }
 
-.motion-pick-row label { flex: 1; }
-.motion-pick-row select { min-width: 110px; min-height: 44px; }
+.motion-pick-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
+.motion-pick-row label { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
+.motion-pick-row select { width: 100%; min-width: 0; min-height: 44px; }
+.motion-pick-row .btn { flex: 0 0 auto; min-height: 44px; padding: 0 8px; font-size: 13px; }
 
 .motion-settings {
   display: grid;
@@ -14,17 +19,24 @@
   align-items: end;
 }
 
-.motion-settings label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
-.motion-settings input, .motion-settings select { width: 100%; min-height: 44px; font-size: 16px; }
+.motion-settings label { display: grid; gap: 4px; min-width: 0; color: var(--muted); font-size: 12px; }
+.motion-settings input, .motion-settings select { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; font-size: 16px; }
 .motion-settings input[type="text"] { padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
 .motion-settings .motion-loop { display: flex; align-items: center; min-width: 44px; min-height: 44px; padding: 0 8px; gap: 8px; font-size: 16px; color: var(--text); cursor: pointer; }
 .motion-loop input { width: 24px; min-height: 24px; }
 
+.motion-play-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.motion-play-row .btn { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 6px; font-size: 13px; }
+
 .motion-timeline {
   display: flex;
   gap: 5px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   padding: 4px 0 8px;
+  box-sizing: border-box;
 }
 
 .motion-time {
@@ -49,18 +61,18 @@
 .motion-overlay { pointer-events: none; }
 #motion-onion-canvas { opacity: 0.3; }
 
-.motion-angle-buttons, .motion-key-buttons {
+.motion-main-layout { display: grid; grid-template-columns: 96px minmax(0, 1fr) 46px; }
+.motion-main-layout .rig-bone-tree { min-height: 0; }
+.motion-main-layout .rig-stage-zoom-controls { display: grid; grid-template-columns: 44px minmax(28px, 1fr) 44px 44px; }
+.motion-key-row { display: grid; gap: 4px; }
+.motion-key-row > .hint { min-height: 18px; margin: 0; }
+.motion-key-buttons {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
-  margin-top: 8px;
 }
 
-.motion-angle-buttons .btn, .motion-key-buttons .btn { min-height: 44px; }
-.motion-dpad #motion-bone-up { grid-column: 2; }
-.motion-dpad #motion-bone-left { grid-column: 1; grid-row: 2; }
-.motion-dpad #motion-bone-down { grid-column: 2; grid-row: 2; }
-.motion-dpad #motion-bone-right { grid-column: 3; grid-row: 2; }
+.motion-key-buttons .btn { min-height: 44px; }
 
 @media (max-width: 560px) {
   .motion-settings { grid-template-columns: 1fr 1fr; }

@@ -45,6 +45,7 @@ export function cloneRigState(state) {
     })),
     animations: JSON.parse(JSON.stringify(state.animations || {})),
     restPose: state.restPose ? JSON.parse(JSON.stringify(state.restPose)) : null,
+    visibilityMode: state.visibilityMode || 'individual',
   };
 }
 
@@ -82,6 +83,7 @@ export function sameRigState(a, b) {
   if (JSON.stringify(a.bones || []) !== JSON.stringify(b.bones || [])) return false;
   if (JSON.stringify(a.animations || {}) !== JSON.stringify(b.animations || {})) return false;
   if (JSON.stringify(a.restPose || null) !== JSON.stringify(b.restPose || null)) return false;
+  if ((a.visibilityMode || 'individual') !== (b.visibilityMode || 'individual')) return false;
 
   return true;
 }
