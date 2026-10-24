@@ -6,6 +6,7 @@ import { encodeGif } from './core/gif.js';
 import { sortRigPiecesByLayers } from './core/preset-layers.js';
 import { drawPixels, saveFile, saveJson, pickFiles } from './io.js';
 import { toAnimation, parseAnimation, checkSkeletonCompatibility, adaptAnimationToBones, mergeAnimations } from './core/animation.js';
+import { scrollTreeItemIntoView } from './rig-bones-view.js';
 
 const $ = selector => document.querySelector(selector);
 const rounded = value => Number(Number(value).toFixed(9));
@@ -194,18 +195,23 @@ export function mountMotion(app, model) {
   function refreshTree() {
     const posed = poseAt(bones(), previewMotion(), currentTime);
     if (!posed.some(bone => bone.name === selected)) selected = posed[0]?.name || '';
+    const prevScrollTop = tree.scrollTop;
     tree.textContent = '';
     const byName = new Map(posed.map(bone => [bone.name, bone]));
+    let activeItem = null;
     for (const bone of posed) {
       const button = document.createElement('button');
       button.className = 'btn';
       button.style.paddingLeft = `${6 + depthOf(bone, byName) * 10}px`;
       button.textContent = `${bone.parent ? '↳ ' : ''}${bone.name}`;
       button.title = boneLabel(bone.name);
-      button.setAttribute('aria-pressed', String(bone.name === selected));
+      const isSelected = bone.name === selected;
+      button.setAttribute('aria-pressed', String(isSelected));
+      if (isSelected) activeItem = button;
       button.addEventListener('click', () => { selected = bone.name; refresh(); });
       tree.append(button);
     }
+    scrollTreeItemIntoView(tree, activeItem, prevScrollTop);
   }
 
   function refreshKeyControls() {

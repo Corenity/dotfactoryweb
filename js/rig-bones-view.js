@@ -7,6 +7,20 @@ import { toSkeleton, parseSkeleton, applySkeletonToRig } from './core/skeleton.j
 
 const $ = selector => document.querySelector(selector);
 
+export function scrollTreeItemIntoView(tree, item, prevScrollTop = tree?.scrollTop ?? 0) {
+  if (!tree) return;
+  tree.scrollTop = prevScrollTop;
+  if (!item || !(tree.clientHeight > 0)) return;
+  const treeRect = tree.getBoundingClientRect?.();
+  const itemRect = item.getBoundingClientRect?.();
+  if (!treeRect || !itemRect || !(treeRect.height > 0)) return;
+  if (itemRect.top < treeRect.top) {
+    tree.scrollTop = Math.max(0, tree.scrollTop - (treeRect.top - itemRect.top));
+  } else if (itemRect.bottom > treeRect.bottom) {
+    tree.scrollTop += itemRect.bottom - treeRect.bottom;
+  }
+}
+
 export function mountRigBones(app, model) {
   const panel = $('#rig-bones-panel');
   const stage = $('#rig-bones-stage');
@@ -127,15 +141,19 @@ export function mountRigBones(app, model) {
 
   function renderTree() {
     if (!tree) return;
+    const prevScrollTop = tree.scrollTop;
     tree.innerHTML = '';
     const byName = new Map(bones().map(bone => [bone.name, bone]));
+    let activeItem = null;
     for (const bone of bones()) {
       const button = document.createElement('button');
       button.className = 'btn';
       button.style.paddingLeft = `${6 + depthOf(bone, byName) * 10}px`;
       button.textContent = `${bone.parent ? '↳ ' : ''}${bone.name}`;
       button.title = boneLabel(bone.name);
-      button.setAttribute('aria-pressed', String(bone.name === selected && selectedPieceIndex == null));
+      const isBoneSelected = bone.name === selected && selectedPieceIndex == null;
+      button.setAttribute('aria-pressed', String(isBoneSelected));
+      if (isBoneSelected) activeItem = button;
       button.addEventListener('click', () => {
         selected = bone.name;
         selectedPieceIndex = null;
@@ -153,7 +171,9 @@ export function mountRigBones(app, model) {
         pieceButton.style.paddingLeft = `${16 + depthOf(bone, byName) * 10}px`;
         pieceButton.textContent = piece.name || piece.piece;
         pieceButton.title = `${piece.name || piece.piece} · 깊이 ${piece.zIndex ?? 0}`;
-        pieceButton.setAttribute('aria-pressed', String(index === selectedPieceIndex));
+        const isPieceSelected = index === selectedPieceIndex;
+        pieceButton.setAttribute('aria-pressed', String(isPieceSelected));
+        if (isPieceSelected) activeItem = pieceButton;
         pieceButton.addEventListener('click', () => {
           selected = bone.name;
           selectedPieceIndex = index;
@@ -165,6 +185,7 @@ export function mountRigBones(app, model) {
         tree.appendChild(pieceButton);
       });
     }
+    scrollTreeItemIntoView(tree, activeItem, prevScrollTop);
   }
 
   function updateSelectionMenus() {
