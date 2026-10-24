@@ -510,7 +510,7 @@ export function autoSlice({
       }
     }
 
-    // 2) 손 윤곽선 버림: 버린 살에 닿고 밝은 옷색 칸엔 안 닿는 어두운 칸은 옷 조각에서 버림 (2패스)
+    // 2) 손 윤곽선 버림: 버린 살에 닿고 보호되는 옷 면(밝은 옷색 또는 어두운 옷 코어)엔 안 닿는 어두운 칸은 옷 조각에서 버림 (2패스)
     const outfitLabels = new Set([
       labelByPiece.body,
       labelByPiece.arm_l,
@@ -518,14 +518,34 @@ export function autoSlice({
       labelByPiece.leg_l,
       labelByPiece.leg_r,
     ]);
+    const initialDropped = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      if (dropped(i)) initialDropped[i] = 1;
+    }
+    const coreColorCnt = new Map();
+    const darkCoreCand = new Uint8Array(N);
+    for (let i = 0; i < N; i++) {
+      if (!outfitLabels.has(assignments[i])) continue;
+      const br = bright(i);
+      if (br < 40 || br >= 110) continue;
+      if (nb8(i).some(j => initialDropped[j])) continue;
+      if (nb4(i).some(j => d[j * 4 + 3] === 0)) continue;
+      darkCoreCand[i] = 1;
+      if (assignments[i] === labelByPiece.body) {
+        const k = `${Math.round(d[i * 4] / 6) * 6},${Math.round(d[i * 4 + 1] / 6) * 6},${Math.round(d[i * 4 + 2] / 6) * 6}`;
+        coreColorCnt.set(k, (coreColorCnt.get(k) || 0) + 1);
+      }
+    }
+    const hasDarkOutfitCore = [...coreColorCnt.values()].some(cnt => cnt >= 12);
+    const isProtectedFill = i => bright(i) >= 110 || (hasDarkOutfitCore && darkCoreCand[i] === 1);
     for (let pass = 0; pass < 2; pass++) {
       const kill = [];
       for (let i = 0; i < N; i++) {
         if (!assignments[i] || !outfitLabels.has(assignments[i])) continue;
         if (userModifiedMask && userModifiedMask[i]) continue;
-        if (bright(i) >= 110) continue;
+        if (isProtectedFill(i)) continue;
         if (!nb8(i).some(dropped)) continue;
-        if (nb4(i).some(j => assignments[j] && bright(j) >= 110 && !dropped(j))) continue;
+        if (nb4(i).some(j => assignments[j] && isProtectedFill(j) && !dropped(j))) continue;
         kill.push(i);
       }
       for (const idx of kill) assignments[idx] = 0;
