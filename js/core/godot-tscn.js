@@ -117,10 +117,12 @@ function filePart(value) {
   return safe;
 }
 
-function spriteText(slot, piece, parent, position, zIndex, textureId = null) {
+function spriteText(slot, piece, parent, position, zIndex, textureId = null, rotation = 0, offset = null) {
   const lines = [`[node name="${slot}_${piece}" type="Sprite2D" parent="${quoted(parent)}"]`];
   if (zIndex !== 0) lines.push(`z_index = ${Math.trunc(zIndex)}`);
   lines.push(`position = ${vector(position)}`);
+  if (rotation !== 0) lines.push(`rotation = ${number(rotation * DEG)}`);
+  if (offset && (offset[0] !== 0 || offset[1] !== 0)) lines.push(`offset = ${vector(offset)}`);
   if (textureId) lines.push(`texture = ExtResource("${textureId}")`);
   lines.push('centered = false');
   return lines.join('\n');
@@ -170,13 +172,28 @@ export function makeGodotTscn(project) {
   for (const [slot, piece] of SPRITES) {
     const saved = pieces.get(`${slot}_${piece}`), bone = saved?.bone || defaultBoneFor(slot, piece, bones);
     if (!spritesByBone.has(bone)) spritesByBone.set(bone, []);
-    spritesByBone.get(bone).push({ slot, piece, zIndex: saved?.zIndex ?? defaultZIndex(slot, piece), order: orderCounter++ });
+    spritesByBone.get(bone).push({
+      slot,
+      piece,
+      zIndex: saved?.zIndex ?? defaultZIndex(slot, piece),
+      pos: saved?.pos || [0, 0],
+      rot: saved?.rot || 0,
+      order: orderCounter++,
+    });
   }
   for (const piece of project.pieces || []) {
     if (piece.slot === 'extra') {
       const bone = piece.bone || defaultBoneFor('extra', piece.piece, bones);
       if (!spritesByBone.has(bone)) spritesByBone.set(bone, []);
-      spritesByBone.get(bone).push({ slot: 'extra', piece: piece.piece, zIndex: piece.zIndex ?? defaultZIndex('extra', piece.piece), textureId: extraTextureIds.get(piece.piece), order: orderCounter++ });
+      spritesByBone.get(bone).push({
+        slot: 'extra',
+        piece: piece.piece,
+        zIndex: piece.zIndex ?? defaultZIndex('extra', piece.piece),
+        pos: piece.pos || [0, 0],
+        rot: piece.rot || 0,
+        textureId: extraTextureIds.get(piece.piece),
+        order: orderCounter++,
+      });
     }
   }
 
@@ -196,7 +213,10 @@ export function makeGodotTscn(project) {
     });
     for (const sprite of sprites) {
       const pivot = restWorld.get(bone.name);
-      sections.push(spriteText(sprite.slot, sprite.piece, paths.get(bone.name), [-pivot.x, -pivot.y], sprite.zIndex, sprite.textureId));
+      const pos = sprite.pos || [0, 0];
+      const rot = sprite.rot || 0;
+      const offset = [-Math.round(pivot.x), -Math.round(pivot.y)];
+      sections.push(spriteText(sprite.slot, sprite.piece, paths.get(bone.name), pos, sprite.zIndex, sprite.textureId, rot, offset));
     }
   }
   sections.push('[node name="AnimationPlayer" type="AnimationPlayer" parent="."]\nlibraries/ = SubResource("AnimationLibrary_main")');

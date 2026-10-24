@@ -51,14 +51,40 @@ export function normalizeLayers(layersRaw) {
       throw new Error(`레이어 「${id}」의 그림이 올바른 Base64 PNG Data URL이 아닙니다`);
     }
 
-    result.push({
+    let pos = [0, 0];
+    if (raw.pos != null) {
+      if (!Array.isArray(raw.pos) || raw.pos.length !== 2) {
+        throw new Error(`레이어 「${id}」의 pos는 정수 2개 배열이어야 합니다`);
+      }
+      const px = Number(raw.pos[0]);
+      const py = Number(raw.pos[1]);
+      if (!Number.isInteger(px) || !Number.isInteger(py)) {
+        throw new Error(`레이어 「${id}」의 pos는 정수 2개 배열이어야 합니다`);
+      }
+      pos = [px, py];
+    }
+
+    let rot = 0;
+    if (raw.rot != null) {
+      const r = Number(raw.rot);
+      if (!Number.isInteger(r)) {
+        throw new Error(`레이어 「${id}」의 rot는 정수여야 합니다`);
+      }
+      rot = r;
+    }
+
+    const layer = {
       id,
       bone,
       zIndex,
       slot,
       piece,
       image,
-    });
+    };
+    if (pos[0] !== 0 || pos[1] !== 0) layer.pos = pos;
+    if (rot !== 0) layer.rot = rot;
+
+    result.push(layer);
   }
 
   return result;

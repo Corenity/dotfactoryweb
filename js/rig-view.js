@@ -105,6 +105,7 @@ export function mountRig(app) {
     getPieces: () => pieces,
     getPresetLayers: () => presetLayers,
     getVisibilityMode: () => visibilityMode,
+    setVisibilityMode: value => { visibilityMode = value === 'group' ? 'group' : 'individual'; },
     getSize: () => [canvasWidth, canvasHeight],
     getBackdrop: () => toHex(KEY),
     changed: () => presetView?.refresh(),
@@ -137,7 +138,6 @@ export function mountRig(app) {
     setPresetMeta: value => { presetMeta = { ...value }; },
     getSkeletonName: () => skeletonName,
     getSelectedBone: () => bonesView?.getSelectedBone?.(),
-    getSliceItems: () => app.getSlicePieces?.() || [],
     snapshot: () => snapshot(),
     commit: before => recordChange(before),
     refreshViews: () => {

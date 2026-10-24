@@ -1,6 +1,5 @@
 // 뼈대 단계의 그림 넣기·프리셋/그룹 정보·preset-1 열기/저장 화면입니다.
 import { PRESET_KINDS, parsePreset } from './core/preset.js';
-import { sliceLibraryItemToRigPiece } from './core/slice-library.js';
 import {
   attachedPiecesToRigPreset, checkRigPresetBones, nextRigZIndex,
 } from './core/rig-preset.js';
@@ -15,15 +14,7 @@ import { pickFiles, readImageFile, readDataUrl, toPngDataUrl, saveJson, baseName
 const $ = selector => document.querySelector(selector);
 
 export function mountRigPreset(app, model) {
-  const assignments = $('#rig-assign-list');
   const warning = $('#rig-preset-warning');
-  const picker = $('#rig-piece-picker');
-  const library = $('#rig-piece-library');
-
-  // I 모드 패널
-  const bonePiecesPanel = $('#rig-bone-pieces-panel');
-  const imgListToggleBtn = $('#rig-img-list-toggle');
-  const bonePiecesCloseBtn = $('#rig-bone-pieces-close');
 
   // 그룹화 모달
   const groupPop = $('#rig-group-pop');
@@ -247,124 +238,11 @@ export function mountRigPreset(app, model) {
     return new Set(check.missingBones);
   }
 
-  function renderAssignments() {
-    if (!assignments) return;
-    assignments.innerHTML = '';
-    renderWarning();
-    const selectedBone = model.getSelectedBone?.();
-    const badge = $('#rig-selected-bone-badge');
-    if (badge) badge.textContent = `선택: ${selectedBone || '없음'}`;
-
-    const allPieces = pieces();
-    if (!allPieces.length) {
-      assignments.innerHTML = '<p class="hint">「이미지 추가」로 그림을 붙여 주세요.</p>';
-      return;
-    }
-
-    const filtered = selectedBone ? allPieces.filter(p => p.bone === selectedBone) : allPieces;
-    if (!filtered.length) {
-      assignments.innerHTML = `<p class="hint">「${selectedBone}」에 붙은 그림 없음.<br>「이미지 추가」로 등록하세요.</p>`;
-      return;
-    }
-
-    filtered.forEach(piece => {
-      const index = allPieces.indexOf(piece);
-      const row = document.createElement('div');
-      row.className = 'rig-assign-row';
-
-      const title = document.createElement('strong');
-      title.textContent = piece.name || piece.piece;
-      title.title = title.textContent;
-
-      const controls = document.createElement('div');
-      controls.className = 'rig-assign-row-controls';
-
-      const depthLabel = document.createElement('label');
-      depthLabel.textContent = '깊이';
-      const depthInput = document.createElement('input');
-      depthInput.type = 'number';
-      depthInput.step = '1';
-      depthInput.value = String(piece.zIndex ?? 0);
-      depthInput.addEventListener('change', () => {
-        const before = model.snapshot();
-        piece.zIndex = Math.round(Number(depthInput.value) || 0);
-        finishChange(before);
-      });
-      depthLabel.appendChild(depthInput);
-
-      const visBtn = document.createElement('button');
-      visBtn.className = 'btn';
-      visBtn.textContent = piece.visible === false ? '보이기' : '숨기기';
-      visBtn.addEventListener('click', () => {
-        const before = model.snapshot();
-        piece.visible = piece.visible === false;
-        model.setVisibilityMode?.('individual');
-        updateViewModeBadge();
-        finishChange(before);
-      });
-
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'btn danger';
-      removeBtn.textContent = '빼기';
-      removeBtn.addEventListener('click', () => {
-        const before = model.snapshot();
-        pieces().splice(index, 1);
-        finishChange(before);
-      });
-
-      controls.append(depthLabel, visBtn, removeBtn);
-      row.append(title, controls);
-      assignments.appendChild(row);
-    });
-  }
-
-  function renderPicker() {
-    if (!library) return;
-    library.innerHTML = '';
-    const items = model.getSliceItems();
-    if (!items.length) {
-      library.innerHTML = '<p class="hint">자르기 보관함에 조각이 없습니다.</p>';
-      return;
-    }
-    for (const item of items) {
-      const button = document.createElement('button');
-      button.className = 'btn rig-library-choice';
-      button.textContent = item.name;
-      button.addEventListener('click', () => addLibraryItem(item));
-      library.appendChild(button);
-    }
-  }
-
   function uniqueExtraName(base) {
     let value = base, suffix = 2;
     const used = new Set(pieces().filter(piece => piece.slot === 'extra').map(piece => piece.piece));
     while (used.has(value)) value = `${base}_${suffix++}`;
     return value;
-  }
-
-  async function addLibraryItem(item) {
-    try {
-      const [width, height] = model.getSize();
-      if (item.width !== width || item.height !== height) {
-        throw new Error(`그림 크기(${item.width}×${item.height})가 현재 판 크기(${width}×${height})와 다릅니다`);
-      }
-      const before = model.snapshot();
-      const sourceKind = item.sourceKind === 'manual' ? 'extra' : item.sourceKind;
-      const targetPiece = sourceKind === 'extra' ? uniqueExtraName(item.id) : item.piece;
-      const piece = sliceLibraryItemToRigPiece(item, {
-        bones: bones(), selectedBone: model.getSelectedBone(), item: model.getPresetMeta().name,
-        piece: targetPiece, zIndex: nextRigZIndex(pieces()),
-      });
-      piece.presetLayerKey = null;
-      piece.visible = true;
-      piece.image = await readDataUrl(piece.png);
-      pieces().push(piece);
-      if (picker) picker.hidden = true;
-      finishChange(before);
-      app.toast(`그림 「${piece.name}」을 ${piece.bone} 뼈에 붙였습니다`);
-    } catch (error) {
-      app.toast(error.message || '그림을 붙일 수 없습니다');
-    }
   }
 
   async function addPhonePng() {
@@ -376,10 +254,19 @@ export function mountRigPreset(app, model) {
       if (image.width !== width || image.height !== height) {
         throw new Error(`그림 크기(${image.width}×${image.height})가 현재 판 크기(${width}×${height})와 다릅니다`);
       }
-      await addLibraryItem({
-        id: baseName(file.name), name: baseName(file.name), png: toPngDataUrl(image),
-        width, height, sourceKind: 'manual', piece: baseName(file.name),
+      const before = model.snapshot();
+      const name = baseName(file.name);
+      const safeName = name.trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '') || 'piece';
+      const pieceName = uniqueExtraName(safeName);
+      const bone = model.getSelectedBone?.() || bones()[0]?.name;
+      if (!bone) throw new Error('그림을 붙일 뼈가 없습니다');
+      pieces().push({
+        slot: 'extra', item: model.getPresetMeta().name, piece: pieceName, name,
+        bone, zIndex: nextRigZIndex(pieces()), visible: true,
+        png: toPngDataUrl(image), image, presetLayerKey: null,
       });
+      finishChange(before);
+      app.toast(`그림 「${name}」을 ${bone} 뼈에 붙였습니다`);
     } catch (error) {
       app.toast(error.message || '휴대폰 PNG를 열 수 없습니다');
     }
@@ -459,30 +346,9 @@ export function mountRigPreset(app, model) {
       updateViewModeBadge();
       finishChange(before);
     });
-    $('#rig-add-piece')?.addEventListener('click', () => {
-      renderPicker();
-    updateViewModeBadge();
-      if (picker) picker.hidden = false;
-    });
-
-    $('#rig-piece-picker-close')?.addEventListener('click', () => {
-      if (picker) picker.hidden = true;
-    });
-
-    $('#rig-piece-file')?.addEventListener('click', addPhonePng);
+    $('#rig-add-piece')?.addEventListener('click', addPhonePng);
     $('#rig-preset-open')?.addEventListener('click', openPreset);
     $('#rig-preset-save')?.addEventListener('click', savePreset);
-
-    // I 모드 이미지 목록 토글
-    imgListToggleBtn?.addEventListener('click', () => {
-      if (bonePiecesPanel) {
-        bonePiecesPanel.hidden = !bonePiecesPanel.hidden;
-        if (!bonePiecesPanel.hidden) renderAssignments();
-      }
-    });
-    bonePiecesCloseBtn?.addEventListener('click', () => {
-      if (bonePiecesPanel) bonePiecesPanel.hidden = true;
-    });
 
     // 그룹화 모달
     groupBtn?.addEventListener('click', () => {
@@ -557,9 +423,8 @@ export function mountRigPreset(app, model) {
   return {
     currentPreset,
     refresh() {
-      renderAssignments();
+      renderWarning();
       if (groupPop && !groupPop.hidden) renderGroupList();
-      if (picker && !picker.hidden) renderPicker();
     },
   };
 }

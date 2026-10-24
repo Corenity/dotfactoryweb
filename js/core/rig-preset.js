@@ -21,14 +21,23 @@ export function attachedPiecesToRigPreset({
   id = 'preset', name = '새 프리셋', kind = 'bare', canvas = [72, 64], pieces = [],
 } = {}) {
   const used = new Set();
-  const layers = (Array.isArray(pieces) ? pieces : []).map((piece, index) => ({
-    id: safeLayerId(piece.presetLayerId || `${piece.slot || 'piece'}_${piece.piece || index + 1}`, used),
-    bone: piece.bone,
-    zIndex: piece.zIndex,
-    slot: piece.slot || '',
-    piece: piece.piece || piece.name || `piece_${index + 1}`,
-    image: piece.png,
-  }));
+  const layers = (Array.isArray(pieces) ? pieces : []).map((piece, index) => {
+    const layer = {
+      id: safeLayerId(piece.presetLayerId || `${piece.slot || 'piece'}_${piece.piece || index + 1}`, used),
+      bone: piece.bone,
+      zIndex: piece.zIndex,
+      slot: piece.slot || '',
+      piece: piece.piece || piece.name || `piece_${index + 1}`,
+      image: piece.png,
+    };
+    if (piece.pos && (piece.pos[0] !== 0 || piece.pos[1] !== 0)) {
+      layer.pos = [Math.round(piece.pos[0]), Math.round(piece.pos[1])];
+    }
+    if (piece.rot) {
+      layer.rot = Math.round(piece.rot);
+    }
+    return layer;
+  });
   return toPreset({ id, name, kind, canvas, layers });
 }
 
@@ -43,6 +52,8 @@ export function rigPresetToAttachedPieces(value) {
     name: layer.piece || layer.id,
     bone: layer.bone,
     zIndex: layer.zIndex,
+    pos: layer.pos ? [...layer.pos] : [0, 0],
+    rot: layer.rot || 0,
     visible: true,
     png: layer.image,
   }));

@@ -97,14 +97,30 @@ export function rotateNearest(image, pivotX, pivotY, degrees) {
   return transformNearest(image, aroundPivot);
 }
 
+/** 뼈의 현재 포즈와 rest 포즈를 바탕으로 조각의 로컬 변환(pos, rot)을 합친 변환 행렬을 만듭니다. */
+export function pieceTransform(posed, rest, boneName, pos = [0, 0], rot = 0) {
+  const posedMatrix = (posed?.get ? posed.get(boneName)?.matrix : posed?.[boneName]?.matrix) || identity();
+  const restMatrix = (rest?.get ? rest.get(boneName)?.matrix : rest?.[boneName]?.matrix) || identity();
+  const safePos = pos || [0, 0];
+  const safeRot = rot || 0;
+  if (safePos[0] === 0 && safePos[1] === 0 && safeRot === 0) {
+    return multiply(posedMatrix, invert(restMatrix));
+  }
+  const pieceLocal = multiply(translate(safePos[0], safePos[1]), rotate(safeRot));
+  return multiply(posedMatrix, multiply(pieceLocal, invert(restMatrix)));
+}
+
 /** 뼈에 붙은 조각을 프리셋 레이어, 층 순서로 그려 미리보기 한 장으로 만듭니다. */
 export function composeRig(pieces, bones, width = 72, height = 64, restBones = null, presetLayers = [], options = {}) {
-  const transforms = bonePoseTransforms(bones, restBones);
+  const normBones = normalizeBones(bones);
+  const restNormBones = restBones == null ? normBones : normalizeBones(restBones);
+  const posed = boneWorldTransforms(normBones);
+  const rest = boneWorldTransforms(restBonesFor(restNormBones));
   const out = new Uint8ClampedArray(width * height * 4);
   const ordered = sortRigPiecesByLayers(pieces, presetLayers, options).filter(piece => piece.image);
 
   for (const piece of ordered) {
-    const matrix = transforms.get(piece.bone) || identity();
+    const matrix = pieceTransform(posed, rest, piece.bone, piece.pos, piece.rot);
     const image = transformNearest(piece.image, matrix);
     for (let i = 0; i < out.length; i += 4) {
       const alpha = image.data[i + 3];
@@ -127,5 +143,13 @@ export function worldDeltaToLocal(bones, boneName, dx, dy) {
   if (!bone?.parent) return [dx, dy];
   const parent = boneWorldTransforms(bones).get(bone.parent);
   const radians = -parent.angle * DEG, c = Math.cos(radians), s = Math.sin(radians);
+  return [c * dx - s * dy, s * dx + c * dy];
+}
+
+/** 화면에서 움직인 전역 칸 수를 대상 뼈 자체의 로컬 칸 수로 바꿉니다(그림 이동용). */
+export function worldDeltaToBone(bones, boneName, dx, dy) {
+  const transform = boneWorldTransforms(bones).get(boneName);
+  if (!transform) return [dx, dy];
+  const radians = -transform.angle * DEG, c = Math.cos(radians), s = Math.sin(radians);
   return [c * dx - s * dy, s * dx + c * dy];
 }

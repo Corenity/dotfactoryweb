@@ -403,6 +403,8 @@ function normalizePieces(value, slot, item, bones) {
     const bone = String(piece.bone || defaultBoneFor(pieceSlot, pieceName, bones));
     if (!boneNames.has(bone)) throw new Error(`조각 「${piece.name || pieceName}」이 모르는 뼈 「${bone}」를 가리킵니다`);
     if (typeof piece.png !== 'string' || !piece.png.startsWith('data:image/png')) throw new Error(`조각 「${piece.name || pieceName}」의 PNG가 깨졌습니다`);
+    const pos = piece.pos ? [Math.round(Number(piece.pos[0]) || 0), Math.round(Number(piece.pos[1]) || 0)] : null;
+    const rot = Math.round(Number(piece.rot) || 0);
     return {
       slot: pieceSlot,
       item: pieceItem,
@@ -412,6 +414,8 @@ function normalizePieces(value, slot, item, bones) {
       zIndex: Number.isFinite(Number(piece.zIndex)) ? Math.trunc(Number(piece.zIndex)) : defaultZIndex(pieceSlot, pieceName),
       visible: piece.visible !== false,
       png: piece.png,
+      ...(pos && (pos[0] !== 0 || pos[1] !== 0) ? { pos } : {}),
+      ...(rot !== 0 ? { rot } : {}),
       ...(piece.presetLayerKey ? { presetLayerKey: String(piece.presetLayerKey) } : {}),
     };
   });

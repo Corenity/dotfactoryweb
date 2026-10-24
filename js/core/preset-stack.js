@@ -1,6 +1,7 @@
 // dotfactory-web/preset-stack.js — 프리셋 스택 층(zIndex) 순서 및 덧그리기(Overdraw) 순수 모듈입니다.
 // DOM 을 쓰지 않아 Node 시험이 같은 코드를 그대로 돌립니다.
-import { bonePoseTransforms, transformNearest } from './rig-render.js';
+import { transformNearest, pieceTransform, boneWorldTransforms } from './rig-render.js';
+import { normalizeBones } from './rig.js';
 import { toPreset } from './preset.js';
 
 export const DEFAULT_BARE_LAYERS_META = Object.freeze([
@@ -122,7 +123,10 @@ export function composeStackedLayers(flattenedLayers, {
   restBones = null,
 } = {}) {
   const out = new Uint8ClampedArray(width * height * 4);
-  const transforms = bones ? bonePoseTransforms(bones, restBones) : null;
+  const normBones = bones ? normalizeBones(bones) : null;
+  const restNormBones = bones ? (restBones == null ? normBones : normalizeBones(restBones)) : null;
+  const posed = normBones ? boneWorldTransforms(normBones) : null;
+  const rest = restNormBones ? boneWorldTransforms(restNormBones.map(b => ({ ...b, angle: 90 }))) : null;
 
   for (const item of flattenedLayers) {
     const layer = item.layer;
@@ -130,8 +134,8 @@ export function composeStackedLayers(flattenedLayers, {
     let img = layer.imageObj || layer.image;
     if (!img || !img.data) continue;
 
-    if (transforms && layer.bone) {
-      const matrix = transforms.get(layer.bone);
+    if (posed && rest && layer.bone) {
+      const matrix = pieceTransform(posed, rest, layer.bone, layer.pos, layer.rot);
       if (matrix) {
         img = transformNearest(img, matrix);
       }

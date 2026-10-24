@@ -153,18 +153,21 @@
 .rig-preset-inline-row { display: flex; gap: 8px; align-items: center; }
 .rig-preset-name-label { flex: 1 1 auto; }
 
-/* 3단 메인 레이아웃: 좌측 뼈트리 / 중앙 스크린(좌우 잘림) / 우측 P, R, I */
+/* 작업판: 좌측 뼈 트리 / 중앙 스크린 / 우측 도구 / 아래 조작 메뉴 */
 .rig-main-layout {
-  display: flex;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) 46px;
+  grid-template-rows: auto auto;
   gap: 6px;
   width: 100%;
   box-sizing: border-box;
-  align-items: stretch;
+  align-items: start;
 }
 
 .rig-col-bones {
-  flex: 0 0 96px;
+  grid-row: 1 / span 2;
   width: 96px;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -208,6 +211,19 @@
   color: var(--text);
   font-weight: bold;
 }
+.rig-bone-tree .rig-piece-tree-row {
+  min-height: 44px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.rig-bone-tree .rig-piece-tree-row::before {
+  content: "▧";
+  margin-right: 4px;
+  color: var(--accent);
+}
+.rig-bone-tree .rig-piece-tree-row.is-hidden {
+  opacity: 0.45;
+}
 
 .rig-bone-actions {
   display: flex;
@@ -247,6 +263,7 @@
 
 #rig .stage.rig-screen-stage {
   position: relative;
+  isolation: isolate;
   height: 256px;
   min-height: 256px;
   max-height: 256px;
@@ -296,13 +313,15 @@
 }
 
 .rig-col-tools {
-  flex: 0 0 46px;
   width: 46px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   justify-content: center;
   align-items: center;
+}
+.rig-col-tools[hidden] {
+  display: none !important;
 }
 
 .rig-tool-btn {
@@ -321,15 +340,26 @@
   color: #000;
   border-color: var(--accent, #32d74b);
 }
+.rig-piece-tool-btn {
+  width: 44px;
+  min-height: 44px;
+  padding: 2px;
+  font-size: 12px;
+  border-radius: 8px;
+}
 
-/* 하단 한 줄 바 */
+/* 그림판 아래, 뼈 트리 옆 조작 메뉴 */
 .rig-bottom-container {
   width: 100%;
-  margin-top: 2px;
+}
+.rig-control-slot {
+  grid-column: 2 / 4;
+  min-width: 0;
 }
 
 .rig-bottom-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   width: 100%;
@@ -419,9 +449,6 @@
 #rig-bar-img #rig-add-piece {
   flex: 1 1 0;
 }
-#rig-bar-img #rig-img-list-toggle {
-  flex: 1 1 0;
-}
 #rig-bar-img .rig-selected-bone-label {
   font-size: 11px;
   color: var(--accent);
@@ -430,71 +457,18 @@
   text-overflow: ellipsis;
   max-width: 80px;
 }
-
-/* 고른 뼈의 이미지 목록 드롭다운 패널 */
-.rig-bone-pieces-panel {
-  margin-top: 4px;
-  padding: 8px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  max-height: 220px;
-  overflow-y: auto;
-}
-.rig-bone-pieces-panel[hidden] {
-  display: none !important;
-}
-
-.rig-assign-list {
-  display: grid;
+.rig-depth-bar label {
+  display: flex;
+  align-items: center;
   gap: 6px;
-}
-
-.rig-assign-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface, #1b1c24);
-  flex-wrap: wrap;
-}
-.rig-assign-row strong {
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 80px;
-}
-.rig-assign-row-controls {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-}
-.rig-assign-row-controls label {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  font-size: 11px;
   color: var(--muted);
 }
-.rig-assign-row-controls input[type="number"] {
+.rig-depth-bar input {
+  width: 72px;
   min-height: 44px;
-  width: 44px;
-  text-align: center;
-  font-size: 13px;
-  border-radius: 6px;
-  padding: 0 2px;
 }
-.rig-assign-row-controls .btn {
+.rig-depth-bar .btn {
   min-height: 44px;
-  min-width: 44px;
-  padding: 0 6px;
-  font-size: 12px;
-  border-radius: 6px;
 }
 
 /* 그룹화 모달 */
@@ -660,10 +634,6 @@
 }
 
 /* 피커 스타일 */
-.rig-piece-picker { display: grid; gap: 8px; }
-.rig-piece-picker[hidden] { display: none !important; }
-.rig-piece-picker .btn, .rig-piece-library .btn { min-height: 44px; }
-.rig-piece-library { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; max-height: 220px; overflow-y: auto; }
 .rig-library-choice { justify-content: flex-start; overflow-wrap: anywhere; }
 
 /* 자르기 방식별 행 숨김 */
@@ -780,7 +750,7 @@
 #rig-group-view-list[hidden] { display: none !important; }
 
 .rig-view-mode-badge {
-  position: absolute; right: 4px; top: 4px; z-index: 3;
+  position: absolute; right: 4px; top: 4px; z-index: 1;
   min-height: 44px; min-width: 44px; padding: 0 6px; border-radius: 6px;
   background: rgba(0, 0, 0, 0.75); border: 1px solid var(--line);
   color: var(--text); font-size: 11px; white-space: nowrap; cursor: pointer;

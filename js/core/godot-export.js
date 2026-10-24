@@ -241,6 +241,8 @@ export function makeBundle({
         const hash = sha256Hex(bytes).slice(0, 16);
         const pivot = restWorld.get(layer.bone) || { x: 0, y: 0 };
         const offset = [-Math.round(pivot.x), -Math.round(pivot.y)];
+        const pos = layer.pos ? [layer.pos[0], layer.pos[1]] : [0, 0];
+        const rot = layer.rot || 0;
 
         items.push({
           preset_id: preset.id,
@@ -254,6 +256,8 @@ export function makeBundle({
           suggested_dest_file: `res://character/images/${pieceId}.png`,
           bone: layer.bone,
           zIndex: layer.zIndex ?? 0,
+          pos,
+          rot,
           slot: layer.slot || preset.kind,
           piece: layer.piece,
           offset,

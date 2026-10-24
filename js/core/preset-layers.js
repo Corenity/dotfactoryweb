@@ -183,14 +183,23 @@ export function rigLayerToPreset(layer, pieces = [], canvas = [72, 64]) {
     name: layer.name,
     kind: layer.kind,
     canvas,
-    layers: (pieces || []).filter(piece => piece?.presetLayerKey === layer.key).map(piece => ({
-      id: String(piece.name || `${piece.slot}_${piece.piece}`),
-      bone: piece.bone,
-      zIndex: piece.zIndex,
-      slot: piece.slot,
-      piece: piece.piece,
-      image: piece.png,
-    })),
+    layers: (pieces || []).filter(piece => piece?.presetLayerKey === layer.key).map(piece => {
+      const item = {
+        id: String(piece.name || `${piece.slot}_${piece.piece}`),
+        bone: piece.bone,
+        zIndex: piece.zIndex,
+        slot: piece.slot,
+        piece: piece.piece,
+        image: piece.png,
+      };
+      if (piece.pos && (piece.pos[0] !== 0 || piece.pos[1] !== 0)) {
+        item.pos = [Math.round(piece.pos[0]), Math.round(piece.pos[1])];
+      }
+      if (piece.rot) {
+        item.rot = Math.round(piece.rot);
+      }
+      return item;
+    }),
   });
 }
 
@@ -230,6 +239,8 @@ export function addPresetToRigLayers(layers, pieces, preset) {
     name: item.id,
     bone: item.bone,
     zIndex: item.zIndex,
+    pos: item.pos ? [...item.pos] : [0, 0],
+    rot: item.rot || 0,
     visible: true,
     png: item.image,
     presetLayerKey: layer.key,

@@ -61,7 +61,7 @@
 .motion-overlay { pointer-events: none; }
 #motion-onion-canvas { opacity: 0.3; }
 
-.motion-main-layout { display: grid; grid-template-columns: 96px minmax(0, 1fr) 46px; }
+.motion-main-layout { grid-template-rows: auto auto; }
 .motion-main-layout .rig-bone-tree { min-height: 0; }
 .motion-main-layout .rig-stage-zoom-controls { display: grid; grid-template-columns: 44px minmax(28px, 1fr) 44px 44px; }
 .motion-key-row { display: grid; gap: 4px; }

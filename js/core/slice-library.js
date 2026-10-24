@@ -1,6 +1,5 @@
 // 이미지 자르기 조각 보관함의 순수 자료 함수입니다. DOM이나 저장소를 직접 쓰지 않습니다.
 import { createStoredZip } from './zip.js';
-import { defaultBoneFor, defaultZIndex } from './rig.js';
 
 function positiveInteger(value, label) {
   const number = Number(value);
@@ -118,26 +117,4 @@ export function makeSliceLibraryZip(items) {
     return { name, data: pngBytes(item.png) };
   });
   return { bytes: createStoredZip(entries), entries: entries.map(entry => entry.name) };
-}
-
-/** 2판의 명시적 복사 경계입니다. 3판의 뼈대 「그림 넣기」도 같은 함수를 사용합니다. */
-export function sliceLibraryItemToRigPiece(item, target = {}) {
-  const source = toSliceLibraryItem(item);
-  const slot = String(target.slot || (source.sourceKind === 'manual' ? 'extra' : source.sourceKind) || 'extra');
-  const piece = String(target.piece || (slot === 'extra' ? source.id : source.piece) || source.id);
-  const bone = defaultBoneFor(slot, piece, target.bones, target.selectedBone);
-  const zIndex = target.zIndex != null ? Number(target.zIndex) : defaultZIndex(slot, piece);
-  const layer = copySliceItemToPresetLayer(source, {
-    id: String(target.id || source.id), bone, zIndex, slot, piece,
-  });
-  return {
-    slot: layer.slot,
-    item: String(target.item || source.name),
-    piece: layer.piece,
-    name: source.name,
-    bone: layer.bone,
-    zIndex: layer.zIndex,
-    visible: true,
-    png: layer.image,
-  };
 }

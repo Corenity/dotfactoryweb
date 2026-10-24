@@ -1,5 +1,5 @@
-// 뼈 되돌리기 — 뼈 · 움직임 · 조각 · 원본 그림 상태를 한 단계씩 담고 되돌립니다.
-// DOM을 쓰지 않는 순수 모듈로 Node 시험이 그대로 돌립니다.
+// 뼈대 화면 되돌리기 / 다시하기 상태 관리 순수 모듈입니다.
+// DOM을 쓰지 않아 Node 시험에서도 그대로 검증할 수 있습니다.
 
 function cloneImage(img) {
   if (!img) return null;
@@ -37,6 +37,8 @@ export function cloneRigState(state) {
     baseImage: cloneImage(state.baseImage),
     pieces: (state.pieces || []).map(p => ({
       ...p,
+      pos: p.pos ? [p.pos[0], p.pos[1]] : [0, 0],
+      rot: p.rot || 0,
       image: cloneImage(p.image),
     })),
     bones: (state.bones || []).map(b => ({
@@ -57,6 +59,8 @@ function stripPiecesForCompare(pieces) {
     name: p.name,
     bone: p.bone,
     zIndex: p.zIndex,
+    pos: p.pos ? [p.pos[0], p.pos[1]] : [0, 0],
+    rot: p.rot || 0,
     visible: p.visible,
     png: p.png,
     presetLayerKey: p.presetLayerKey || null,

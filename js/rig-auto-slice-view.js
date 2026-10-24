@@ -56,6 +56,7 @@ export function mountRigAutoSlice(app, model) {
   let selectedPieceLabel = 1;
   let brushSize = 1;
   let bareInfo = null;
+  let bareOpacity = 0.5;
 
   // 전체(all) 모드 전용 상태
   let faceEllipse = { cx: 36.5, cy: 30, rx: 10.5, ry: 8 };
@@ -306,10 +307,10 @@ export function mountRigAutoSlice(app, model) {
     if (!baseImage) return;
 
     // 1. 맨몸 반투명 겹쳐 보기
-    if (bareInfo?.bareImage) {
+    if (bareInfo?.bareImage && bareOpacity > 0) {
       const bareImg = bareInfo.bareImage;
       ctx.save();
-      ctx.globalAlpha = 0.45;
+      ctx.globalAlpha = bareOpacity;
       for (let y = 0; y < canvasHeight; y++) {
         for (let x = 0; x < canvasWidth; x++) {
           const s = (y * canvasWidth + x) * 4;
@@ -575,6 +576,16 @@ export function mountRigAutoSlice(app, model) {
 
     // 7. 일괄 조각 저장 단추
     $('#rig-auto-save-pieces')?.addEventListener('click', savePieces);
+
+    // 8. 맨몸 진하기 밀대 (0~100%, 10% 단위, 처음 50%)
+    const opacitySlider = $('#rig-auto-bare-opacity');
+    const opacityValue = $('#rig-auto-bare-opacity-value');
+    opacitySlider?.addEventListener('input', () => {
+      const val = Number(opacitySlider.value);
+      bareOpacity = Math.max(0, Math.min(100, Math.round(val / 10) * 10)) / 100;
+      if (opacityValue) opacityValue.textContent = `${Math.round(bareOpacity * 100)}%`;
+      model.drawOverlay();
+    });
   }
 
   bindEvents();
@@ -595,6 +606,7 @@ export function mountRigAutoSlice(app, model) {
       renderSkinChips();
       updateOffsetText();
       updateModeSpecificUI();
+      model.drawOverlay();
     },
     drawOverlay,
     paintCell(cx, cy) {
@@ -613,5 +625,6 @@ export function mountRigAutoSlice(app, model) {
     getDecorations: () => decorations,
     getSkinColors: () => skinColors,
     savePieces,
+    getBareOpacity: () => bareOpacity,
   };
 }

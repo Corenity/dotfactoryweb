@@ -1,6 +1,6 @@
 // 뼈대 단계 화면 — 뼈 나무, 위치·각도, 조각 연결·층과 미리보기를 다룹니다.
 import { boneLabel, normalizeBones, applyRestPose, createRestPose, DEFAULT_BONES, addBone, removeBone, isValidBoneName } from './core/rig.js';
-import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
+import { boneWorldTransforms, composeRig, worldDeltaToLocal, worldDeltaToBone } from './core/rig-render.js';
 import { sortRigPiecesByLayers } from './core/preset-layers.js';
 import { drawPixels, saveJson, pickFiles, baseName } from './io.js';
 import { toSkeleton, parseSkeleton, applySkeletonToRig } from './core/skeleton.js';
@@ -34,9 +34,19 @@ export function mountRigBones(app, model) {
   const barPos = $('#rig-bar-pos');
   const barRot = $('#rig-bar-rot');
   const barImg = $('#rig-bar-img');
+  const barDepth = $('#rig-bar-depth');
+  const boneTools = $('#rig-bone-tools');
+  const pieceTools = $('#rig-piece-tools');
+  const pieceVisibleBtn = $('#rig-piece-visible');
+  const pieceRemoveBtn = $('#rig-piece-remove');
+  const pieceDepthBtn = $('#rig-piece-depth');
+  const pieceDepthInput = $('#rig-piece-depth-input');
+  const pieceDepthApply = $('#rig-piece-depth-apply');
 
   let selected = 'Torso';
+  let selectedPieceIndex = null;
   let activeTool = 'P';
+  let activePieceMenu = null;
   let cell = 4;
   let panX = 0, panY = 0;
   const pointers = new Map();
@@ -48,6 +58,7 @@ export function mountRigBones(app, model) {
   function bones() { return model.getBones(); }
   function pieces() { return model.getPieces(); }
   function selectedBone() { return bones().find(bone => bone.name === selected) || bones()[0]; }
+  function selectedPiece() { return selectedPieceIndex == null ? null : pieces()[selectedPieceIndex] || null; }
 
   function notify() {
     model.changed();
@@ -90,6 +101,24 @@ export function mountRigBones(app, model) {
     }
   }
 
+  function editSelectedPiece(change, { quiet = false } = {}) {
+    const piece = selectedPiece();
+    if (!piece) return false;
+    if (change.pos !== undefined) {
+      piece.pos = [Math.round(change.pos[0]), Math.round(change.pos[1])];
+    }
+    if (change.rot !== undefined) {
+      piece.rot = Math.round(change.rot);
+    }
+    if (change.zIndex !== undefined) {
+      piece.zIndex = Math.round(change.zIndex);
+    }
+    if (!quiet) notify();
+    refreshControls();
+    render();
+    return true;
+  }
+
   function depthOf(bone, byName) {
     let depth = 0, current = bone;
     while (current.parent && depth < bones().length) { depth++; current = byName.get(current.parent); }
@@ -106,38 +135,83 @@ export function mountRigBones(app, model) {
       button.style.paddingLeft = `${6 + depthOf(bone, byName) * 10}px`;
       button.textContent = `${bone.parent ? '↳ ' : ''}${bone.name}`;
       button.title = boneLabel(bone.name);
-      button.setAttribute('aria-pressed', String(bone.name === selected));
+      button.setAttribute('aria-pressed', String(bone.name === selected && selectedPieceIndex == null));
       button.addEventListener('click', () => {
         selected = bone.name;
+        selectedPieceIndex = null;
+        activePieceMenu = null;
         refreshControls();
         render();
         model.changed?.();
       });
       tree.appendChild(button);
+
+      pieces().forEach((piece, index) => {
+        if (piece.bone !== bone.name) return;
+        const pieceButton = document.createElement('button');
+        pieceButton.className = `btn rig-piece-tree-row${piece.visible === false ? ' is-hidden' : ''}`;
+        pieceButton.style.paddingLeft = `${16 + depthOf(bone, byName) * 10}px`;
+        pieceButton.textContent = piece.name || piece.piece;
+        pieceButton.title = `${piece.name || piece.piece} · 깊이 ${piece.zIndex ?? 0}`;
+        pieceButton.setAttribute('aria-pressed', String(index === selectedPieceIndex));
+        pieceButton.addEventListener('click', () => {
+          selected = bone.name;
+          selectedPieceIndex = index;
+          activePieceMenu = null;
+          refreshControls();
+          render();
+          model.changed?.();
+        });
+        tree.appendChild(pieceButton);
+      });
     }
+  }
+
+  function updateSelectionMenus() {
+    const piece = selectedPiece();
+    if (boneTools) boneTools.hidden = !!piece;
+    if (pieceTools) pieceTools.hidden = !piece;
+    if (toolPosBtn) toolPosBtn.setAttribute('aria-pressed', String(activeTool === 'P'));
+    if (toolRotBtn) toolRotBtn.setAttribute('aria-pressed', String(activeTool === 'R'));
+    if (toolImgBtn) toolImgBtn.setAttribute('aria-pressed', String(activeTool === 'I'));
+    if (barPos) barPos.hidden = activeTool !== 'P' || (piece && activePieceMenu === 'depth');
+    if (barRot) barRot.hidden = activeTool !== 'R' || (piece && activePieceMenu === 'depth');
+    if (barImg) barImg.hidden = activeTool !== 'I' || (piece && activePieceMenu === 'depth');
+    if (barDepth) barDepth.hidden = !piece || activePieceMenu !== 'depth';
+    if (pieceVisibleBtn && piece) pieceVisibleBtn.textContent = piece.visible === false ? '보이기' : '숨김';
+    if (pieceDepthInput && piece) pieceDepthInput.value = String(piece.zIndex ?? 0);
   }
 
   function switchTool(tool) {
     activeTool = tool;
-    if (toolPosBtn) toolPosBtn.setAttribute('aria-pressed', String(tool === 'P'));
-    if (toolRotBtn) toolRotBtn.setAttribute('aria-pressed', String(tool === 'R'));
-    if (toolImgBtn) toolImgBtn.setAttribute('aria-pressed', String(tool === 'I'));
-    if (barPos) barPos.hidden = tool !== 'P';
-    if (barRot) barRot.hidden = tool !== 'R';
-    if (barImg) barImg.hidden = tool !== 'I';
+    activePieceMenu = null;
+    updateSelectionMenus();
   }
 
   function refreshControls() {
+    if (selectedPieceIndex != null && !pieces()[selectedPieceIndex]) selectedPieceIndex = null;
     const bone = selectedBone();
     if (!bone) return;
     selected = bone.name;
+    const piece = selectedPiece();
     if (nameInput) nameInput.value = bone.name;
-    if (xInput) xInput.value = String(bone.pos[0]);
-    if (yInput) yInput.value = String(bone.pos[1]);
-    if (angleInput) angleInput.value = String(bone.angle);
-    if (rotSlider) rotSlider.value = String(bone.angle);
+    if (piece) {
+      if (xInput) xInput.value = String(piece.pos?.[0] ?? 0);
+      if (yInput) yInput.value = String(piece.pos?.[1] ?? 0);
+      if (angleInput) angleInput.value = String(piece.rot ?? 0);
+      if (rotSlider) rotSlider.value = String(piece.rot ?? 0);
+    } else {
+      if (xInput) xInput.value = String(bone.pos[0]);
+      if (yInput) yInput.value = String(bone.pos[1]);
+      if (angleInput) angleInput.value = String(bone.angle);
+      if (rotSlider) rotSlider.value = String(bone.angle);
+    }
     const badge = $('#rig-selected-bone-badge');
-    if (badge) badge.textContent = `선택: ${boneLabel(bone.name)}`;
+    if (badge) {
+      badge.textContent = piece
+        ? `선택: ${piece.name || piece.piece} (${boneLabel(bone.name)})`
+        : `선택: ${boneLabel(bone.name)}`;
+    }
     if (parentSelect) {
       parentSelect.innerHTML = '<option value="">없음 (Skeleton2D)</option>';
       for (const other of bones()) {
@@ -149,6 +223,7 @@ export function mountRigBones(app, model) {
       }
       parentSelect.value = bone.parent || '';
     }
+    updateSelectionMenus();
     renderTree();
   }
 
@@ -219,15 +294,23 @@ export function mountRigBones(app, model) {
       stage.setPointerCapture(event.pointerId);
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (pointers.size === 1) {
-        const hit = hitBone(event.clientX, event.clientY);
-        if (hit) {
-          selected = hit;
-          refreshControls();
-          render();
-          model.changed?.();
-          const bone = selectedBone();
+        const piece = selectedPiece();
+        if (piece && activeTool === 'P') {
           dragBefore = model.snapshot?.();
-          dragging = { x: event.clientX, y: event.clientY, pos: [...bone.pos], changed: false };
+          dragging = { type: 'piece', x: event.clientX, y: event.clientY, pos: [...(piece.pos || [0, 0])], changed: false };
+        } else {
+          const hit = hitBone(event.clientX, event.clientY);
+          if (hit) {
+            selected = hit;
+            selectedPieceIndex = null;
+            activePieceMenu = null;
+            refreshControls();
+            render();
+            model.changed?.();
+            const bone = selectedBone();
+            dragBefore = model.snapshot?.();
+            dragging = { type: 'bone', x: event.clientX, y: event.clientY, pos: [...bone.pos], changed: false };
+          }
         }
       } else if (pointers.size === 2) {
         dragging = null;
@@ -247,10 +330,20 @@ export function mountRigBones(app, model) {
         panX = panning.panX + Math.round(x - panning.x); panY = panning.panY + Math.round(y - panning.y); render();
       } else if (dragging && pointers.size === 1) {
         const dx = (event.clientX - dragging.x) / cell, dy = (event.clientY - dragging.y) / cell;
-        const [localX, localY] = worldDeltaToLocal(bones(), selected, dx, dy);
-        const pos = [Math.round(dragging.pos[0] + localX), Math.round(dragging.pos[1] + localY)];
-        dragging.changed = true;
-        editSelected({ pos }, { quiet: true });
+        if (dragging.type === 'piece') {
+          const piece = selectedPiece();
+          if (piece) {
+            const [localX, localY] = worldDeltaToBone(bones(), piece.bone, dx, dy);
+            const pos = [Math.round(dragging.pos[0] + localX), Math.round(dragging.pos[1] + localY)];
+            dragging.changed = true;
+            editSelectedPiece({ pos }, { quiet: true });
+          }
+        } else {
+          const [localX, localY] = worldDeltaToLocal(bones(), selected, dx, dy);
+          const pos = [Math.round(dragging.pos[0] + localX), Math.round(dragging.pos[1] + localY)];
+          dragging.changed = true;
+          editSelected({ pos }, { quiet: true });
+        }
       }
     });
 
@@ -280,6 +373,57 @@ export function mountRigBones(app, model) {
     toolRotBtn?.addEventListener('click', () => switchTool('R'));
     toolImgBtn?.addEventListener('click', () => switchTool('I'));
 
+    pieceVisibleBtn?.addEventListener('click', () => {
+      const piece = selectedPiece();
+      if (!piece) return;
+      const before = model.snapshot?.();
+      piece.visible = piece.visible === false;
+      model.setVisibilityMode?.('individual');
+      const badge = $('#rig-view-mode-btn');
+      if (badge) {
+        badge.textContent = '보기: 개별';
+        badge.setAttribute('aria-pressed', 'false');
+      }
+      notify();
+      refreshControls();
+      render();
+      model.commit?.(before);
+    });
+
+    pieceRemoveBtn?.addEventListener('click', () => {
+      const piece = selectedPiece();
+      if (!piece) return;
+      const before = model.snapshot?.();
+      const boneName = piece.bone;
+      pieces().splice(selectedPieceIndex, 1);
+      selected = boneName;
+      selectedPieceIndex = null;
+      activePieceMenu = null;
+      notify();
+      refreshControls();
+      render();
+      model.commit?.(before);
+    });
+
+    pieceDepthBtn?.addEventListener('click', () => {
+      if (!selectedPiece()) return;
+      activePieceMenu = 'depth';
+      updateSelectionMenus();
+      pieceDepthInput?.focus();
+    });
+
+    pieceDepthApply?.addEventListener('click', () => {
+      const piece = selectedPiece();
+      if (!piece || !pieceDepthInput) return;
+      const before = model.snapshot?.();
+      piece.zIndex = Math.round(Number(pieceDepthInput.value) || 0);
+      activePieceMenu = null;
+      notify();
+      refreshControls();
+      render();
+      model.commit?.(before);
+    });
+
     if (nameInput) {
       nameInput.addEventListener('change', () => {
         const oldName = selectedBone().name, next = nameInput.value.trim();
@@ -301,7 +445,12 @@ export function mountRigBones(app, model) {
 
     const updatePosition = () => {
       const before = model.snapshot?.();
-      if (editSelected({ pos: [Number(xInput.value), Number(yInput.value)] })) model.commit?.(before);
+      const piece = selectedPiece();
+      if (piece) {
+        if (editSelectedPiece({ pos: [Number(xInput.value), Number(yInput.value)] })) model.commit?.(before);
+      } else {
+        if (editSelected({ pos: [Number(xInput.value), Number(yInput.value)] })) model.commit?.(before);
+      }
     };
     if (xInput) xInput.addEventListener('change', updatePosition);
     if (yInput) yInput.addEventListener('change', updatePosition);
@@ -309,25 +458,50 @@ export function mountRigBones(app, model) {
     if (angleInput) {
       angleInput.addEventListener('change', () => {
         const before = model.snapshot?.();
-        if (editSelected({ angle: Number(angleInput.value) })) model.commit?.(before);
+        const piece = selectedPiece();
+        const val = Number(angleInput.value);
+        if (piece) {
+          if (editSelectedPiece({ rot: val })) model.commit?.(before);
+        } else {
+          if (editSelected({ angle: val })) model.commit?.(before);
+        }
       });
     }
 
     if (rotSlider) {
       rotSlider.addEventListener('input', () => {
         if (!rotDragBefore) rotDragBefore = model.snapshot?.();
-        editSelected({ angle: Number(rotSlider.value) }, { quiet: true });
+        const piece = selectedPiece();
+        const val = Number(rotSlider.value);
+        if (piece) {
+          editSelectedPiece({ rot: val }, { quiet: true });
+        } else {
+          editSelected({ angle: val }, { quiet: true });
+        }
         if (angleInput) angleInput.value = rotSlider.value;
       });
       rotSlider.addEventListener('change', () => {
         const before = rotDragBefore || model.snapshot?.();
         rotDragBefore = null;
-        if (editSelected({ angle: Number(rotSlider.value) })) model.commit?.(before);
+        const piece = selectedPiece();
+        const val = Number(rotSlider.value);
+        if (piece) {
+          if (editSelectedPiece({ rot: val })) model.commit?.(before);
+        } else {
+          if (editSelected({ angle: val })) model.commit?.(before);
+        }
       });
     }
 
     if (rotMinus15) {
       rotMinus15.addEventListener('click', () => {
+        const piece = selectedPiece();
+        if (piece) {
+          const before = model.snapshot?.();
+          const nextRot = Math.round((piece.rot || 0) - 15);
+          if (editSelectedPiece({ rot: nextRot })) model.commit?.(before);
+          return;
+        }
         const bone = selectedBone();
         if (!bone) return;
         const before = model.snapshot?.();
@@ -338,6 +512,13 @@ export function mountRigBones(app, model) {
 
     if (rotPlus15) {
       rotPlus15.addEventListener('click', () => {
+        const piece = selectedPiece();
+        if (piece) {
+          const before = model.snapshot?.();
+          const nextRot = Math.round((piece.rot || 0) + 15);
+          if (editSelectedPiece({ rot: nextRot })) model.commit?.(before);
+          return;
+        }
         const bone = selectedBone();
         if (!bone) return;
         const before = model.snapshot?.();
@@ -347,6 +528,15 @@ export function mountRigBones(app, model) {
     }
 
     const nudge = (dx, dy) => {
+      const piece = selectedPiece();
+      if (piece) {
+        const before = model.snapshot?.();
+        const curPos = piece.pos || [0, 0];
+        const [localDx, localDy] = worldDeltaToBone(bones(), piece.bone, dx, dy);
+        const nextPos = [Math.round(curPos[0] + localDx), Math.round(curPos[1] + localDy)];
+        if (editSelectedPiece({ pos: nextPos })) model.commit?.(before);
+        return;
+      }
       const bone = selectedBone();
       if (!bone) return;
       const before = model.snapshot?.();

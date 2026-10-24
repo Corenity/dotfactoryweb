@@ -69,7 +69,6 @@ const app = {
   sendToPaint(image, name) { views.paint.load(image, name); show('paint'); },
   addToAssemble(image, name) { views.assemble.add(image, name); show('assemble'); toast(`합치기에 「${name}」을 더했습니다`); },
   getPieces() { return views.rig?.getPieces?.() || []; },
-  getSlicePieces() { return views.slice?.getPieces?.() || []; },
   getRigPreset() { return views.rig?.getPreset?.() || null; },
   getPresetStack() { return views.character?.getPresetStack?.() || null; },
   async loadLegacyRig(project) {

@@ -232,6 +232,9 @@
         <span class="hint" id="rig-auto-offset-text">0, 0</span>
         <button class="btn" id="rig-auto-reset">원위치</button>
       </div>
+      <div class="row guide rig-slice-only rig-auto-slice-only" hidden>
+        <label class="inline guide-opacity" style="flex: 1 1 100%;">진하기<input type="range" id="rig-auto-bare-opacity" min="0" max="100" step="10" value="50" aria-label="맨몸 진하기"><span id="rig-auto-bare-opacity-value">50%</span></label>
+      </div>
       <div class="row rig-slice-only rig-auto-slice-only rig-auto-ellipse-row" id="rig-auto-ellipse-row" hidden>
         <span class="hint">얼굴 타원:</span>
         <button class="btn icon" id="rig-auto-ellipse-left" aria-label="얼굴 타원 왼쪽으로 1칸 이동">◀</button>
@@ -343,15 +346,6 @@
       <p class="hint rig-import-report" id="rig-import-report" role="status" hidden>TSCN이나 ZIP을 열면 가져온 결과를 여기에 적습니다.</p>
       <div class="rig-bones-only" id="rig-bones-panel" hidden>
         <p class="rig-preset-warning" id="rig-preset-warning" hidden></p>
-        <section class="rig-editor-card rig-piece-picker" id="rig-piece-picker" hidden>
-          <div class="row">
-            <strong>그림 넣기</strong>
-            <button class="btn primary" id="rig-piece-file">휴대폰 PNG</button>
-            <button class="btn" id="rig-piece-picker-close">닫기</button>
-          </div>
-          <p class="hint">자르기 보관함에서 고르면 PNG를 현재 프리셋에 복사합니다.</p>
-          <div class="rig-piece-library" id="rig-piece-library"></div>
-        </section>
 
         <!-- 그룹화 모달 팝업 -->
         <div class="color-pop rig-group-modal" id="rig-group-pop" hidden>
@@ -430,53 +424,50 @@
             </div>
           </div>
 
-          <!-- 우측 P, R, I 버튼 -->
-          <div class="rig-col-tools">
+          <!-- 우측 선택별 도구 버튼 -->
+          <div class="rig-col-tools" id="rig-bone-tools">
             <button type="button" class="btn rig-tool-btn" id="rig-tool-pos" aria-pressed="true" title="위치 이동 (P)">P</button>
             <button type="button" class="btn rig-tool-btn" id="rig-tool-rot" aria-pressed="false" title="각도 회전 (R)">R</button>
             <button type="button" class="btn rig-tool-btn" id="rig-tool-img" aria-pressed="false" title="이미지 (I)">I</button>
           </div>
-        </div>
+          <div class="rig-col-tools rig-piece-tools" id="rig-piece-tools" hidden>
+            <button type="button" class="btn rig-piece-tool-btn" id="rig-piece-visible">숨김</button>
+            <button type="button" class="btn rig-piece-tool-btn danger" id="rig-piece-remove">빼기</button>
+            <button type="button" class="btn rig-piece-tool-btn" id="rig-piece-depth">깊이</button>
+          </div>
 
-        <!-- 하단 한 줄 바 (P / R / I 선택에 따라 변경) -->
-        <div class="rig-bottom-container">
-          <!-- P 바: 이동 화살표 + 좌표 -->
-          <div class="rig-bottom-bar" id="rig-bar-pos">
-            <div class="arrows rig-arrows">
-              <button class="btn small" id="rig-bone-left" aria-label="왼쪽으로 한 칸">←</button>
-              <button class="btn small" id="rig-bone-right" aria-label="오른쪽으로 한 칸">→</button>
-              <button class="btn small" id="rig-bone-up" aria-label="위로 한 칸">↑</button>
-              <button class="btn small" id="rig-bone-down" aria-label="아래로 한 칸">↓</button>
+          <!-- 그림판 아래, 뼈 트리 옆 메뉴 자리 -->
+          <div class="rig-bottom-container rig-control-slot">
+            <div class="rig-bottom-bar" id="rig-bar-pos">
+              <div class="arrows rig-arrows">
+                <button class="btn small" id="rig-bone-left" aria-label="왼쪽으로 한 칸">←</button>
+                <button class="btn small" id="rig-bone-right" aria-label="오른쪽으로 한 칸">→</button>
+                <button class="btn small" id="rig-bone-up" aria-label="위로 한 칸">↑</button>
+                <button class="btn small" id="rig-bone-down" aria-label="아래로 한 칸">↓</button>
+              </div>
+              <div class="rig-coords">
+                <label>X<input id="rig-bone-x" type="number" step="1"></label>
+                <label>Y<input id="rig-bone-y" type="number" step="1"></label>
+              </div>
             </div>
-            <div class="rig-coords">
-              <label>X<input id="rig-bone-x" type="number" step="1"></label>
-              <label>Y<input id="rig-bone-y" type="number" step="1"></label>
+
+            <div class="rig-bottom-bar" id="rig-bar-rot" hidden>
+              <button class="btn small" id="rig-rot-minus15" title="-15°">-15°</button>
+              <input type="range" id="rig-rot-slider" min="-180" max="180" step="1" value="0">
+              <button class="btn small" id="rig-rot-plus15" title="+15°">+15°</button>
+              <label class="rig-angle-label"><input id="rig-bone-angle" type="number" step="1">°</label>
+            </div>
+
+            <div class="rig-bottom-bar" id="rig-bar-img" hidden>
+              <button class="btn primary" id="rig-add-piece">이미지 추가</button>
+              <span class="hint rig-selected-bone-label" id="rig-selected-bone-badge">선택: Torso</span>
+            </div>
+
+            <div class="rig-bottom-bar rig-depth-bar" id="rig-bar-depth" hidden>
+              <label>깊이 <input id="rig-piece-depth-input" type="number" step="1" inputmode="numeric"></label>
+              <button class="btn primary" id="rig-piece-depth-apply">확정</button>
             </div>
           </div>
-
-          <!-- R 바: 각도 슬라이더 + ±15° + 수치 -->
-          <div class="rig-bottom-bar" id="rig-bar-rot" hidden>
-            <button class="btn small" id="rig-rot-minus15" title="-15°">-15°</button>
-            <input type="range" id="rig-rot-slider" min="-180" max="180" step="1" value="0">
-            <button class="btn small" id="rig-rot-plus15" title="+15°">+15°</button>
-            <label class="rig-angle-label"><input id="rig-bone-angle" type="number" step="1">°</label>
-          </div>
-
-          <!-- I 바: 이미지 추가 + 이미지 목록 토글 + 뼈 라벨 -->
-          <div class="rig-bottom-bar" id="rig-bar-img" hidden>
-            <button class="btn primary" id="rig-add-piece">이미지 추가</button>
-            <button class="btn" id="rig-img-list-toggle">이미지 목록</button>
-            <span class="hint rig-selected-bone-label" id="rig-selected-bone-badge">선택: Torso</span>
-          </div>
-        </div>
-
-        <!-- I 모드: 고른 뼈의 이미지 목록 드롭다운/패널 -->
-        <div class="rig-bone-pieces-panel" id="rig-bone-pieces-panel" hidden>
-          <div class="rig-card-header">
-            <strong>고른 뼈의 이미지 목록</strong>
-            <button type="button" class="btn small" id="rig-bone-pieces-close">✕</button>
-          </div>
-          <div class="rig-assign-list" id="rig-assign-list"></div>
         </div>
 
         <!-- 숨겨진 필드 및 이전 호환용 더미 요소들 (ID 검사 통과용) -->
@@ -538,25 +529,25 @@
             <button type="button" class="btn rig-tool-btn" id="motion-tool-pos" aria-pressed="true" title="위치 이동 (P)">P</button>
             <button type="button" class="btn rig-tool-btn" id="motion-tool-rot" aria-pressed="false" title="각도 회전 (R)">R</button>
           </div>
-        </div>
-        <div class="rig-bottom-container">
-          <div class="rig-bottom-bar" id="motion-bar-pos">
-            <div class="arrows rig-arrows">
-              <button class="btn small" id="motion-bone-left" aria-label="왼쪽으로 한 칸">←</button>
-              <button class="btn small" id="motion-bone-right" aria-label="오른쪽으로 한 칸">→</button>
-              <button class="btn small" id="motion-bone-up" aria-label="위로 한 칸">↑</button>
-              <button class="btn small" id="motion-bone-down" aria-label="아래로 한 칸">↓</button>
+          <div class="rig-bottom-container rig-control-slot">
+            <div class="rig-bottom-bar" id="motion-bar-pos">
+              <div class="arrows rig-arrows">
+                <button class="btn small" id="motion-bone-left" aria-label="왼쪽으로 한 칸">←</button>
+                <button class="btn small" id="motion-bone-right" aria-label="오른쪽으로 한 칸">→</button>
+                <button class="btn small" id="motion-bone-up" aria-label="위로 한 칸">↑</button>
+                <button class="btn small" id="motion-bone-down" aria-label="아래로 한 칸">↓</button>
+              </div>
+              <div class="rig-coords">
+                <label>X<input id="motion-bone-x" type="number" step="1" inputmode="numeric"></label>
+                <label>Y<input id="motion-bone-y" type="number" step="1" inputmode="numeric"></label>
+              </div>
             </div>
-            <div class="rig-coords">
-              <label>X<input id="motion-bone-x" type="number" step="1" inputmode="numeric"></label>
-              <label>Y<input id="motion-bone-y" type="number" step="1" inputmode="numeric"></label>
+            <div class="rig-bottom-bar" id="motion-bar-rot" hidden>
+              <button class="btn small" id="motion-angle-minus">−15°</button>
+              <input type="range" id="motion-rot-slider" min="-180" max="180" step="1" value="0" aria-label="고른 뼈 각도">
+              <button class="btn small" id="motion-angle-plus">+15°</button>
+              <label class="rig-angle-label"><input id="motion-bone-angle" type="number" step="1" inputmode="numeric">°</label>
             </div>
-          </div>
-          <div class="rig-bottom-bar" id="motion-bar-rot" hidden>
-            <button class="btn small" id="motion-angle-minus">−15°</button>
-            <input type="range" id="motion-rot-slider" min="-180" max="180" step="1" value="0" aria-label="고른 뼈 각도">
-            <button class="btn small" id="motion-angle-plus">+15°</button>
-            <label class="rig-angle-label"><input id="motion-bone-angle" type="number" step="1" inputmode="numeric">°</label>
           </div>
         </div>
         <div class="motion-key-row">
