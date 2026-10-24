@@ -643,7 +643,7 @@
 /* 피커 스타일 */
 .rig-library-choice { justify-content: flex-start; overflow-wrap: anywhere; }
 
-/* 자르기 방식별 행 숨김 */
+/* 숨김 규칙 */
 .rig-slice-only[hidden],
 .rig-manual-slice-only[hidden],
 .rig-auto-slice-only[hidden],
@@ -652,7 +652,7 @@
   display: none !important;
 }
 
-/* 종류별 자르기 전용 스타일 */
+/* 부위 칠하기 팔레트 스타일 */
 .rig-palette-wrap {
   display: flex;
   flex-wrap: wrap;
@@ -687,69 +687,6 @@
   color: var(--danger, #ff453a);
 }
 
-.rig-auto-ellipse-row,
-.rig-auto-skin-row,
-.rig-auto-deco-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-
-.rig-auto-ellipse-row .icon {
-  min-width: 44px;
-  min-height: 44px;
-}
-
-.rig-auto-deco-row .btn,
-.rig-auto-skin-row .btn {
-  min-height: 44px;
-}
-
-.rig-auto-deco-row input[type="text"] {
-  min-height: 44px;
-  padding: 0 8px;
-  background: var(--bg, #111114);
-  border: 1px solid var(--line, #2c2d38);
-  color: var(--text, #e2e2ea);
-  border-radius: 4px;
-}
-
-.rig-skin-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-
-.rig-skin-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 44px;
-  padding: 0 10px;
-  border-radius: 4px;
-  border: 1px solid var(--line, #2c2d38);
-  background: var(--surface, #1b1c24);
-  color: var(--text, #e2e2ea);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.rig-skin-chip-color {
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  display: inline-block;
-  flex-shrink: 0;
-}
-
-.rig-skin-chip-remove {
-  font-size: 13px;
-  color: var(--muted, #8e8e93);
-  margin-left: 2px;
-}
 .rig-preset-warning[hidden],
 .rig-legacy-hidden[hidden],
 #rig-group-view-add[hidden],

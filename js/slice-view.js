@@ -1,4 +1,4 @@
-// 이미지 자르기 화면 — 원본·선택 마스크·조각 보관함을 뼈대와 독립해 소유합니다.
+// 이미지 자르기 화면 — 원본·자동 분할·조각 보관함을 소유합니다.
 import { createMask } from './core/slice.js';
 import { dropKey } from './core/paint.js';
 import { toSliceLibraryItem } from './core/slice-library.js';
@@ -6,6 +6,7 @@ import { RigHistory, cloneRigState } from './core/rig-history.js';
 import { pickFiles, readImageFile, readDataUrl, toPngDataUrl, baseName } from './io.js';
 import { mountRigSlice } from './rig-slice-view.js';
 import { mountSliceLibrary } from './slice-library-view.js';
+import { shouldReinitSlice } from './core/auto-slice.js';
 
 const $ = sel => document.querySelector(sel);
 
@@ -50,12 +51,16 @@ export function mountSlice(app) {
   function applyHistory(value) {
     if (!value) return;
     const state = cloneRigState(value);
+    const needReinit = shouldReinitSlice(baseImage, state.baseImage);
     [width, height] = state.canvas;
     baseTitle = state.baseTitle;
     baseImage = state.baseImage;
     pieces = state.pieces;
     mask = createMask(width, height);
     syncViews();
+    if (needReinit) {
+      canvasView.init();
+    }
     app.changed();
   }
 
@@ -66,6 +71,7 @@ export function mountSlice(app) {
     height = image.height;
     mask = createMask(width, height);
     syncViews();
+    canvasView.init();
     canvasView.fit();
   }
 
@@ -141,6 +147,7 @@ export function mountSlice(app) {
       width = Number(canvas[0]) || 72;
       height = Number(canvas[1]) || 64;
       baseTitle = String(saved.item || '그림');
+      const prevImage = baseImage;
       baseImage = saved.basePng ? await readDataUrl(saved.basePng) : null;
       pieces = [];
       for (const value of saved.pieces || []) {
@@ -152,6 +159,9 @@ export function mountSlice(app) {
       if (Array.isArray(saved.mask) && saved.mask.length === mask.length) mask.set(saved.mask);
       history.clear();
       syncViews();
+      if (baseImage) {
+        canvasView.init();
+      }
     },
   };
 }

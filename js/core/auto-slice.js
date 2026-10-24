@@ -1,4 +1,4 @@
-// 종류별 자르기(헤어 · 표정 · 옷 · 신발 · 전체) 자동 조각 분할 순수 모듈
+// site/js/core/auto-slice.js — 종류별 자르기(헤어 · 표정 · 옷 · 신발 · 전체) 자동 조각 분할 순수 모듈
 // 화면(DOM)을 쓰지 않는 순수 모듈로 Node 시험이 그대로 돌립니다.
 
 export const SLICE_KINDS = Object.freeze(['all', 'outfit', 'shoes', 'hair', 'expression']);
@@ -33,7 +33,7 @@ export const KIND_PIECES_META = Object.freeze({
   all: [
     { sourceKind: 'hair', piece: 'hair', label: 1, name: '헤어' },
     { sourceKind: 'expression', piece: 'eyes', label: 2, name: '표정' },
-    { sourceKind: 'outfit', piece: 'body', label: 3, name: '상체' },
+    { sourceKind: 'outfit', piece: 'body', label: 3, name: '몸' },
     { sourceKind: 'outfit', piece: 'arm_l', label: 4, name: '왼팔' },
     { sourceKind: 'outfit', piece: 'arm_r', label: 5, name: '오른팔' },
     { sourceKind: 'outfit', piece: 'leg_l', label: 6, name: '왼다리' },
@@ -183,7 +183,7 @@ export function findNearestShoePart(x, y, partPixels) {
 /**
  * 올린 그림의 (x, y) 색상이 맨몸 합성의 해당 칸 색상과 가까운지 판정합니다.
  */
-export function isBareColor(r, g, b, bareR, bareG, bareB, bareA, tolerance = 24) {
+export function isBareColor(r, g, b, bareR, bareG, bareB, bareA, tolerance = 12) {
   if (bareA === 0) return false;
   const dr = r - bareR;
   const dg = g - bareG;
@@ -194,7 +194,7 @@ export function isBareColor(r, g, b, bareR, bareG, bareB, bareA, tolerance = 24)
 /**
  * 좌표 (x, y)가 타원 내부에 있는지 판정합니다.
  */
-export function isInsideEllipse(x, y, cx = 36.5, cy = 30, rx = 10.5, ry = 8) {
+export function isInsideEllipse(x, y, cx = 38, cy = 30, rx = 12, ry = 8) {
   if (rx <= 0 || ry <= 0) return false;
   const dx = (x - cx) / rx;
   const dy = (y - cy) / ry;
@@ -203,52 +203,48 @@ export function isInsideEllipse(x, y, cx = 36.5, cy = 30, rx = 10.5, ry = 8) {
 
 /**
  * 올린 그림에서 맨몸 얼굴 타원 영역을 분석하여 지피티가 칠한 살색 그늘 후보 색상들을 자동으로 추출합니다.
- * 눈/눈썹/입술선이나 눈 흰자위, 진한 분홍 볼터치는 살색에서 제외하여 보호합니다.
- * 맨몸이 있는 칸(bareImage 알파 > 0)에서만 추출하여 머리카락 등이 살색 후보로 들어가는 것을 방지합니다.
+ * 볼터치 분홍(r - g >= 70)과 크림 머리색(247, 220, 192 계열)을 배제하여 진짜 살색을 우선 추출합니다.
  */
-export function extractSkinColors(image, bareInfo, faceEllipse = { cx: 36.5, cy: 30, rx: 10.5, ry: 8 }) {
+export function extractSkinColors(image, bareInfo, faceEllipse = { cx: 38, cy: 30, rx: 12, ry: 8 }) {
   const { width, height } = image;
-  const { cx = 36.5, cy = 30, rx = 10.5, ry = 8 } = faceEllipse || {};
+  const { cx = 38, cy = 30, rx = 12, ry = 8 } = faceEllipse || {};
   const bareImg = bareInfo?.bareImage;
   const colorMap = new Map();
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      const s = idx * 4;
+      if (image.data[s + 3] === 0) continue;
+      const r = image.data[s], g = image.data[s + 1], b = image.data[s + 2];
+
       const dx = (x - cx) / rx;
       const dy = (y - cy) / ry;
-      if (dx * dx + dy * dy <= 1.0) {
-        const s = (y * width + x) * 4;
-        if (image.data[s + 3] === 0) continue;
-        const r = image.data[s], g = image.data[s + 1], b = image.data[s + 2];
+      // 얼굴 타원 안쪽 중심부
+      if (dx * dx + dy * dy > 0.8) continue;
+      if (bareImg && bareImg.data[s + 3] === 0) continue;
 
-        // 기본 맨몸 살색과 이미 가까우면 제외 (bareColor에서 기본으로 빠짐), 맨몸 밖 픽셀도 제외
-        if (bareImg) {
-          const ba = bareImg.data[s + 3];
-          if (ba === 0) continue; // 맨몸이 없는 칸(얼굴 밖)은 살색 후보에서 제외
-          if (isBareColor(r, g, b, bareImg.data[s], bareImg.data[s + 1], bareImg.data[s + 2], ba, 24)) {
-            continue;
-          }
-        }
+      // 눈 흰자위(순백색) 제외
+      if (r >= 245 && g >= 245 && b >= 245) continue;
+      // 어두운 눈/입술선/눈썹 제외
+      const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (brightness < 120) continue;
 
-        // 눈 흰자위(거의 순백색) 제외
-        if (r >= 245 && g >= 245 && b >= 245) continue;
-        if (r - b < 12) continue;
+      // 1) 볼터치 분홍 제외: 빨강이 초록보다 70 이상 큰 색
+      if (r - g >= 70) continue;
 
-        // 어두운 눈/입술선/눈썹 제외 (밝기 < 130)
-        const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-        if (brightness < 130) continue;
+      // 2) 크림 머리색(247, 220, 192 계열) 제외: 노랑/크림 톤은 g-b, r-b가 큼
+      if (g - b >= 20 || r - b >= 48) continue;
 
-        // 살색 그늘: R이 높고, G와 B가 적당히 밝음 (r >= 230, g >= 140, b >= 130)
-        // 진한 분홍 볼터치(r - g > 95 또는 g < 135)는 표정에 남기기 위해 살색 그늘에서 제외
-        if (r >= 230 && g >= 140 && b >= 130 && (r - g) <= 95) {
-          const qr = Math.round(r / 6) * 6;
-          const qg = Math.round(g / 6) * 6;
-          const qb = Math.round(b / 6) * 6;
-          const key = `${qr},${qg},${qb}`;
-          const cur = colorMap.get(key) || { r, g, b, count: 0 };
-          cur.count++;
-          colorMap.set(key, cur);
-        }
+      // 살색 그늘 조건
+      if (r >= 200 && g >= 140 && b >= 120) {
+        const qr = Math.round(r / 6) * 6;
+        const qg = Math.round(g / 6) * 6;
+        const qb = Math.round(b / 6) * 6;
+        const key = `${qr},${qg},${qb}`;
+        const cur = colorMap.get(key) || { r, g, b, count: 0 };
+        cur.count++;
+        colorMap.set(key, cur);
       }
     }
   }
@@ -258,129 +254,46 @@ export function extractSkinColors(image, bareInfo, faceEllipse = { cx: 36.5, cy:
 }
 
 /**
- * 「눌러서 떼기」(장식): 그림 칸을 한 번 누르면 그 칸과 같은 색으로 이어진(4방향) 칸과
- * 그 덩어리에 닿은 테두리(어두운 외곽선) 칸을 장식으로 고릅니다.
- */
-export function pickDecoration({
-  image,
-  startX,
-  startY,
-  offset = [0, 0],
-  darkOutlineThreshold = 80,
-  colorTolerance = 24,
-}) {
-  const width = image.width;
-  const height = image.height;
-  const [ox, oy] = offset;
-
-  const srcStartX = startX - ox;
-  const srcStartY = startY - oy;
-  if (srcStartX < 0 || srcStartX >= width || srcStartY < 0 || srcStartY >= height) {
-    return { core: [], outline: [], all: [], mask: new Uint8Array(width * height) };
-  }
-
-  const s0 = (srcStartY * width + srcStartX) * 4;
-  if (image.data[s0 + 3] === 0) {
-    return { core: [], outline: [], all: [], mask: new Uint8Array(width * height) };
-  }
-
-  const targetR = image.data[s0];
-  const targetG = image.data[s0 + 1];
-  const targetB = image.data[s0 + 2];
-
-  const visited = new Uint8Array(width * height);
-  const core = [];
-  const queue = [[srcStartX, srcStartY]];
-  visited[srcStartY * width + srcStartX] = 1;
-
-  while (queue.length > 0) {
-    const [cx, cy] = queue.shift();
-    core.push([cx + ox, cy + oy]);
-
-    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
-      const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-      const nidx = ny * width + nx;
-      if (visited[nidx]) continue;
-      const ns = nidx * 4;
-      if (image.data[ns + 3] === 0) continue;
-
-      const dr = image.data[ns] - targetR;
-      const dg = image.data[ns + 1] - targetG;
-      const db = image.data[ns + 2] - targetB;
-      const dist = Math.sqrt(dr * dr + dg * dg + db * db);
-      if (dist <= colorTolerance) {
-        visited[nidx] = 1;
-        queue.push([nx, ny]);
-      }
-    }
-  }
-
-  const outline = [];
-  const outlineVisited = new Uint8Array(width * height);
-  for (const [px, py] of core) {
-    const cx = px - ox;
-    const cy = py - oy;
-    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-      const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
-      const nidx = ny * width + nx;
-      if (visited[nidx] || outlineVisited[nidx]) continue;
-      const ns = nidx * 4;
-      if (image.data[ns + 3] === 0) continue;
-
-      const r = image.data[ns], g = image.data[ns + 1], b = image.data[ns + 2];
-      const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-      if (brightness <= darkOutlineThreshold) {
-        outlineVisited[nidx] = 1;
-        outline.push([nx + ox, ny + oy]);
-      }
-    }
-  }
-
-  const all = [...core, ...outline];
-  const mask = new Uint8Array(width * height);
-  for (const [x, y] of all) {
-    if (x >= 0 && x < width && y >= 0 && y < height) {
-      mask[y * width + x] = 1;
-    }
-  }
-
-  return { core, outline, all, mask };
-}
-
-/**
  * 종류별 자르기 알고리즘 본체입니다.
+ * 기본값: tolerance 12, faceEllipse (38,30,12,8), shoeMinY 52.
+ * 헤어색 복원 및 손 윤곽선 버림을 내장합니다.
  */
 export function autoSlice({
   image,
-  kind = 'outfit',
+  kind = 'all',
   bareInfo = null,
   stripBare = null,
-  tolerance = 24,
+  tolerance = 12,
   offset = [0, 0],
-  faceEllipse = { cx: 36.5, cy: 30, rx: 10.5, ry: 8 },
-  shoeMinY = 55,
+  faceEllipse = { cx: 38, cy: 30, rx: 12, ry: 8 },
+  shoeMinY = 52,
   neckY = 37,
   preservedAssignments = null,
   userModifiedMask = null,
-  skinColors = [],
+  skinColors = null,
   skinTolerance = 14,
 }) {
   const width = image.width;
   const height = image.height;
-  const shouldStrip = stripBare !== null ? !!stripBare : (kind === 'outfit' || kind === 'shoes' || kind === 'all');
+  const shouldStrip = stripBare !== null ? !!stripBare : true;
   const [ox, oy] = offset;
 
   const assignments = new Uint8Array(width * height);
-  const metas = KIND_PIECES_META[kind] || KIND_PIECES_META.outfit;
+  const metas = KIND_PIECES_META[kind] || KIND_PIECES_META.all;
   const labelByPiece = {};
   for (const m of metas) labelByPiece[m.piece] = m.label;
 
   const bareImg = bareInfo?.bareImage;
   const barePartMap = bareInfo?.barePartMap;
   const partPixels = bareInfo?.partPixels || {};
-  const { cx = 36.5, cy = 30, rx = 10.5, ry = 8 } = faceEllipse || {};
+  const { cx = 38, cy = 30, rx = 12, ry = 8 } = faceEllipse || {};
+
+  // 살색 목록이 지정되지 않은 경우 맨몸 정보로부터 자동 추출
+  let activeSkinColors = skinColors;
+  if (!activeSkinColors && bareInfo) {
+    activeSkinColors = extractSkinColors(image, bareInfo, faceEllipse);
+  }
+  if (!activeSkinColors) activeSkinColors = [];
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
@@ -405,7 +318,7 @@ export function autoSlice({
       const g = image.data[s + 1];
       const b = image.data[s + 2];
 
-      // 1. 기본 맨몸 살색 빼기 (맨몸 합성과 tolerance 24 이내인 칸 버림)
+      // 1. 기본 맨몸 살색 빼기 (맨몸 합성과 tolerance 이내인 칸 버림)
       if (shouldStrip && bareImg) {
         const bs = destIdx * 4;
         const ba = bareImg.data[bs + 3];
@@ -416,16 +329,15 @@ export function autoSlice({
 
       // 2. 살색 목록(그늘 등) 색상 빼기
       // 버리는 자리는 얼굴 타원 안과 맨몸 몸통·팔·다리 자리(body, arm_l, arm_r, leg_l, leg_r)뿐입니다.
-      // 그 밖(얼굴 타원 밖 머리 쪽 = 헤어 자리, 맨몸 밖)에서는 살색 목록으로 버리지 않습니다.
-      if (shouldStrip && skinColors && skinColors.length > 0) {
+      if (shouldStrip && activeSkinColors.length > 0) {
         const inEllipse = isInsideEllipse(x, y, cx, cy, rx, ry);
         const barePart = barePartMap ? barePartMap[destIdx] : null;
         const inBodyLimb = (barePart === 'body' || barePart === 'arm_l' || barePart === 'arm_r' || barePart === 'leg_l' || barePart === 'leg_r');
 
         if (inEllipse || inBodyLimb) {
           let isSkin = false;
-          for (let i = 0; i < skinColors.length; i++) {
-            const sc = skinColors[i];
+          for (let i = 0; i < activeSkinColors.length; i++) {
+            const sc = activeSkinColors[i];
             const dr = r - sc[0];
             const dg = g - sc[1];
             const db = b - sc[2];
@@ -495,6 +407,77 @@ export function autoSlice({
     }
   }
 
+  // kind === 'all' 전용 다듬기
+  if (kind === 'all') {
+    const d = image.data;
+    const N = width * height;
+    const bright = i => 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2];
+    const nb4 = i => {
+      const px = i % width, py = (i / width) | 0, r = [];
+      if (px) r.push(i - 1);
+      if (px < width - 1) r.push(i + 1);
+      if (py) r.push(i - width);
+      if (py < height - 1) r.push(i + width);
+      return r;
+    };
+    const nb8 = i => {
+      const px = i % width, py = (i / width) | 0, r = [];
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const X = px + dx, Y = py + dy;
+          if (X >= 0 && X < width && Y >= 0 && Y < height) r.push(Y * width + X);
+        }
+      }
+      return r;
+    };
+    const dropped = i => d[i * 4 + 3] > 0 && !assignments[i];
+
+    // 1) 헤어색 복원: 타원 안 표정 칸 중 타원 밖 헤어 주요 색상은 헤어로 복원
+    const hairCnt = new Map();
+    for (let i = 0; i < N; i++) {
+      if (assignments[i] !== labelByPiece.hair) continue;
+      if (isInsideEllipse(i % width, (i / width) | 0, cx, cy, rx, ry)) continue;
+      if (bright(i) < 170) continue;
+      const k = `${Math.round(d[i * 4] / 6) * 6},${Math.round(d[i * 4 + 1] / 6) * 6},${Math.round(d[i * 4 + 2] / 6) * 6}`;
+      const c = hairCnt.get(k) || { c: [d[i * 4], d[i * 4 + 1], d[i * 4 + 2]], n: 0 };
+      c.n++;
+      hairCnt.set(k, c);
+    }
+    const hairPal = [...hairCnt.values()].sort((a, b) => b.n - a.n).slice(0, 6).map(v => v.c);
+    if (hairPal.length > 0) {
+      for (let i = 0; i < N; i++) {
+        if (assignments[i] === labelByPiece.eyes) {
+          if (userModifiedMask && userModifiedMask[i]) continue;
+          if (hairPal.some(p => Math.hypot(d[i * 4] - p[0], d[i * 4 + 1] - p[1], d[i * 4 + 2] - p[2]) <= 12)) {
+            assignments[i] = labelByPiece.hair;
+          }
+        }
+      }
+    }
+
+    // 2) 손 윤곽선 버림: 버린 살에 닿고 밝은 옷색 칸엔 안 닿는 어두운 칸은 옷 조각에서 버림 (2패스)
+    const outfitLabels = new Set([
+      labelByPiece.body,
+      labelByPiece.arm_l,
+      labelByPiece.arm_r,
+      labelByPiece.leg_l,
+      labelByPiece.leg_r,
+    ]);
+    for (let pass = 0; pass < 2; pass++) {
+      const kill = [];
+      for (let i = 0; i < N; i++) {
+        if (!assignments[i] || !outfitLabels.has(assignments[i])) continue;
+        if (userModifiedMask && userModifiedMask[i]) continue;
+        if (bright(i) >= 110) continue;
+        if (!nb8(i).some(dropped)) continue;
+        if (nb4(i).some(j => assignments[j] && bright(j) >= 110 && !dropped(j))) continue;
+        kill.push(i);
+      }
+      for (const idx of kill) assignments[idx] = 0;
+    }
+  }
+
   return {
     kind,
     width,
@@ -503,30 +486,20 @@ export function autoSlice({
     offset: [ox, oy],
     stripBare: shouldStrip,
     faceEllipse: { cx, cy, rx, ry },
-    skinColors,
+    skinColors: activeSkinColors,
     metas,
   };
 }
 
 /**
- * assignments 할당 결과 및 장식(decorations)으로부터 각 부위별 조각 이미지 버퍼를 추출합니다.
+ * assignments 할당 결과로부터 각 부위별 조각 이미지 버퍼를 추출합니다.
  */
-export function extractPiecesFromAssignments({ image, assignments, kind, offset = [0, 0], decorations = [] }) {
+export function extractPiecesFromAssignments({ image, assignments, kind = 'all', offset = [0, 0] }) {
   const width = image.width;
   const height = image.height;
   const [ox, oy] = offset;
-  const metas = KIND_PIECES_META[kind] || KIND_PIECES_META.outfit;
+  const metas = KIND_PIECES_META[kind] || KIND_PIECES_META.all;
   const result = [];
-
-  // 장식으로 고른 칸들의 마스크 (장식 칸은 다른 부위 조각에서 빠집니다)
-  const decoMask = new Uint8Array(width * height);
-  for (const deco of decorations || []) {
-    if (deco && deco.mask) {
-      for (let i = 0; i < deco.mask.length; i++) {
-        if (deco.mask[i]) decoMask[i] = 1;
-      }
-    }
-  }
 
   for (const meta of metas) {
     const pieceData = new Uint8ClampedArray(width * height * 4);
@@ -535,8 +508,6 @@ export function extractPiecesFromAssignments({ image, assignments, kind, offset 
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const destIdx = y * width + x;
-        // 장식에 속한 칸은 다른 조각에서 제외
-        if (decoMask[destIdx]) continue;
 
         if (assignments[destIdx] === meta.label) {
           const srcX = x - ox;
@@ -565,41 +536,23 @@ export function extractPiecesFromAssignments({ image, assignments, kind, offset 
     }
   }
 
-  // 등록된 장식(extra) 조각들을 추가
-  for (const deco of decorations || []) {
-    if (!deco || !deco.mask || !deco.name) continue;
-    const pieceData = new Uint8ClampedArray(width * height * 4);
-    let pixelCount = 0;
-
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        const destIdx = y * width + x;
-        if (deco.mask[destIdx]) {
-          const srcX = x - ox;
-          const srcY = y - oy;
-          if (srcX >= 0 && srcX < width && srcY >= 0 && srcY < height) {
-            const ss = (srcY * width + srcX) * 4;
-            const ds = destIdx * 4;
-            pieceData[ds] = image.data[ss];
-            pieceData[ds + 1] = image.data[ss + 1];
-            pieceData[ds + 2] = image.data[ss + 2];
-            pieceData[ds + 3] = image.data[ss + 3];
-            pixelCount++;
-          }
-        }
-      }
-    }
-
-    if (pixelCount > 0) {
-      result.push({
-        sourceKind: 'extra',
-        piece: deco.name,
-        name: `extra_${deco.name}`,
-        pixelCount,
-        image: { width, height, data: pieceData },
-      });
-    }
-  }
-
   return result;
+}
+
+/**
+ * 되돌리기/다시하기 시 자동 분할 초기화(init)가 필요한지 판정하는 순수 함수입니다.
+ * 이전 그림과 새 그림이 같으면(크기 및 픽셀 데이터 동일) 사용자가 붓으로 수정한 칸(userModifiedMask)을
+ * 보존하기 위해 다시 나누지 않고(false), 그림이 실제로 바뀌었을 때만 다시 나눕니다(true).
+ */
+export function shouldReinitSlice(prevImage, nextImage) {
+  if (prevImage === nextImage) return false;
+  if (!prevImage || !nextImage) return true;
+  if (prevImage.width !== nextImage.width || prevImage.height !== nextImage.height) return true;
+  const d1 = prevImage.data;
+  const d2 = nextImage.data;
+  if (!d1 || !d2 || d1.length !== d2.length) return true;
+  for (let i = 0; i < d1.length; i++) {
+    if (d1[i] !== d2[i]) return true;
+  }
+  return false;
 }

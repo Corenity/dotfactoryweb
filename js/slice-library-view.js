@@ -1,5 +1,5 @@
 // 자르기 조각 보관함 화면 — 이름 붙은 PNG의 저장·다시 고르기·내려받기를 다룹니다.
-import { clearMask, hasSelection, extractPiece } from './core/slice.js';
+import { clearMask } from './core/slice.js';
 import { dropKey, KEY, toHex } from './core/paint.js';
 import { toSliceLibraryItem, makeSliceLibraryZip } from './core/slice-library.js';
 import { drawPixels, pickFiles, readImageFile, toPngDataUrl, savePng, saveFile, baseName } from './io.js';
@@ -7,7 +7,6 @@ import { drawPixels, pickFiles, readImageFile, toPngDataUrl, savePng, saveFile, 
 const $ = sel => document.querySelector(sel);
 
 export function mountSliceLibrary(app, model) {
-  const nameInput = $('#slice-piece-name');
   const list = $('#rig-pieces-list');
   let pieces = model.getPieces();
   let baseImage = model.getBaseImage();
@@ -25,7 +24,6 @@ export function mountSliceLibrary(app, model) {
     clearMask(mask);
     const data = piece.image.data;
     for (let index = 0; index < mask.length; index++) mask[index] = data[index * 4 + 3] > 0 ? 1 : 0;
-    nameInput.value = piece.name;
     model.drawOverlay();
     app.toast(`조각 「${piece.name}」의 영역을 다시 골랐습니다`);
   }
@@ -58,7 +56,6 @@ export function mountSliceLibrary(app, model) {
         button.addEventListener('click', run);
         actions.appendChild(button);
       };
-      action('다시고르기', () => reselectPiece(piece));
       action('PNG', async () => {
         await savePng(`${piece.id}.png`, piece.image);
         app.toast(`「${piece.id}.png」을 내려받았습니다`);
@@ -105,18 +102,7 @@ export function mountSliceLibrary(app, model) {
     return existing >= 0;
   }
 
-  $('#rig-save-piece').addEventListener('click', () => {
-    if (!baseImage) return app.toast('먼저 원본 그림을 올려 주세요');
-    if (!hasSelection(mask)) return app.toast('선택된 칸이 없습니다. 네모나 올가미로 영역을 골라 주세요');
-    const name = nameInput.value.trim();
-    if (!name) return app.toast('조각 이름을 넣어 주세요');
-    const before = model.snapshot();
-    const replaced = savePiece(extractPiece(baseImage, mask), name);
-    model.commit(before);
-    app.toast(`조각 「${name}」을 ${replaced ? '새 내용으로 바꿨습니다' : '보관했습니다'}`);
-  });
-
-  $('#rig-add-piece-png').addEventListener('click', async () => {
+  $('#rig-add-piece-png')?.addEventListener('click', async () => {
     try {
       const [file] = await pickFiles({ accept: 'image/png,image/*' });
       if (!file) return;
@@ -127,8 +113,7 @@ export function mountSliceLibrary(app, model) {
       }
       if (!baseImage) model.setEmptyCanvas(image.width, image.height);
       sync();
-      const name = nameInput.value.trim() || baseName(file.name);
-      nameInput.value = name;
+      const name = baseName(file.name);
       savePiece(image, name);
       model.commit(before);
       app.toast(`조각 「${name}」을 보관했습니다`);
@@ -137,7 +122,7 @@ export function mountSliceLibrary(app, model) {
     }
   });
 
-  $('#slice-save-all').addEventListener('click', async () => {
+  $('#slice-save-all')?.addEventListener('click', async () => {
     try {
       const made = makeSliceLibraryZip(pieces);
       await saveFile('자르기-조각.zip', new Blob([made.bytes], { type: 'application/zip' }));
