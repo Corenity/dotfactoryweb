@@ -14,12 +14,15 @@ export const LABEL_MOUTH = 2;
 
 /**
  * 초록 배경 또는 완전 투명 칸인지 판정합니다.
+ * 표준 초록(3, 192, 55)뿐 아니라 지피티 변형 초록(3, 203, 47) 및 밝은 연두색 찌꺼기까지 배경으로 처리합니다.
  */
 function isBackgroundKey(r, g, b, a) {
   if (a === 0) return true;
   // 표준 초록 (3, 192, 55) 및 지피티 변형 초록 (3, 203, 47) 등
   if (g >= 140 && r <= 60 && b <= 80) return true;
   if (Math.hypot(r - 3, g - 192, b - 55) <= 30) return true;
+  // 밝은 연두색 및 초록 찌꺼기 칸
+  if (g >= 120 && g > r + 30 && g > b + 30) return true;
   return false;
 }
 
@@ -98,6 +101,7 @@ export function getFaceBounds(bareInfo, width = 72, height = 64) {
       count,
     };
   }
+
   if (bareInfo?.bareImage) {
     const { bareImage, barePartMap } = bareInfo;
     let minX = width, maxX = -1, minY = height, maxY = -1;
@@ -134,19 +138,19 @@ export function getFaceBounds(bareInfo, width = 72, height = 64) {
   }
 
   // fallback 기본 바운딩
-  const minX = 20, maxX = 51, minY = 6, maxY = 37;
+  const minX = 22, maxX = 50, minY = 9, maxY = 36;
   return {
     minX, maxX, minY, maxY,
     width: maxX - minX + 1,
     height: maxY - minY + 1,
-    cx: (minX + maxX) / 2,
-    cy: (minY + maxY) / 2,
+    cx: 38,
+    cy: 22.5,
     count: 0,
   };
 }
 
 /**
- * 대머리 얼굴 그림에서 눈(눈·눈물·눈썹)과 입을 분할하고 코·볼·땀을 버립니다.
+ * 대머리 얼굴 그림에서 눈(눈·눈물·눈썹)과 입을 분할하고 코·볼·땀·외곽 윤곽선을 버립니다.
  */
 export function sliceExpression({
   image,
@@ -165,13 +169,15 @@ export function sliceExpression({
 
   const shouldStrip = stripBare !== null ? !!stripBare : true;
   const bareImg = bareInfo?.bareImage;
+  const barePartMap = bareInfo?.barePartMap;
   const fb = getFaceBounds(bareInfo, width, height);
+  const faceCenterX = 38; // 정면 얼굴 좌우 대칭 중심축
 
   // 살색 목록 추출
   let activeSkinColors = skinColors;
   if (!activeSkinColors && bareInfo) {
     const effEllipse = faceEllipse || {
-      cx: Math.round(fb.cx),
+      cx: faceCenterX,
       cy: Math.round(fb.cy),
       rx: Math.round(fb.width * 0.4),
       ry: Math.round(fb.height * 0.3),
@@ -180,7 +186,39 @@ export function sliceExpression({
   }
   if (!activeSkinColors) activeSkinColors = [];
 
-  // 1단계: 유효 표시 픽셀(초록 배경 및 살색 제외) 마스크 생성
+  // 1단계 A: 배경 거리 BFS 맵 계산 (배경에서부터의 거리)
+  // 얼굴 외곽선이 얼굴틀과 몇 칸 어긋나더라도 외곽 테두리를 정확히 판별하기 위함
+  const distToBg = new Int32Array(width * height).fill(999);
+  const q = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      const s = idx * 4;
+      if (isBackgroundKey(d[s], d[s + 1], d[s + 2], d[s + 3])) {
+        distToBg[idx] = 0;
+        q.push(idx);
+      }
+    }
+  }
+  while (q.length > 0) {
+    const cur = q.shift();
+    const cx0 = cur % width;
+    const cy0 = (cur / width) | 0;
+    const cd = distToBg[cur];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx0 + dx;
+      const ny = cy0 + dy;
+      if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+        const nIdx = ny * width + nx;
+        if (distToBg[nIdx] > cd + 1) {
+          distToBg[nIdx] = cd + 1;
+          q.push(nIdx);
+        }
+      }
+    }
+  }
+
+  // 1단계 B: 유효 표시 픽셀(초록 배경, 살색, 외곽 테두리선 제외) 마스크 생성
   const isForeground = new Uint8Array(width * height);
 
   for (let y = 0; y < height; y++) {
@@ -192,6 +230,36 @@ export function sliceExpression({
 
       const r = d[s], g = d[s + 1], b = d[s + 2];
       if (isBackgroundKey(r, g, b, a)) continue;
+
+      // 몸통 부위 제거 (barePartMap이 있으면 몸통 영역은 표정 대상이 아님)
+      if (barePartMap) {
+        const bp = barePartMap[idx];
+        if (bp && bp !== 'face') continue;
+      }
+      // 턱 끝 아래줄(몸통 영역)은 표정 대상 아님
+      if (y > fb.maxY) continue;
+
+      const distX = Math.abs(x - faceCenterX);
+      const relX = distX / fb.width;
+      const relY = (y - fb.minY) / fb.height;
+
+      // 얼굴 외곽 윤곽선(얼굴 테두리선) 제거:
+      // 얼굴틀(bareInfo)이 있고 실제 살색/맨몸 바탕이 존재하는 실제 얼굴 그림일 때만 윤곽선 제거 적용
+      const hasBareFace = !!(bareInfo && (bareImg || activeSkinColors.length > 0));
+      if (hasBareFace) {
+        // 배경에 직접 맞닿은 1칸 테두리선은 윤곽선이므로 제거
+        if (distToBg[idx] <= 1) continue;
+        // 정수리/이마 위쪽 2겹 테두리선 제거
+        if (y <= fb.minY + 2 && distToBg[idx] <= 2) continue;
+        // 얼굴 좌우 외곽 2겹 테두리선 제거
+        if (relX >= 0.35 && distToBg[idx] <= 2) continue;
+        // 턱선 양옆 2겹 테두리선 제거 (중앙 입 구역 distX <= 3 제외)
+        if (y >= fb.maxY - 2 && distX > 3.0 && distToBg[idx] <= 2) continue;
+      }
+
+      // 볼터치 픽셀 즉시 제거: 양 볼 위치(distX >= 3.5 또는 relX >= 0.12, relY >= 0.55)이고 붉은 볼터치 색상
+      const isBlush = (r - g >= 35 && r >= 160);
+      if ((distX >= 3.5 || relX >= 0.12) && relY >= 0.55 && isBlush) continue;
 
       if (shouldStrip) {
         let bareR = 0, bareG = 0, bareB = 0, bareA = 0;
@@ -267,6 +335,8 @@ export function sliceExpression({
       blobs.push({
         pixels,
         minX, maxX, minY, maxY,
+        width: maxX - minX + 1,
+        height: maxY - minY + 1,
         cx: sumX / count,
         cy: sumY / count,
         count,
@@ -277,65 +347,78 @@ export function sliceExpression({
     }
   }
 
-  // 3단계: 덩어리 분류 (코 · 볼 · 땀 버림, 입, 눈 · 눈물 · 눈썹)
-  // 고정 좌표를 쓰지 않고 실제 얼굴틀 그림의 윤곽/영역(fb)에서 위쪽/아래쪽을 계산
-  const cx0 = fb.cx;
-  const H = fb.height;
-  const W = fb.width;
-  const minY = fb.minY;
-
-  // A. 볼(볼터치) 분류
-  const cheekBlobs = new Set();
-  // B. 땀(효과) 분류
-  const sweatBlobs = new Set();
-  // C. 코 분류
-  const noseBlobs = new Set();
-  // D. 입 분류
-  const mouthBlobs = new Set();
-  // E. 눈 및 눈썹 분류
-  const eyeBlobs = new Set();
+  // 3단계: 덩어리 분류 (코 · 볼 · 땀 · 이마 표시 · 윤곽선 잔여물 버림, 중앙 코/입 분류, 눈 · 눈물 · 눈썹)
+  const centerBlobs = [];
+  const otherBlobs = [];
 
   for (const blob of blobs) {
-    const relY = (blob.cy - minY) / H;
-    const distX = Math.abs(blob.cx - cx0);
-    const relX = distX / W;
+    const relY = (blob.cy - fb.minY) / fb.height;
+    const distX = Math.abs(blob.cx - faceCenterX);
+    const relX = distX / fb.width;
 
-    // 1. 볼(볼터치): 눈 아래 양옆(가운데 입 영역 제외)에 위치하고 볼터치 색상이거나 양옆 볼 영역
-    const isBlushColor = (blob.avgR - blob.avgG >= 35 && blob.avgR >= 160);
-    const isCheekPos = relX >= 0.16 && relY >= 0.70 && relY <= 0.92;
-    if (isCheekPos && (isBlushColor || (relY >= 0.74 && relY <= 0.90))) {
-      cheekBlobs.add(blob);
-      continue;
-    }
+    // 1. 이마 위쪽 표시(하트 등)/정수리 윤곽선: 눈썹보다 위쪽 (relY < 0.25) 배제
+    if (relY < 0.25) continue;
 
-    // 2. 땀(물방울 등 효과): 눈에 이어지지 않은 독립 덩어리
-    // 푸른색 물방울이 얼굴 중심에서 벗어난 양옆/외곽에 위치하거나, 얼굴틀 바깥에 위치한 덩어리
+    // 2. 얼굴 좌우 외곽 점/귀 윤곽선 배제
+    if (relX >= 0.32 && relY >= 0.55) continue;
+    if (relX >= 0.44) continue;
+
+    // 3. 땀(물방울 등 효과) 및 외곽 푸른 점 배제
     const isBlueDrop = (blob.avgB > blob.avgR + 20 && blob.avgB > blob.avgG + 10);
     const isOutsideFace = blob.minX < fb.minX || blob.maxX > fb.maxX || blob.cy < fb.minY || blob.cy > fb.maxY;
-    if ((isBlueDrop && (relX >= 0.18 || relY < 0.35)) || isOutsideFace) {
-      sweatBlobs.add(blob);
+    if ((isBlueDrop && (relX >= 0.28 || relY < 0.35)) || isOutsideFace) {
       continue;
     }
 
-    // 3. 코: 눈과 입 사이 정중앙 부근의 작은 덩어리 (보통 1~6칸)
-    if (relX <= 0.12 && relY >= 0.74 && relY <= 0.86 && blob.count <= 6) {
-      noseBlobs.add(blob);
+    // 4. 볼(볼터치) 잔여물 배제: 볼터치 색상이면서 양 볼 영역
+    const isBlushColor = (blob.avgR - blob.avgG >= 35 && blob.avgR >= 160);
+    const isCheekPos = relX >= 0.16 && relY >= 0.65 && relY <= 0.90;
+    if (isCheekPos && isBlushColor) {
       continue;
     }
 
-    // 4. 입: 얼굴 아래쪽 가운데
-    if (relX <= 0.22 && relY >= 0.86) {
-      mouthBlobs.add(blob);
-      continue;
-    }
-
-    // 5. 눈: 얼굴 위쪽 (눈, 눈물, 눈썹)
-    if (relY < 0.84) {
-      eyeBlobs.add(blob);
+    // 5. 중앙 코/입 후보 (얼굴 중심선 부근 distX <= 3.0, relY >= 0.65)
+    if (distX <= 3.0 && relY >= 0.65) {
+      centerBlobs.push(blob);
+    } else if (relY >= 0.25 && relY < 0.78) {
+      // 6. 눈 및 눈썹 후보 (relY 0.25 ~ 0.78)
+      otherBlobs.push(blob);
     }
   }
 
-  // 할당 적용:
+  const mouthBlobs = new Set();
+  const eyeBlobs = new Set(otherBlobs);
+
+  // 중앙 코/입 분류: 세로 위치(cy) 순서로 정렬
+  centerBlobs.sort((a, b) => a.cy - b.cy);
+
+  // 최하단 덩어리가 턱선 잔여물인지 판정:
+  // 바로 위에 이미 입 후보(relY >= 0.75 및 width >= 2 또는 count >= 2)가 존재하면 최하단 턱선 잔여물 제거
+  if (centerBlobs.length >= 2) {
+    const last = centerBlobs[centerBlobs.length - 1];
+    const prev = centerBlobs[centerBlobs.length - 2];
+    const lastRelY = (last.cy - fb.minY) / fb.height;
+    const prevRelY = (prev.cy - fb.minY) / fb.height;
+    const prevIsMouthCandidate = prevRelY >= 0.75 && (prev.width >= 2 || prev.count >= 2);
+    if (lastRelY >= 0.93 && prevIsMouthCandidate) {
+      centerBlobs.pop();
+    }
+  }
+
+  if (centerBlobs.length === 1) {
+    const b = centerBlobs[0];
+    const relY = (b.cy - fb.minY) / fb.height;
+    // 폭이 2 이상이거나 하단(relY >= 0.78)이면 입
+    if (b.width >= 2 || relY >= 0.78) {
+      mouthBlobs.add(b);
+    } // 단일 점이고 상대적으로 위쪽이면 코(버림)
+  } else if (centerBlobs.length >= 2) {
+    // 가장 아래에 있는 덩어리가 입! 그 위의 덩어리는 코(버림)
+    const lowest = centerBlobs[centerBlobs.length - 1];
+    mouthBlobs.add(lowest);
+  }
+
+  // 4단계: 할당 적용
   for (const blob of mouthBlobs) {
     for (const idx of blob.pixels) {
       assignments[idx] = LABEL_MOUTH;
