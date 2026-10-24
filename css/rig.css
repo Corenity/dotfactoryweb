@@ -321,19 +321,22 @@
 
 .rig-col-tools {
   width: 46px;
+  max-height: 256px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  justify-content: center;
+  gap: 6px;
+  justify-content: flex-start;
   align-items: center;
 }
-.rig-col-tools[hidden] {
+.rig-col-tools[hidden],
+.rig-tool-btn[hidden] {
   display: none !important;
 }
 
 .rig-tool-btn {
   width: 44px;
   min-height: 44px;
+  height: 44px;
   padding: 0;
   font-size: 17px;
   font-weight: 700;
@@ -350,8 +353,10 @@
 .rig-piece-tool-btn {
   width: 44px;
   min-height: 44px;
-  padding: 2px;
+  height: 44px;
+  padding: 0;
   font-size: 12px;
+  white-space: nowrap;
   border-radius: 8px;
 }
 

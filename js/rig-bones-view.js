@@ -21,6 +21,29 @@ export function scrollTreeItemIntoView(tree, item, prevScrollTop = tree?.scrollT
   }
 }
 
+export function resolveRigSelectionMenuState({ piece = null, activeTool = 'P', activePieceMenu = null } = {}) {
+  const hasPiece = Boolean(piece);
+  const nextTool = hasPiece && activeTool === 'I' ? 'P' : activeTool;
+  const nextPieceMenu = hasPiece ? activePieceMenu : null;
+  const depthOpen = hasPiece && nextPieceMenu === 'depth';
+  return {
+    activeTool: nextTool,
+    activePieceMenu: nextPieceMenu,
+    boneToolsHidden: false,
+    pieceToolsHidden: !hasPiece,
+    toolImgHidden: hasPiece,
+    toolPosPressed: nextTool === 'P',
+    toolRotPressed: nextTool === 'R',
+    toolImgPressed: !hasPiece && nextTool === 'I',
+    barPosHidden: nextTool !== 'P' || depthOpen,
+    barRotHidden: nextTool !== 'R' || depthOpen,
+    barImgHidden: hasPiece || nextTool !== 'I' || depthOpen,
+    barDepthHidden: !depthOpen,
+    pieceVisibleLabel: hasPiece ? (piece.visible === false ? '보이기' : '숨김') : '숨김',
+    pieceDepthValue: hasPiece ? String(piece.zIndex ?? 0) : '0',
+  };
+}
+
 export function mountRigBones(app, model) {
   const panel = $('#rig-bones-panel');
   const stage = $('#rig-bones-stage');
@@ -177,6 +200,7 @@ export function mountRigBones(app, model) {
         pieceButton.addEventListener('click', () => {
           selected = bone.name;
           selectedPieceIndex = index;
+          if (activeTool === 'I') activeTool = 'P';
           activePieceMenu = null;
           refreshControls();
           render();
@@ -190,21 +214,25 @@ export function mountRigBones(app, model) {
 
   function updateSelectionMenus() {
     const piece = selectedPiece();
-    if (boneTools) boneTools.hidden = !!piece;
-    if (pieceTools) pieceTools.hidden = !piece;
-    if (toolPosBtn) toolPosBtn.setAttribute('aria-pressed', String(activeTool === 'P'));
-    if (toolRotBtn) toolRotBtn.setAttribute('aria-pressed', String(activeTool === 'R'));
-    if (toolImgBtn) toolImgBtn.setAttribute('aria-pressed', String(activeTool === 'I'));
-    if (barPos) barPos.hidden = activeTool !== 'P' || (piece && activePieceMenu === 'depth');
-    if (barRot) barRot.hidden = activeTool !== 'R' || (piece && activePieceMenu === 'depth');
-    if (barImg) barImg.hidden = activeTool !== 'I' || (piece && activePieceMenu === 'depth');
-    if (barDepth) barDepth.hidden = !piece || activePieceMenu !== 'depth';
-    if (pieceVisibleBtn && piece) pieceVisibleBtn.textContent = piece.visible === false ? '보이기' : '숨김';
-    if (pieceDepthInput && piece) pieceDepthInput.value = String(piece.zIndex ?? 0);
+    const menu = resolveRigSelectionMenuState({ piece, activeTool, activePieceMenu });
+    activeTool = menu.activeTool;
+    activePieceMenu = menu.activePieceMenu;
+    if (boneTools) boneTools.hidden = menu.boneToolsHidden;
+    if (pieceTools) pieceTools.hidden = menu.pieceToolsHidden;
+    if (toolImgBtn) toolImgBtn.hidden = menu.toolImgHidden;
+    if (toolPosBtn) toolPosBtn.setAttribute('aria-pressed', String(menu.toolPosPressed));
+    if (toolRotBtn) toolRotBtn.setAttribute('aria-pressed', String(menu.toolRotPressed));
+    if (toolImgBtn) toolImgBtn.setAttribute('aria-pressed', String(menu.toolImgPressed));
+    if (barPos) barPos.hidden = menu.barPosHidden;
+    if (barRot) barRot.hidden = menu.barRotHidden;
+    if (barImg) barImg.hidden = menu.barImgHidden;
+    if (barDepth) barDepth.hidden = menu.barDepthHidden;
+    if (pieceVisibleBtn && piece) pieceVisibleBtn.textContent = menu.pieceVisibleLabel;
+    if (pieceDepthInput && piece) pieceDepthInput.value = menu.pieceDepthValue;
   }
 
   function switchTool(tool) {
-    activeTool = tool;
+    activeTool = selectedPiece() && tool === 'I' ? 'P' : tool;
     activePieceMenu = null;
     updateSelectionMenus();
   }
