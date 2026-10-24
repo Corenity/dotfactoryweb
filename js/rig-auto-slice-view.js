@@ -1,4 +1,4 @@
-// site/js/rig-auto-slice-view.js — 자르기 화면의 전체 자동 조각 분할 화면 제어 모듈입니다.
+// site/js/rig-auto-slice-view.js — 자르기 화면의 전체 및 표정 자동 조각 분할 화면 제어 모듈입니다.
 import { DEFAULT_BARE_LAYERS_META } from './core/preset-stack.js';
 import { makeBackgroundTransparent } from './core/background.js';
 import { readImageFile, toPngDataUrl } from './io.js';
@@ -41,7 +41,8 @@ async function loadBareInfo() {
 }
 
 export function mountRigAutoSlice(app, model) {
-  const kind = 'all';
+  const urlMode = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('mode') : null;
+  let kind = urlMode === 'expression' ? 'expression' : 'all';
   let assignments = null;
   let selectedPieceLabel = 1;
   let brushSize = 1;
@@ -49,13 +50,40 @@ export function mountRigAutoSlice(app, model) {
   let bareOpacity = 0.5;
   let userModifiedMask = null;
 
-  // 부위 팔레트 UI 렌더링 (헤어 · 표정 · 몸 · 왼팔 · 오른팔 · 왼다리 · 오른다리 · 왼신발 · 오른신발 · 버림)
+  function updateModeButtons() {
+    const btnAll = $('#slice-mode-all');
+    const btnExpr = $('#slice-mode-expression');
+    if (btnAll) {
+      btnAll.setAttribute('aria-pressed', String(kind === 'all'));
+      btnAll.classList.toggle('primary', kind === 'all');
+    }
+    if (btnExpr) {
+      btnExpr.setAttribute('aria-pressed', String(kind === 'expression'));
+      btnExpr.classList.toggle('primary', kind === 'expression');
+    }
+  }
+
+  async function setMode(nextKind) {
+    if (kind === nextKind) return;
+    kind = nextKind;
+    updateModeButtons();
+    const metas = KIND_PIECES_META[kind] || KIND_PIECES_META.all;
+    selectedPieceLabel = metas[0]?.label || 1;
+    renderPalette();
+    if (model.getBaseImage()) {
+      userModifiedMask = null;
+      await computeAutoSlice();
+      model.drawOverlay();
+    }
+  }
+
+  // 부위 팔레트 UI 렌더링 (모드별 메타에 맞게 동적 표시)
   function renderPalette() {
     const wrap = $('#rig-auto-palette');
     if (!wrap) return;
     wrap.innerHTML = '';
 
-    const metas = KIND_PIECES_META.all;
+    const metas = KIND_PIECES_META[kind] || KIND_PIECES_META.all;
     if (!metas.some(m => m.label === selectedPieceLabel) && selectedPieceLabel !== 0) {
       selectedPieceLabel = metas[0]?.label || 1;
     }
@@ -104,7 +132,7 @@ export function mountRigAutoSlice(app, model) {
 
     const res = autoSlice({
       image: baseImage,
-      kind: 'all',
+      kind,
       bareInfo,
       stripBare: true,
       preservedAssignments: assignments,
@@ -177,7 +205,7 @@ export function mountRigAutoSlice(app, model) {
 
     // 3. 나눈 결과를 부위별 색으로 겹쳐 보이기
     if (assignments) {
-      const metas = KIND_PIECES_META.all;
+      const metas = KIND_PIECES_META[kind] || KIND_PIECES_META.all;
       const colorByLabel = {};
       for (const m of metas) {
         colorByLabel[m.label] = PIECE_COLOR_MAP[m.piece] || 'rgba(50, 215, 75, 0.55)';
@@ -209,7 +237,7 @@ export function mountRigAutoSlice(app, model) {
     const extracted = extractPiecesFromAssignments({
       image: baseImage,
       assignments,
-      kind: 'all',
+      kind,
     });
 
     if (extracted.length === 0) {
@@ -227,6 +255,7 @@ export function mountRigAutoSlice(app, model) {
       const pngUrl = toPngDataUrl(item.image);
       const pieceObj = {
         id: item.name,
+        slot: item.sourceKind,
         piece: item.piece,
         name: item.name,
         sourceKind: item.sourceKind,
@@ -259,6 +288,10 @@ export function mountRigAutoSlice(app, model) {
   }
 
   function bindEvents() {
+    // 모드 단추
+    $('#slice-mode-all')?.addEventListener('click', () => setMode('all'));
+    $('#slice-mode-expression')?.addEventListener('click', () => setMode('expression'));
+
     // 붓 크기
     $('#rig-auto-brush-size')?.addEventListener('change', e => {
       brushSize = Number(e.target.value) || 1;
@@ -279,6 +312,7 @@ export function mountRigAutoSlice(app, model) {
   }
 
   bindEvents();
+  updateModeButtons();
   renderPalette();
 
   return {
@@ -294,6 +328,7 @@ export function mountRigAutoSlice(app, model) {
       paintCell(cx, cy, selectedPieceLabel);
     },
     getKind: () => kind,
+    setMode,
     getAssignments: () => assignments,
     savePieces,
     getBareOpacity: () => bareOpacity,

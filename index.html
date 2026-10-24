@@ -191,6 +191,10 @@
     </section>
 
     <section id="slice" class="view" data-view="slice" hidden>
+      <div class="row slice-mode-row" role="group" aria-label="자르기 모드">
+        <button class="btn primary" id="slice-mode-all" type="button" aria-pressed="true">전체</button>
+        <button class="btn" id="slice-mode-expression" type="button" aria-pressed="false">표정</button>
+      </div>
       <div class="row">
         <button class="btn primary" id="rig-open-base">그림 올리기</button>
         <button class="btn icon" id="slice-undo" aria-label="되돌리기" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>

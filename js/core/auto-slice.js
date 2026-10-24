@@ -1,5 +1,6 @@
 // site/js/core/auto-slice.js — 종류별 자르기(헤어 · 표정 · 옷 · 신발 · 전체) 자동 조각 분할 순수 모듈
 // 화면(DOM)을 쓰지 않는 순수 모듈로 Node 시험이 그대로 돌립니다.
+import { sliceExpression } from './expression-slice.js';
 
 export const SLICE_KINDS = Object.freeze(['all', 'outfit', 'shoes', 'hair', 'expression']);
 
@@ -13,6 +14,7 @@ export const PIECE_COLOR_MAP = Object.freeze({
   shoe_r: 'rgba(52, 199, 89, 0.55)',
   hair: 'rgba(162, 132, 94, 0.55)',
   eyes: 'rgba(0, 199, 190, 0.55)',
+  mouth: 'rgba(255, 59, 48, 0.55)',
   extra: 'rgba(255, 214, 10, 0.55)',
 });
 
@@ -26,20 +28,20 @@ export const PIECE_HEX_MAP = Object.freeze({
   shoe_r: '#34c759',
   hair: '#a2845e',
   eyes: '#00c7be',
+  mouth: '#ff3b30',
   extra: '#ffd60a',
 });
 
 export const KIND_PIECES_META = Object.freeze({
   all: [
     { sourceKind: 'hair', piece: 'hair', label: 1, name: '헤어' },
-    { sourceKind: 'expression', piece: 'eyes', label: 2, name: '표정' },
-    { sourceKind: 'outfit', piece: 'body', label: 3, name: '몸' },
-    { sourceKind: 'outfit', piece: 'arm_l', label: 4, name: '왼팔' },
-    { sourceKind: 'outfit', piece: 'arm_r', label: 5, name: '오른팔' },
-    { sourceKind: 'outfit', piece: 'leg_l', label: 6, name: '왼다리' },
-    { sourceKind: 'outfit', piece: 'leg_r', label: 7, name: '오른다리' },
-    { sourceKind: 'shoes', piece: 'shoe_l', label: 8, name: '왼신발' },
-    { sourceKind: 'shoes', piece: 'shoe_r', label: 9, name: '오른신발' },
+    { sourceKind: 'outfit', piece: 'body', label: 2, name: '몸' },
+    { sourceKind: 'outfit', piece: 'arm_l', label: 3, name: '왼팔' },
+    { sourceKind: 'outfit', piece: 'arm_r', label: 4, name: '오른팔' },
+    { sourceKind: 'outfit', piece: 'leg_l', label: 5, name: '왼다리' },
+    { sourceKind: 'outfit', piece: 'leg_r', label: 6, name: '오른다리' },
+    { sourceKind: 'shoes', piece: 'shoe_l', label: 7, name: '왼신발' },
+    { sourceKind: 'shoes', piece: 'shoe_r', label: 8, name: '오른신발' },
   ],
   outfit: [
     { sourceKind: 'outfit', piece: 'body', label: 1, name: '상체' },
@@ -56,7 +58,8 @@ export const KIND_PIECES_META = Object.freeze({
     { sourceKind: 'hair', piece: 'hair', label: 1, name: '머리' },
   ],
   expression: [
-    { sourceKind: 'expression', piece: 'eyes', label: 1, name: '표정' },
+    { sourceKind: 'expression', piece: 'eyes', label: 1, name: '눈' },
+    { sourceKind: 'expression', piece: 'mouth', label: 2, name: '입' },
   ],
 });
 
@@ -77,6 +80,7 @@ export function buildBareInfo(layers, width = 72, height = 64) {
     arm_r: [],
     leg_l: [],
     leg_r: [],
+    face: [],
   };
 
   for (const layer of layers || []) {
@@ -90,6 +94,8 @@ export function buildBareInfo(layers, width = 72, height = 64) {
     else if (p === 'leg_l' || p === 'bare_leg_l') partId = 'leg_l';
     else if (p === 'leg_r' || p === 'bare_leg_r') partId = 'leg_r';
 
+    const isFace = p === 'face' || p === 'face_face' || layer.slot === 'face' || p === 'head';
+
     const z = Number.isFinite(Number(layer.zIndex)) ? Number(layer.zIndex) : 0;
 
     for (let y = 0; y < height; y++) {
@@ -98,6 +104,9 @@ export function buildBareInfo(layers, width = 72, height = 64) {
         const s = idx * 4;
         const a = img.data[s + 3];
         if (a > 0) {
+          if (isFace) {
+            partPixels.face.push([x, y]);
+          }
           if (z >= zMap[idx]) {
             zMap[idx] = z;
             bareImage.data[s] = img.data[s];
@@ -121,7 +130,30 @@ export function buildBareInfo(layers, width = 72, height = 64) {
     }
   }
 
-  return { bareImage, barePartMap, partPixels, width, height };
+  let faceBounds = null;
+  if (partPixels.face.length > 0) {
+    let minX = width, maxX = -1, minY = height, maxY = -1;
+    let sumX = 0, sumY = 0;
+    for (const [x, y] of partPixels.face) {
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      sumX += x;
+      sumY += y;
+    }
+    const count = partPixels.face.length;
+    faceBounds = {
+      minX, maxX, minY, maxY,
+      width: maxX - minX + 1,
+      height: maxY - minY + 1,
+      cx: sumX / count,
+      cy: sumY / count,
+      count,
+    };
+  }
+
+  return { bareImage, barePartMap, partPixels, facePixels: partPixels.face, faceBounds, width, height };
 }
 
 /**
@@ -185,6 +217,16 @@ export function findNearestShoePart(x, y, partPixels) {
  */
 export function isBareColor(r, g, b, bareR, bareG, bareB, bareA, tolerance = 12) {
   if (bareA === 0) return false;
+  const dr = r - bareR;
+  const dg = g - bareG;
+  const db = b - bareB;
+  return Math.sqrt(dr * dr + dg * dg + db * db) <= tolerance;
+}
+
+/**
+ * 두 색상 사이의 거리가 오차 범위 내인지 판정합니다.
+ */
+export function isSameBareColor(r, g, b, bareR, bareG, bareB, tolerance = 12) {
   const dr = r - bareR;
   const dg = g - bareG;
   const db = b - bareB;
@@ -273,6 +315,20 @@ export function autoSlice({
   skinColors = null,
   skinTolerance = 14,
 }) {
+  if (kind === 'expression') {
+    return sliceExpression({
+      image,
+      bareInfo,
+      stripBare,
+      tolerance,
+      faceEllipse,
+      preservedAssignments,
+      userModifiedMask,
+      skinColors,
+      skinTolerance,
+    });
+  }
+
   const width = image.width;
   const height = image.height;
   const shouldStrip = stripBare !== null ? !!stripBare : true;
@@ -299,8 +355,8 @@ export function autoSlice({
     for (let x = 0; x < width; x++) {
       const destIdx = y * width + x;
 
-      // 이미 사용자가 붓으로 고친 칸은 보존
-      if (userModifiedMask && userModifiedMask[destIdx] && preservedAssignments) {
+      // 이미 수정한 칸 보존
+      if (preservedAssignments && userModifiedMask && userModifiedMask[destIdx]) {
         assignments[destIdx] = preservedAssignments[destIdx];
         continue;
       }
@@ -351,16 +407,16 @@ export function autoSlice({
       }
 
       if (kind === 'all') {
-        // 1. 얼굴 타원 안 = 표정 (eyes)
+        // 1. 얼굴 타원 안 = 표정 영역 (임시 255 마킹 후 헤어색 복원만 hair로, 나머지는 버림)
         if (isInsideEllipse(x, y, cx, cy, rx, ry)) {
-          assignments[destIdx] = labelByPiece.eyes || 2;
+          assignments[destIdx] = 255;
           continue;
         }
 
         // 2. 발 쪽 = 신발 (shoe_l, shoe_r)
         if (y >= shoeMinY) {
           const shoePart = findNearestShoePart(x, y, partPixels);
-          assignments[destIdx] = labelByPiece[shoePart] || 8;
+          assignments[destIdx] = labelByPiece[shoePart] || 7;
           continue;
         }
 
@@ -389,11 +445,9 @@ export function autoSlice({
         if (!part) {
           part = findNearestOutfitPart(x, y, partPixels);
         }
-        assignments[destIdx] = labelByPiece[part] || 3;
+        assignments[destIdx] = labelByPiece[part] || 2;
       } else if (kind === 'hair') {
         assignments[destIdx] = labelByPiece.hair || 1;
-      } else if (kind === 'expression') {
-        assignments[destIdx] = labelByPiece.eyes || 1;
       } else if (kind === 'shoes') {
         const shoePart = findNearestShoePart(x, y, partPixels);
         assignments[destIdx] = labelByPiece[shoePart] || 1;
@@ -433,7 +487,7 @@ export function autoSlice({
     };
     const dropped = i => d[i * 4 + 3] > 0 && !assignments[i];
 
-    // 1) 헤어색 복원: 타원 안 표정 칸 중 타원 밖 헤어 주요 색상은 헤어로 복원
+    // 1) 헤어색 복원: 타원 안 표정(255) 칸 중 타원 밖 헤어 주요 색상은 헤어로 복원
     const hairCnt = new Map();
     for (let i = 0; i < N; i++) {
       if (assignments[i] !== labelByPiece.hair) continue;
@@ -447,7 +501,7 @@ export function autoSlice({
     const hairPal = [...hairCnt.values()].sort((a, b) => b.n - a.n).slice(0, 6).map(v => v.c);
     if (hairPal.length > 0) {
       for (let i = 0; i < N; i++) {
-        if (assignments[i] === labelByPiece.eyes) {
+        if (assignments[i] === 255) {
           if (userModifiedMask && userModifiedMask[i]) continue;
           if (hairPal.some(p => Math.hypot(d[i * 4] - p[0], d[i * 4 + 1] - p[1], d[i * 4 + 2] - p[2]) <= 12)) {
             assignments[i] = labelByPiece.hair;
@@ -475,6 +529,13 @@ export function autoSlice({
         kill.push(i);
       }
       for (const idx of kill) assignments[idx] = 0;
+    }
+
+    // 3) 전체 모드 결과에서 표정 조각 제외: 헤어로 복원되지 않고 남은 표정(255) 칸을 모두 버림(0)
+    for (let i = 0; i < N; i++) {
+      if (assignments[i] === 255) {
+        assignments[i] = 0;
+      }
     }
   }
 
