@@ -8,6 +8,7 @@ import {
   cloneRegionSliceState,
   addRegion,
   removeRegion,
+  recolorRegion,
   paintCell,
   eraseCell,
   sliceByRegions,
@@ -40,6 +41,15 @@ export function mountSlice(app) {
 
   let strokeBeforeState = null;
   let canvasView = null;
+  let activePopover = null;
+
+  function closeColorPicker() {
+    if (activePopover) {
+      if (activePopover.cleanup) activePopover.cleanup();
+      activePopover.el.remove();
+      activePopover = null;
+    }
+  }
 
   function autoSaveKey() {
     const profileId = CURRENT_PROFILE?.id || 'project-c';
@@ -99,6 +109,7 @@ export function mountSlice(app) {
 
   function applyHistory(value) {
     if (!value) return;
+    closeColorPicker();
     const needReinit = shouldReinitRegionSlice(baseImage, value.baseImage);
     const prevRegions = new Set(regionState.regions);
     [width, height] = value.canvas;
@@ -153,6 +164,7 @@ export function mountSlice(app) {
   }
 
   function renderRegionsList() {
+    closeColorPicker();
     const list = $('#slice-regions-list');
     if (!list) return;
 
@@ -184,9 +196,108 @@ export function mountSlice(app) {
       card.title = `#${color}`;
       card.setAttribute('aria-label', `색 영역 #${color}`);
 
+      const dotBtn = document.createElement('button');
+      dotBtn.type = 'button';
+      dotBtn.className = 'slice-region-dot-btn';
+      dotBtn.setAttribute('aria-label', `#${color} 색상 변경`);
+      dotBtn.title = '색상 변경';
+
       const dot = document.createElement('span');
       dot.className = 'slice-region-dot';
       dot.style.background = `#${color}`;
+      dotBtn.appendChild(dot);
+
+      dotBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (activePopover && activePopover.color === color) {
+          closeColorPicker();
+          return;
+        }
+        closeColorPicker();
+
+        const availableColors = REGION_PALETTE.filter(c => !regionState.regions.includes(c));
+        if (availableColors.length === 0) {
+          app.toast('바꿀 수 있는 색상이 없습니다');
+          return;
+        }
+
+        const popover = document.createElement('div');
+        popover.className = 'slice-color-popover';
+        popover.setAttribute('role', 'dialog');
+        popover.setAttribute('aria-label', '영역 색상 선택');
+
+        // 팝오버 내부 빈 곳 클릭 시 부모 카드로 이벤트가 전파되어 칩이 선택되는 것을 방지
+        popover.addEventListener('pointerdown', ev => ev.stopPropagation());
+        popover.addEventListener('click', ev => ev.stopPropagation());
+
+        // 오른쪽 칩(세 번째 칸 등)에서 열리면 화면 오른쪽 밖으로 나가지 않게 오른쪽 맞춤
+        const rect = card.getBoundingClientRect();
+        const screenWidth = window.innerWidth || document.documentElement.clientWidth || 375;
+        if (rect.left + 210 > screenWidth) {
+          popover.style.left = 'auto';
+          popover.style.right = '0';
+        } else {
+          popover.style.left = '0';
+          popover.style.right = 'auto';
+        }
+
+        availableColors.forEach(newColor => {
+          const itemBtn = document.createElement('button');
+          itemBtn.type = 'button';
+          itemBtn.className = 'slice-color-item';
+          itemBtn.style.background = `#${newColor}`;
+          itemBtn.setAttribute('aria-label', `#${newColor}`);
+          itemBtn.title = `#${newColor}`;
+
+          itemBtn.addEventListener('click', ev => {
+            ev.stopPropagation();
+            closeColorPicker();
+            const before = historySnapshot();
+            recolorRegion(regionState, color, newColor);
+
+            if (selectedColor === color) {
+              selectedColor = newColor;
+            }
+            if (visibleRegions.has(color)) {
+              visibleRegions.delete(color);
+              visibleRegions.add(newColor);
+            }
+
+            renderRegionsList();
+            canvasView.drawOverlay();
+            recordChange(before);
+            app.toast(`영역 색을 #${newColor}(으)로 바꿨습니다`);
+          });
+
+          popover.appendChild(itemBtn);
+        });
+
+        card.appendChild(popover);
+
+        const onDocClick = ev => {
+          if (!card.contains(ev.target)) {
+            closeColorPicker();
+          }
+        };
+        const onKeyDown = ev => {
+          if (ev.key === 'Escape') {
+            closeColorPicker();
+          }
+        };
+        setTimeout(() => {
+          document.addEventListener('pointerdown', onDocClick);
+          document.addEventListener('keydown', onKeyDown);
+        }, 0);
+
+        activePopover = {
+          color,
+          el: popover,
+          cleanup: () => {
+            document.removeEventListener('pointerdown', onDocClick);
+            document.removeEventListener('keydown', onKeyDown);
+          },
+        };
+      });
 
       const name = document.createElement('span');
       name.className = 'slice-region-name';
@@ -240,7 +351,7 @@ export function mountSlice(app) {
         canvasView.drawOverlay();
       });
 
-      card.append(dot, name, visBtn, delBtn);
+      card.append(dotBtn, name, visBtn, delBtn);
       if (addBtn) {
         list.insertBefore(card, addBtn);
       } else {
@@ -592,6 +703,9 @@ export function mountSlice(app) {
       canvasView.render();
     },
     getPieces: () => pieces,
+    getRegionState: () => regionState,
+    getSelectedRegion: () => selectedColor,
+    getVisibleRegions: () => visibleRegions,
     snapshot() {
       return {
         canvas: [width, height],

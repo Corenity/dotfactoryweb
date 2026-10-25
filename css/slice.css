@@ -142,7 +142,7 @@
 .slice-regions-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
   margin: 4px 0;
   align-items: center;
 }
@@ -170,10 +170,11 @@
 }
 
 #slice .slice-region-card {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px 4px;
+  gap: 0;
+  padding: 2px 1px;
   background: var(--bg-card, #1c1c1e);
   border: 1px solid var(--line, #38383a);
   border-radius: 8px;
@@ -188,6 +189,30 @@
   background: rgba(10, 132, 255, 0.15);
 }
 
+#slice .slice-region-card .slice-region-dot-btn {
+  min-width: 36px;
+  max-width: 36px;
+  width: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+#slice .slice-region-card .slice-region-dot-btn:hover,
+#slice .slice-region-card .slice-region-dot-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--line, #38383a);
+}
+
 #slice .slice-region-card .slice-region-dot {
   width: 14px;
   height: 14px;
@@ -195,7 +220,8 @@
   display: inline-block;
   flex-shrink: 0;
   border: 1px solid rgba(255, 255, 255, 0.3);
-  margin: 0 1px;
+  margin: 0;
+  pointer-events: none;
 }
 
 #slice .slice-region-card .slice-region-name {
@@ -224,6 +250,49 @@
 
 #slice .slice-region-card .slice-region-vis[aria-pressed="false"] {
   opacity: 0.35;
+}
+
+/* 색상 바꾸기 팝오버 */
+#slice .slice-color-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 100;
+  background: var(--bg-card, #1c1c1e);
+  border: 1px solid var(--line, #38383a);
+  border-radius: 8px;
+  padding: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  width: max-content;
+  max-width: min(210px, calc(100vw - 24px));
+  box-sizing: border-box;
+}
+
+#slice .slice-color-item {
+  min-width: 36px;
+  max-width: 36px;
+  width: 36px;
+  min-height: 36px;
+  max-height: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  box-sizing: border-box;
+  display: inline-grid;
+  place-items: center;
+  transition: transform 0.1s ease;
+}
+
+#slice .slice-color-item:hover,
+#slice .slice-color-item:focus-visible {
+  transform: scale(1.08);
+  outline: 2px solid var(--primary, #0a84ff);
+  z-index: 1;
 }
 
 .slice-bottom-menu {

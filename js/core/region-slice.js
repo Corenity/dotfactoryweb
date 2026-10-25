@@ -3,19 +3,20 @@
 
 export const SLICE_REGIONS_FORMAT = 'slice-regions-1';
 
-// 초록 배경(3, 192, 55 / #03c037)과 뚜렷이 구별되는 12가지 색상 팔레트
+// 초록 배경(3, 192, 55 / #03c037) 및 지피티 초록(3, 203, 47 / #03cb2f), 어두운 화면 바탕(#1c1c1e)과 뚜렷이 구별되는 고대비 12가지 색상 팔레트
+// CIE76 색차 기준: 모든 두 색 사이 ΔE >= 30, 초록 배경과의 ΔE >= 50, 어두운 바탕(#1c1c1e)과의 ΔE >= 30, 밝기 L* >= 35
 export const REGION_PALETTE = Object.freeze([
   'ff3b30', // 빨강
-  'ff9500', // 주황
-  'ffd60a', // 노랑
-  '00c7be', // 청록
   '0a84ff', // 파랑
-  '5e5ce6', // 보라
-  'bf5af2', // 자주
-  'ff375f', // 분홍
-  'ac8e68', // 갈색
+  'ffd60a', // 노랑
+  'ff9500', // 주황
+  '5ac8fa', // 하늘
+  '7928ca', // 보라
+  'f032e6', // 자주
+  'c2185b', // 체리
+  '9a6324', // 갈색
+  'd1a8ff', // 연보라
   '8e8e93', // 회색
-  '1c3d5a', // 남색
   'ffffff', // 흰색
 ]);
 
@@ -81,6 +82,26 @@ export function removeRegion(state, color) {
       grid[i]--;
     }
   }
+  return true;
+}
+
+export function recolorRegion(state, from, to) {
+  if (!state || !Array.isArray(state.regions)) {
+    throw new Error('올바른 영역 상태가 아닙니다');
+  }
+  const fromHex = normalizeColor(from);
+  const toHex = normalizeColor(to);
+  if (fromHex === toHex) {
+    throw new Error(`동일한 색상(${fromHex})으로 바꿀 수 없습니다`);
+  }
+  const fromIndex = state.regions.indexOf(fromHex);
+  if (fromIndex === -1) {
+    throw new Error(`존재하지 않는 영역 색상(${fromHex})입니다`);
+  }
+  if (state.regions.includes(toHex)) {
+    throw new Error(`이미 사용 중인 영역 색상(${toHex})입니다`);
+  }
+  state.regions[fromIndex] = toHex;
   return true;
 }
 
