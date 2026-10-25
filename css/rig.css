@@ -1,22 +1,14 @@
 /* 뼈 탭 및 조각 자르기 화면 스타일 */
 
-#rig,
-#slice {
+#rig {
   gap: 8px;
   max-width: 100%;
   box-sizing: border-box;
 }
 
 #rig .segmented button,
-#slice .segmented button { min-height: 44px; }
+
 #rig .icon {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0;
-  display: inline-grid;
-  place-items: center;
-}
-#slice .icon {
   min-width: 44px;
   min-height: 44px;
   padding: 0;
@@ -25,8 +17,7 @@
 }
 
 /* 그림판 스테이지 — 다듬기와 같은 규칙으로 절대 위치 캔버스를 가운데로 옮겨 띄웁니다 */
-#rig .stage,
-#slice .stage {
+#rig .stage {
   position: relative;
   height: 48vh;
   min-height: 220px;
@@ -40,18 +31,14 @@
   -webkit-user-select: none;
 }
 
-#slice .stage { background: rgb(3, 192, 55); }
-
-#rig .stage canvas,
-#slice .stage canvas {
+#rig .stage canvas {
   position: absolute;
   left: 0;
   top: 0;
   transform-origin: 0 0;
 }
 
-#rig .stage canvas[hidden],
-#slice .stage canvas[hidden] {
+#rig .stage canvas[hidden] {
   display: none;
 }
 
@@ -653,43 +640,8 @@
 .rig-manual-slice-only[hidden],
 .rig-auto-slice-only[hidden],
 #rig .row[hidden],
-#slice .row[hidden] {
+.slice-lightbox[hidden] {
   display: none !important;
-}
-
-/* 부위 칠하기 팔레트 스타일 */
-.rig-palette-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-
-.rig-palette-btn {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 10px;
-  font-size: 13px;
-}
-
-.rig-palette-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  display: inline-block;
-  flex-shrink: 0;
-}
-
-.rig-palette-drop .rig-drop-dot {
-  width: 14px;
-  height: 14px;
-  display: inline-grid;
-  place-items: center;
-  font-size: 11px;
-  font-weight: bold;
-  color: var(--danger, #ff453a);
 }
 
 .rig-preset-warning[hidden],

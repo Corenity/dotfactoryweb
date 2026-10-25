@@ -1,67 +1,129 @@
-// 이미지 자르기 화면 — 원본·자동 분할·조각 보관함을 소유합니다.
-import { createMask } from './core/slice.js';
-import { dropKey } from './core/paint.js';
-import { toSliceLibraryItem } from './core/slice-library.js';
+// site/js/slice-view.js — 색 영역 자르기 화면 총괄 모듈
+import { CURRENT_PROFILE } from './core/profile.js';
+import { dropKey, KEY, toHex } from './core/paint.js';
 import { RigHistory, cloneRigState } from './core/rig-history.js';
-import { pickFiles, readImageFile, readDataUrl, toPngDataUrl, baseName } from './io.js';
+import {
+  REGION_PALETTE,
+  createRegionSliceState,
+  cloneRegionSliceState,
+  addRegion,
+  removeRegion,
+  paintCell,
+  eraseCell,
+  sliceByRegions,
+  exportRegionConfig,
+  importRegionConfig,
+  shouldReinitRegionSlice,
+} from './core/region-slice.js';
+import { createStoredZip } from './core/zip.js';
+import { toSliceLibraryItem } from './core/slice-library.js';
+import { pickFiles, readImageFile, readDataUrl, toPngDataUrl, saveFile, savePng, baseName, drawPixels } from './io.js';
 import { mountRigSlice } from './rig-slice-view.js';
-import { mountSliceLibrary } from './slice-library-view.js';
-import { shouldReinitSlice } from './core/auto-slice.js';
 
 const $ = sel => document.querySelector(sel);
 
 export function mountSlice(app) {
+  let [width, height] = CURRENT_PROFILE.canvas;
   let baseImage = null;
   let baseTitle = '그림';
-  let width = 72, height = 64;
-  let mask = createMask(width, height);
   let pieces = [];
+
+  let regionState = createRegionSliceState(width, height);
+  let selectedColor = null;
+  const visibleRegions = new Set();
+  let activeTool = 'brush';
+  let brushSize = 1;
+
   const history = new RigHistory();
   const undoButton = $('#slice-undo');
   const redoButton = $('#slice-redo');
-  let canvasView, libraryView;
+
+  let strokeBeforeState = null;
+  let canvasView = null;
+
+  function autoSaveKey() {
+    const profileId = CURRENT_PROFILE?.id || 'project-c';
+    return `dotfactory-web/slice-regions-1/${profileId}`;
+  }
+
+  function saveAutosave() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const exported = exportRegionConfig(regionState);
+      localStorage.setItem(autoSaveKey(), JSON.stringify(exported));
+    } catch {
+      // 스토리지 제한 등은 무시
+    }
+  }
+
+  function restoreAutosave() {
+    try {
+      if (typeof localStorage === 'undefined') return;
+      const raw = localStorage.getItem(autoSaveKey());
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const restored = importRegionConfig(parsed, [width, height]);
+      regionState = restored;
+      for (const c of regionState.regions) visibleRegions.add(c);
+      if (regionState.regions.length > 0 && !selectedColor) {
+        selectedColor = regionState.regions[0];
+      }
+    } catch {
+      // 형식 불일치 등은 건너뜀
+    }
+  }
 
   function historySnapshot() {
-    return cloneRigState({
-      canvas: [width, height], baseTitle, baseImage, pieces,
-      bones: [], animations: {}, restPose: null,
-    });
+    return {
+      canvas: [width, height],
+      baseTitle,
+      baseImage,
+      pieces: pieces.map(p => ({ ...p })),
+      regionState: cloneRegionSliceState(regionState),
+      selectedColor,
+    };
   }
 
   function updateUndoRedo() {
-    undoButton.disabled = !history.canUndo;
-    redoButton.disabled = !history.canRedo;
-  }
-
-  function syncViews() {
-    canvasView.sync();
-    libraryView.sync();
-    libraryView.render();
-    canvasView.render();
-    updateUndoRedo();
+    if (undoButton) undoButton.disabled = !history.canUndo;
+    if (redoButton) redoButton.disabled = !history.canRedo;
   }
 
   function recordChange(before) {
     if (history.push(before, historySnapshot())) {
       updateUndoRedo();
+      saveAutosave();
       app.changed();
     }
   }
 
   function applyHistory(value) {
     if (!value) return;
-    const state = cloneRigState(value);
-    const needReinit = shouldReinitSlice(baseImage, state.baseImage);
-    [width, height] = state.canvas;
-    baseTitle = state.baseTitle;
-    baseImage = state.baseImage;
-    pieces = state.pieces;
-    mask = createMask(width, height);
-    syncViews();
-    if (needReinit) {
-      canvasView.init();
+    const needReinit = shouldReinitRegionSlice(baseImage, value.baseImage);
+    [width, height] = value.canvas;
+    baseTitle = value.baseTitle;
+    baseImage = value.baseImage;
+    pieces = value.pieces || [];
+    regionState = cloneRegionSliceState(value.regionState);
+    selectedColor = value.selectedColor;
+
+    for (const c of regionState.regions) visibleRegions.add(c);
+    if (selectedColor && !regionState.regions.includes(selectedColor)) {
+      selectedColor = regionState.regions[0] || null;
     }
+
+    syncViews();
+    renderRegionsList();
+    renderPiecesList();
+    if (needReinit) canvasView.fit();
+    updateUndoRedo();
+    saveAutosave();
     app.changed();
+  }
+
+  function syncViews() {
+    canvasView.sync();
+    canvasView.render();
   }
 
   function setBaseImage(image, title = '그림') {
@@ -69,49 +131,237 @@ export function mountSlice(app) {
     baseTitle = baseName(title);
     width = image.width;
     height = image.height;
-    mask = createMask(width, height);
+    if (regionState.width !== width || regionState.height !== height) {
+      regionState = createRegionSliceState(width, height);
+      selectedColor = null;
+      visibleRegions.clear();
+    }
     syncViews();
-    canvasView.init();
+    renderRegionsList();
     canvasView.fit();
   }
 
-  function setEmptyCanvas(nextWidth, nextHeight) {
-    setBaseImage({
-      width: nextWidth,
-      height: nextHeight,
-      data: new Uint8ClampedArray(nextWidth * nextHeight * 4),
-    }, '조각');
+  function renderRegionsList() {
+    const list = $('#slice-regions-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    if (regionState.regions.length === 0) {
+      list.innerHTML = '<span class="hint">지정된 색 영역이 없습니다. 「+ 영역 더하기」를 누르세요.</span>';
+      return;
+    }
+
+    regionState.regions.forEach(color => {
+      const isSelected = selectedColor === color;
+      const isVisible = visibleRegions.has(color);
+
+      const card = document.createElement('div');
+      card.className = `slice-region-card${isSelected ? ' selected' : ''}`;
+      card.setAttribute('role', 'listitem');
+      card.setAttribute('aria-selected', String(isSelected));
+
+      const dot = document.createElement('span');
+      dot.className = 'slice-region-dot';
+      dot.style.background = `#${color}`;
+
+      const name = document.createElement('span');
+      name.className = 'slice-region-name';
+      name.textContent = color;
+
+      const visBtn = document.createElement('button');
+      visBtn.type = 'button';
+      visBtn.className = 'btn slice-region-vis';
+      visBtn.setAttribute('aria-pressed', String(isVisible));
+      visBtn.setAttribute('aria-label', `${color} 보이기`);
+      visBtn.textContent = isVisible ? '보임' : '숨김';
+      visBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        if (visibleRegions.has(color)) {
+          visibleRegions.delete(color);
+        } else {
+          visibleRegions.add(color);
+        }
+        renderRegionsList();
+        canvasView.drawOverlay();
+      });
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn slice-region-del danger';
+      delBtn.setAttribute('aria-label', `${color} 영역 삭제`);
+      delBtn.textContent = '✕';
+      delBtn.addEventListener('click', e => {
+        e.stopPropagation();
+        const before = historySnapshot();
+        removeRegion(regionState, color);
+        visibleRegions.delete(color);
+        if (selectedColor === color) {
+          selectedColor = regionState.regions[0] || null;
+        }
+        renderRegionsList();
+        canvasView.drawOverlay();
+        recordChange(before);
+        app.toast(`영역 「${color}」을 지웠습니다`);
+      });
+
+      card.addEventListener('click', () => {
+        selectedColor = color;
+        visibleRegions.add(color);
+        renderRegionsList();
+        canvasView.drawOverlay();
+      });
+
+      card.append(dot, name, visBtn, delBtn);
+      list.appendChild(card);
+    });
+  }
+
+  function openLightbox(title, imgData, w, h) {
+    const modal = $('#slice-lightbox');
+    const titleEl = $('#slice-lightbox-title');
+    const canvas = $('#slice-lightbox-canvas');
+    if (!modal || !canvas) return;
+
+    titleEl.textContent = title;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = toHex(KEY);
+    ctx.fillRect(0, 0, w, h);
+
+    const d = imgData.data;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const p4 = (y * w + x) * 4;
+        const a = d[p4 + 3];
+        if (a > 0) {
+          ctx.fillStyle = `rgba(${d[p4]}, ${d[p4 + 1]}, ${d[p4 + 2]}, ${a / 255})`;
+          ctx.fillRect(x, y, 1, 1);
+        }
+      }
+    }
+    modal.hidden = false;
+  }
+
+  function renderPiecesList() {
+    const list = $('#rig-pieces-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    if (pieces.length === 0) {
+      list.innerHTML = '<p class="hint" style="grid-column:1/-1;text-align:center;">보관한 조각이 없습니다</p>';
+      return;
+    }
+
+    pieces.forEach((piece, index) => {
+      const card = document.createElement('div');
+      card.className = 'rig-piece-card';
+      card.title = '누르면 크게 봅니다';
+
+      const thumb = document.createElement('canvas');
+      thumb.className = 'rig-piece-thumb';
+      drawPixels(thumb, piece.image, 1, toHex(KEY));
+
+      const title = document.createElement('div');
+      title.className = 'rig-piece-title';
+      title.textContent = piece.name;
+
+      const actions = document.createElement('div');
+      actions.className = 'rig-piece-actions';
+
+      const action = (text, run) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn';
+        button.textContent = text;
+        button.addEventListener('click', e => {
+          e.stopPropagation();
+          run();
+        });
+        actions.appendChild(button);
+      };
+
+      action('PNG', async () => {
+        await savePng(`${piece.id}.png`, piece.image);
+        app.toast(`「${piece.id}.png」을 내려받았습니다`);
+      });
+
+      action('삭제', () => {
+        const before = historySnapshot();
+        pieces.splice(index, 1);
+        renderPiecesList();
+        recordChange(before);
+        app.toast(`조각 「${piece.name}」을 지웠습니다`);
+      });
+
+      card.addEventListener('click', () => {
+        openLightbox(piece.name, piece.image, piece.image.width, piece.image.height);
+      });
+
+      card.append(thumb, title, actions);
+      list.appendChild(card);
+    });
+  }
+
+  function savePiece(image, name, sourceKind = 'region-slice', pieceName = '') {
+    const sameName = pieces.find(p => p.name === name && p.sourceKind === sourceKind);
+    let normalized = toSliceLibraryItem({
+      id: name,
+      name,
+      png: toPngDataUrl(image),
+      width: image.width,
+      height: image.height,
+      sourceKind,
+      piece: pieceName || name,
+    });
+    if (sameName) {
+      normalized = { ...normalized, id: sameName.id, piece: sameName.piece };
+    }
+    const value = { ...normalized, image };
+    const existing = pieces.findIndex(p => p.id === value.id);
+    if (existing >= 0) pieces[existing] = value;
+    else pieces.push(value);
+    renderPiecesList();
   }
 
   canvasView = mountRigSlice(app, {
     getBaseImage: () => baseImage,
     getSize: () => [width, height],
-    getMask: () => mask,
-    getPieces: () => pieces,
-    snapshot: historySnapshot,
-    commit: recordChange,
-    renderPiecesList: () => libraryView.render(),
-  });
-  libraryView = mountSliceLibrary(app, {
-    getPieces: () => pieces,
-    getBaseImage: () => baseImage,
-    getMask: () => mask,
-    getSize: () => [width, height],
-    setEmptyCanvas,
-    drawOverlay: () => canvasView.drawOverlay(),
-    snapshot: historySnapshot,
-    commit: recordChange,
+    getRegionState: () => regionState,
+    getSelectedRegion: () => selectedColor,
+    getVisibleRegions: () => visibleRegions,
+    getActiveTool: () => activeTool,
+    getBrushSize: () => brushSize,
+    onStrokeStart() {
+      strokeBeforeState = historySnapshot();
+    },
+    onStrokeEnd() {
+      if (strokeBeforeState) {
+        recordChange(strokeBeforeState);
+        strokeBeforeState = null;
+      }
+    },
+    onPaintCell(x, y) {
+      if (activeTool === 'brush') {
+        if (!selectedColor) {
+          if (regionState.regions.length > 0) selectedColor = regionState.regions[0];
+          else return;
+        }
+        paintCell(regionState, x, y, selectedColor, brushSize);
+      } else if (activeTool === 'eraser') {
+        eraseCell(regionState, x, y, brushSize);
+      }
+    },
   });
 
-  $('#rig-open-base').addEventListener('click', async () => {
+  // 이벤트 바인딩
+  $('#rig-open-base')?.addEventListener('click', async () => {
     try {
       const [file] = await pickFiles({ accept: 'image/*' });
       if (!file) return;
       const before = historySnapshot();
       const image = dropKey(await readImageFile(file));
-      if (pieces.length && (image.width !== width || image.height !== height)) {
-        return app.toast(`새 그림 크기(${image.width}×${image.height})가 보관한 조각 크기(${width}×${height})와 다릅니다`);
-      }
       setBaseImage(image, file.name);
       recordChange(before);
       app.toast(`「${file.name}」을 불러왔습니다`);
@@ -120,11 +370,189 @@ export function mountSlice(app) {
     }
   });
 
-  undoButton.addEventListener('click', () => applyHistory(history.undo(historySnapshot())));
-  redoButton.addEventListener('click', () => applyHistory(history.redo(historySnapshot())));
-  canvasView.render();
-  libraryView.render();
+  // 도구 선택: 붓 / 지우개 / 붓 크기
+  const btnBrush = $('#slice-tool-brush');
+  const btnEraser = $('#slice-tool-eraser');
+  const selectSize = $('#slice-brush-size');
+
+  function updateToolUI() {
+    if (btnBrush) {
+      btnBrush.setAttribute('aria-pressed', String(activeTool === 'brush'));
+      btnBrush.classList.toggle('primary', activeTool === 'brush');
+    }
+    if (btnEraser) {
+      btnEraser.setAttribute('aria-pressed', String(activeTool === 'eraser'));
+      btnEraser.classList.toggle('primary', activeTool === 'eraser');
+    }
+    canvasView.drawOverlay();
+  }
+
+  btnBrush?.addEventListener('click', () => {
+    activeTool = 'brush';
+    updateToolUI();
+  });
+
+  btnEraser?.addEventListener('click', () => {
+    activeTool = 'eraser';
+    updateToolUI();
+  });
+
+  selectSize?.addEventListener('change', e => {
+    brushSize = Number(e.target.value) || 1;
+  });
+
+  // 영역 더하기
+  $('#slice-add-region')?.addEventListener('click', () => {
+    const nextColor = REGION_PALETTE.find(c => !regionState.regions.includes(c));
+    if (!nextColor) {
+      return app.toast('더 이상 추가할 수 있는 색 영역이 없습니다 (최대 12개)');
+    }
+    const before = historySnapshot();
+    addRegion(regionState, nextColor);
+    visibleRegions.add(nextColor);
+    selectedColor = nextColor;
+    renderRegionsList();
+    canvasView.drawOverlay();
+    recordChange(before);
+    app.toast(`색 영역 「${nextColor}」을 추가했습니다`);
+  });
+
+  // 영역 설정 저장
+  $('#slice-save-regions')?.addEventListener('click', async () => {
+    try {
+      const config = exportRegionConfig(regionState);
+      const jsonStr = JSON.stringify(config, null, 2);
+      await saveFile('slice-regions-1.json', new Blob([jsonStr], { type: 'application/json' }));
+      app.toast('영역 설정(slice-regions-1.json)을 저장했습니다');
+    } catch (error) {
+      app.toast(error.message || '영역 설정을 저장하지 못했습니다');
+    }
+  });
+
+  // 영역 설정 불러오기
+  $('#slice-load-regions')?.addEventListener('click', async () => {
+    try {
+      const [file] = await pickFiles({ accept: '.json,application/json' });
+      if (!file) return;
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const before = historySnapshot();
+      const loaded = importRegionConfig(parsed, [width, height]);
+      regionState = loaded;
+      visibleRegions.clear();
+      for (const c of regionState.regions) visibleRegions.add(c);
+      selectedColor = regionState.regions[0] || null;
+      renderRegionsList();
+      syncViews();
+      recordChange(before);
+      app.toast(`「${file.name}」 영역 설정을 불러왔습니다`);
+    } catch (error) {
+      app.toast(error.message || '영역 설정을 불러오지 못했습니다');
+    }
+  });
+
+  // 자르기 실행 (조각으로 저장)
+  $('#slice-cut-btn')?.addEventListener('click', () => {
+    if (!baseImage) {
+      return app.toast('먼저 「그림 올리기」로 캐릭터 그림을 열어주세요');
+    }
+    if (regionState.regions.length === 0) {
+      return app.toast('지정된 색 영역이 없습니다. 「+ 영역 더하기」로 영역을 만드세요');
+    }
+
+    const before = historySnapshot();
+    const results = sliceByRegions({ image: baseImage, state: regionState });
+    let savedCount = 0;
+    const emptyColors = [];
+
+    for (const res of results) {
+      if (res.isEmpty) {
+        if (res.paintedCellCount > 0) emptyColors.push(res.color);
+        continue;
+      }
+      savePiece(res.image, res.color, 'region-slice', res.color);
+      savedCount++;
+    }
+
+    if (savedCount > 0) {
+      recordChange(before);
+      app.toast(`조각 ${savedCount}개를 저장했습니다`);
+    } else {
+      app.toast('추출할 수 있는 유효한 도트가 없습니다');
+    }
+
+    if (emptyColors.length > 0) {
+      setTimeout(() => {
+        app.toast(`빈 조각(${emptyColors.join(', ')})은 투명 그림이어서 건너뛰었습니다`);
+      }, 1500);
+    }
+  });
+
+  // 조각 PNG 올리기 (보관함 연동)
+  $('#rig-add-piece-png')?.addEventListener('click', async () => {
+    try {
+      const [file] = await pickFiles({ accept: 'image/png,image/*' });
+      if (!file) return;
+      const before = historySnapshot();
+      const image = dropKey(await readImageFile(file));
+      if (baseImage && (image.width !== width || image.height !== height)) {
+        return app.toast(`조각 크기(${image.width}×${image.height})가 현재 판 크기(${width}×${height})와 다릅니다`);
+      }
+      const name = baseName(file.name);
+      savePiece(image, name, 'manual', name);
+      recordChange(before);
+      app.toast(`조각 「${name}」을 보관했습니다`);
+    } catch (error) {
+      app.toast(error.message || '조각 PNG를 열 수 없습니다');
+    }
+  });
+
+  // 모두 ZIP 내려받기
+  $('#slice-save-all')?.addEventListener('click', async () => {
+    if (pieces.length === 0) {
+      return app.toast('내려받을 조각이 없습니다');
+    }
+    try {
+      const entries = [];
+      for (const piece of pieces) {
+        const pngUrl = toPngDataUrl(piece.image);
+        const res = await fetch(pngUrl);
+        const buf = await res.arrayBuffer();
+        entries.push({
+          name: `${piece.id}.png`,
+          data: new Uint8Array(buf),
+        });
+      }
+      const zipBytes = createStoredZip(entries);
+      await saveFile('자르기-조각.zip', new Blob([zipBytes], { type: 'application/zip' }));
+      app.toast(`조각 ${pieces.length}개를 ZIP으로 내려받았습니다`);
+    } catch (error) {
+      app.toast(error.message || '조각 ZIP을 만들지 못했습니다');
+    }
+  });
+
+  // 크게 보기 모달 닫기
+  $('#slice-lightbox-close')?.addEventListener('click', () => {
+    const modal = $('#slice-lightbox');
+    if (modal) modal.hidden = true;
+  });
+
+  window.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      const modal = $('#slice-lightbox');
+      if (modal && !modal.hidden) modal.hidden = true;
+    }
+  });
+
+  undoButton?.addEventListener('click', () => applyHistory(history.undo(historySnapshot())));
+  redoButton?.addEventListener('click', () => applyHistory(history.redo(historySnapshot())));
+
+  // 초기 자동 보관 복원 및 렌더링
+  restoreAutosave();
+  renderRegionsList();
+  renderPiecesList();
   updateUndoRedo();
+  updateToolUI();
 
   return {
     shown() {
@@ -137,31 +565,40 @@ export function mountSlice(app) {
         canvas: [width, height],
         basePng: baseImage ? toPngDataUrl(baseImage) : null,
         item: baseTitle,
-        mask: Array.from(mask),
-        pieces: pieces.map(piece => toSliceLibraryItem(piece)),
+        regionConfig: exportRegionConfig(regionState),
+        pieces: pieces.map(p => toSliceLibraryItem(p)),
       };
     },
     async restore(saved) {
       if (!saved || typeof saved !== 'object') return;
-      const canvas = Array.isArray(saved.canvas) ? saved.canvas : [72, 64];
+      const canvas = Array.isArray(saved.canvas) ? saved.canvas : CURRENT_PROFILE.canvas;
       width = Number(canvas[0]) || 72;
       height = Number(canvas[1]) || 64;
       baseTitle = String(saved.item || '그림');
-      const prevImage = baseImage;
       baseImage = saved.basePng ? await readDataUrl(saved.basePng) : null;
       pieces = [];
       for (const value of saved.pieces || []) {
-        const piece = toSliceLibraryItem(value);
-        pieces.push({ ...piece, image: await readDataUrl(piece.png) });
+        const item = toSliceLibraryItem(value);
+        pieces.push({ ...item, image: await readDataUrl(item.png) });
       }
-      if (!baseImage && pieces.length) setEmptyCanvas(width, height);
-      mask = createMask(width, height);
-      if (Array.isArray(saved.mask) && saved.mask.length === mask.length) mask.set(saved.mask);
+      if (saved.regionConfig) {
+        try {
+          regionState = importRegionConfig(saved.regionConfig, [width, height]);
+          visibleRegions.clear();
+          for (const c of regionState.regions) visibleRegions.add(c);
+          selectedColor = regionState.regions[0] || null;
+        } catch {
+          regionState = createRegionSliceState(width, height);
+        }
+      } else {
+        restoreAutosave();
+      }
       history.clear();
       syncViews();
-      if (baseImage) {
-        canvasView.init();
-      }
+      renderRegionsList();
+      renderPiecesList();
+      updateUndoRedo();
+      if (baseImage) canvasView.fit();
     },
   };
 }
