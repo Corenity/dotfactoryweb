@@ -1,12 +1,14 @@
-// 축소 화면 — 큰 그림을 골라 도트 칸 그림으로 줄이고, 잰 기준(몸 중심 · 발 위치 · 범위)을 함께 보여 줍니다.
+// 크기 화면 — 한 그림을 도트 칸 그림으로 줄이거나, 원래 칸을 그대로 정수 배로 키웁니다.
 import { readImageFile, toCanvas, drawPixels, pickFiles, savePng, baseName } from './io.js';
 import { backdropToggle } from './backdrop.js';
+import { dropKey } from './core/paint.js';
+import { scaleNearest } from './core/scale.js';
 
 const $ = sel => document.querySelector(sel);
 
 export function mountShrink(app) {
-  let source = null, sourceName = '', result = null, busy = false;
-  // 축소 결과의 배경은 늘 투명 칸으로 받고, 초록은 보여 줄 때와 내려받을 때만 깝니다.
+  let source = null, sourceName = '', result = null, resultMode = '', resultFactor = 0, busy = false, mode = 'shrink';
+  // 결과의 배경은 늘 투명 칸으로 받고, 초록은 보여 줄 때와 내려받을 때만 깝니다.
   const bg = backdropToggle($('#shrink-clear'), () => result && drawOut());
 
   const status = text => { $('#shrink-status').textContent = text; };
@@ -20,6 +22,7 @@ export function mountShrink(app) {
       sourceName = baseName(file.name);
       $('#shrink-name').textContent = `${file.name} · ${source.width}×${source.height}`;
       $('#shrink-run').disabled = false;
+      result = null;
       $('#shrink-result').hidden = true;
       status('');
     } catch (err) {
@@ -27,8 +30,42 @@ export function mountShrink(app) {
     }
   });
 
+  function setMode(next) {
+    if (busy) return;
+    mode = next;
+    const shrinking = mode === 'shrink';
+    $('#shrink-mode-shrink').setAttribute('aria-pressed', String(shrinking));
+    $('#shrink-mode-grow').setAttribute('aria-pressed', String(!shrinking));
+    $('#shrink-mode-shrink').classList.toggle('primary', shrinking);
+    $('#shrink-mode-grow').classList.toggle('primary', !shrinking);
+    $('#shrink-options').hidden = !shrinking;
+    $('#grow-options').hidden = shrinking;
+    $('#shrink-run').textContent = shrinking ? '축소' : '확대';
+    result = null;
+    $('#shrink-result').hidden = true;
+    status('');
+  }
+
+  $('#shrink-mode-shrink').addEventListener('click', () => setMode('shrink'));
+  $('#shrink-mode-grow').addEventListener('click', () => setMode('grow'));
+
   $('#shrink-run').addEventListener('click', () => {
     if (!source || busy) return;
+    if (mode === 'grow') {
+      try {
+        const factor = Number($('#grow-scale').value);
+        result = scaleNearest(dropKey(source), factor);
+        resultMode = 'grow';
+        resultFactor = factor;
+        status('끝났습니다');
+        showGrowResult(factor);
+      } catch (err) {
+        result = null;
+        $('#shrink-result').hidden = true;
+        status(`확대하지 못했습니다: ${err.message}`);
+      }
+      return;
+    }
     const options = {
       targetHeight: Number($('#shrink-height').value) || 56,
       transparent: true,
@@ -49,8 +86,9 @@ export function mountShrink(app) {
       $('#shrink-run').disabled = false;
       if (!data.ok) { status(`축소하지 못했습니다: ${data.error}`); return; }
       result = data.image;
+      resultMode = 'shrink';
       status(`끝났습니다 (${((performance.now() - started) / 1000).toFixed(1)}초)`);
-      showResult(data.details);
+      showShrinkResult(data.details);
     };
     worker.onerror = err => {
       worker.terminate();
@@ -61,15 +99,27 @@ export function mountShrink(app) {
     worker.postMessage({ image: copy, options }, [copy.data.buffer]);
   });
 
-  function showResult(details) {
+  function showShrinkResult(details) {
     $('#shrink-result').hidden = false;
+    $('#shrink-guide-wrap').hidden = false;
+    $('#shrink-to-paint').hidden = false;
+    $('#shrink-to-assemble').hidden = false;
     drawGuide(details);
     drawOut();
     const [w, h] = details.canvas;
     $('#shrink-info').textContent = `${w}×${h} 칸 · 원본 ${details.perCell.toFixed(1)}px 가 한 칸`;
   }
 
-  function drawOut() { drawPixels($('#shrink-out'), result, 4, bg.backdrop); }
+  function showGrowResult(factor) {
+    $('#shrink-result').hidden = false;
+    $('#shrink-guide-wrap').hidden = true;
+    $('#shrink-to-paint').hidden = true;
+    $('#shrink-to-assemble').hidden = true;
+    drawOut();
+    $('#shrink-info').textContent = `${result.width}×${result.height}px · 원본 한 칸을 ${factor}×${factor}px로 확대`;
+  }
+
+  function drawOut() { drawPixels($('#shrink-out'), result, resultMode === 'grow' ? 1 : 4, bg.backdrop); }
 
   // PC 「기준 보기」와 같은 색으로 잰 기준을 원본 위에 그립니다.
   function drawGuide(d) {
@@ -90,9 +140,13 @@ export function mountShrink(app) {
     ctx.beginPath(); ctx.moveTo(d.crop[0] * scale, d.foot * scale); ctx.lineTo(d.crop[2] * scale, d.foot * scale); ctx.stroke();
   }
 
-  $('#shrink-save').addEventListener('click', () => result && savePng(`${sourceName}_도트.png`, bg.forSave(result)));
-  $('#shrink-to-paint').addEventListener('click', () => result && app.sendToPaint(result, `${sourceName}_도트`));
-  $('#shrink-to-assemble').addEventListener('click', () => result && app.addToAssemble(result, `${sourceName}_도트`));
+  $('#shrink-save').addEventListener('click', () => {
+    if (!result) return;
+    const suffix = resultMode === 'grow' ? `${resultFactor}배` : '도트';
+    savePng(`${sourceName}_${suffix}.png`, bg.forSave(result));
+  });
+  $('#shrink-to-paint').addEventListener('click', () => resultMode === 'shrink' && app.sendToPaint(result, `${sourceName}_도트`));
+  $('#shrink-to-assemble').addEventListener('click', () => resultMode === 'shrink' && app.addToAssemble(result, `${sourceName}_도트`));
 
   return {};
 }
