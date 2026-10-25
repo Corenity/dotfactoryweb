@@ -7,6 +7,7 @@ import { selectRect, insideRect, lift, fillPiece, place } from './core/select.js
 import { loadColors, saveColors } from './store.js';
 import { currentCanvas } from './core/profile.js';
 import { importRegionConfig, regionGuideImage } from './core/region-slice.js';
+import { mergeSimilarColors } from './core/color-merge.js';
 
 const $ = sel => document.querySelector(sel);
 // 한 칸을 화면에서 몇 픽셀로 그릴지 고르는 단계입니다. + · − 는 이 단계를 하나씩 오갑니다.
@@ -469,6 +470,24 @@ export function mountPaint(app) {
   });
   $('#paint-save').addEventListener('click', () => image && savePng(`${name}.png`, fillKey(image)));
   $('#paint-to-assemble').addEventListener('click', () => image && app.addToAssemble(clone(image), name));
+
+  $('#paint-clean-level').addEventListener('input', () => {
+    $('#paint-clean-val').textContent = `${$('#paint-clean-level').value}%`;
+  });
+  $('#paint-clean-run').addEventListener('click', () => {
+    if (!image) return;
+    dropSelection();
+    const level = Number($('#paint-clean-level').value) || 5;
+    const threshold = level / 100;
+    const before = image;
+    const res = mergeSimilarColors(image, { threshold });
+    if (res.changedPixels > 0) {
+      history.push(before);
+      image = res.image;
+      changed();
+    }
+    $('#paint-clean-status').textContent = `${res.beforeCount}색 → ${res.afterCount}색 (${res.changedPixels}칸 정리)`;
+  });
   // 아이폰은 주소창이 숨거나 나올 때마다 높이가 바뀝니다. 너비가 바뀔 때(가로 · 세로 돌림)만 다시 맞춰 확대를 지킵니다.
   let fittedWidth = 0;
   addEventListener('resize', () => {
@@ -487,6 +506,7 @@ export function mountPaint(app) {
       guideTarget = false;
     }
     history = new History();
+    $('#paint-clean-status').textContent = '';
     requestAnimationFrame(fit);
     changed();
   }
