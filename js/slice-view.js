@@ -4,6 +4,7 @@ import { dropKey, KEY, toHex } from './core/paint.js';
 import { SliceHistory, cloneSliceState } from './core/slice-history.js';
 import {
   REGION_PALETTE,
+  regionDotAction,
   createRegionSliceState,
   cloneRegionSliceState,
   addRegion,
@@ -199,8 +200,8 @@ export function mountSlice(app) {
       const dotBtn = document.createElement('button');
       dotBtn.type = 'button';
       dotBtn.className = 'slice-region-dot-btn';
-      dotBtn.setAttribute('aria-label', `#${color} 색상 변경`);
-      dotBtn.title = '색상 변경';
+      dotBtn.setAttribute('aria-label', isSelected ? `#${color} 색상 변경` : `#${color} 영역 선택`);
+      dotBtn.title = isSelected ? '색상 변경' : '영역 선택';
 
       const dot = document.createElement('span');
       dot.className = 'slice-region-dot';
@@ -209,6 +210,14 @@ export function mountSlice(app) {
 
       dotBtn.addEventListener('click', e => {
         e.stopPropagation();
+        if (regionDotAction(selectedColor, color) === 'select') {
+          closeColorPicker();
+          selectedColor = color;
+          visibleRegions.add(color);
+          renderRegionsList();
+          canvasView.drawOverlay();
+          return;
+        }
         if (activePopover && activePopover.color === color) {
           closeColorPicker();
           return;

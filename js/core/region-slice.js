@@ -20,6 +20,10 @@ export const REGION_PALETTE = Object.freeze([
   'ffffff', // 흰색
 ]);
 
+export function regionDotAction(selectedColor, color) {
+  return selectedColor === color ? 'recolor' : 'select';
+}
+
 export function normalizeColor(color) {
   const hex = String(color || '').trim().replace(/^#/, '').toLowerCase();
   if (!/^[0-9a-f]{6}$/.test(hex)) {
