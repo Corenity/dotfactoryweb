@@ -302,7 +302,6 @@
         <button class="btn icon" id="rig-undo" aria-label="되돌리기" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button class="btn icon" id="rig-redo" aria-label="다시하기" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button class="btn rig-bones-only" id="rig-bones-reset-rest" title="초기값으로">초기값으로</button>
-        <button class="btn primary rig-bones-only" id="rig-group-btn">그룹화</button>
         <button class="btn rig-file-btn" id="rig-file-btn" aria-label="파일 메뉴 열기" aria-expanded="false" aria-controls="rig-file-pop">파일 ▾</button>
         <div class="color-pop rig-file-pop" id="rig-file-pop" hidden>
           <div class="rig-pop-header">
@@ -350,63 +349,80 @@
       <div class="rig-bones-only" id="rig-bones-panel" hidden>
         <p class="rig-preset-warning" id="rig-preset-warning" hidden></p>
 
-        <!-- 그룹화 모달 팝업 -->
-        <div class="color-pop rig-group-modal" id="rig-group-pop" hidden>
+        <!-- 그룹 추가 팝업 (묶기) -->
+        <div class="color-pop rig-group-modal" id="rig-group-add-pop" hidden>
           <div class="rig-pop-header">
-            <strong>그룹 관리 (프리셋)</strong>
-            <button type="button" class="btn small" id="rig-group-pop-close" aria-label="닫기">✕</button>
+            <strong>그룹 추가하기 (그림 묶기)</strong>
+            <button type="button" class="btn small" id="rig-group-add-close" aria-label="닫기">✕</button>
           </div>
-          <div class="rig-group-views">
-            <!-- 그룹 목록 뷰 -->
-            <div id="rig-group-view-list">
-              <div class="row rig-group-action-row">
-                <button class="btn primary" id="rig-group-add-btn">그룹 추가하기</button>
-                <button class="btn" id="rig-group-import-btn">그룹 불러오기</button>
-              </div>
-              <div class="rig-group-list" id="rig-group-list"></div>
-            </div>
-            <!-- 그룹 추가 뷰 -->
-            <div id="rig-group-view-add" hidden>
-              <div class="rig-group-section-title">그룹으로 묶을 그림 선택</div>
-              <p class="hint">다른 그룹에 속해 있지 않은 모든 본의 등록 이미지입니다.</p>
-              <div class="rig-group-draft-pieces" id="rig-group-draft-pieces"></div>
-              <div class="row rig-group-form-row">
-                <input type="text" id="rig-new-group-name" placeholder="새 그룹 이름">
-                <button class="btn primary" id="rig-group-create-confirm">묶기</button>
-                <button class="btn" id="rig-group-add-cancel">취소</button>
-              </div>
-            </div>
-            <!-- 그룹 편집 뷰 -->
-            <div id="rig-group-view-edit" hidden>
-              <div class="row rig-group-form-row">
-                <input type="text" id="rig-edit-group-name" placeholder="그룹 이름">
-                <button class="btn" id="rig-group-edit-rename">이름 변경</button>
-              </div>
-              <div class="rig-group-section-title">그룹에 속한 그림</div>
-              <div class="rig-group-member-pieces" id="rig-group-member-pieces"></div>
-              <div class="rig-group-section-title">그룹에 추가할 수 있는 그림</div>
-              <div class="rig-group-avail-pieces" id="rig-group-avail-pieces"></div>
-              <div class="row rig-group-edit-actions">
-                <button class="btn danger" id="rig-group-ungroup-btn">그룹 풀기</button>
-                <button class="btn" id="rig-group-edit-back">목록으로</button>
-              </div>
-            </div>
+          <div class="rig-group-section-title">그룹으로 묶을 그림 선택</div>
+          <p class="hint">다른 그룹에 속해 있지 않은 모든 본의 등록 이미지입니다.</p>
+          <div class="rig-group-draft-pieces" id="rig-group-draft-pieces"></div>
+          <div class="row rig-group-form-row">
+            <input type="text" id="rig-new-group-name" placeholder="새 그룹 이름" value="새 그룹">
+            <button type="button" class="btn primary" id="rig-group-create-confirm">묶기</button>
+            <button type="button" class="btn" id="rig-group-add-cancel">취소</button>
           </div>
         </div>
 
-        <!-- 메인 3단 레이아웃: 좌 뼈트리 | 중 스크린 | 우 P, R, I -->
+        <!-- 그룹 편집 팝업 -->
+        <div class="color-pop rig-group-modal" id="rig-group-edit-pop" hidden>
+          <div class="rig-pop-header">
+            <strong>그룹 편집</strong>
+            <button type="button" class="btn small" id="rig-group-edit-close" aria-label="닫기">✕</button>
+          </div>
+          <div class="row rig-group-form-row">
+            <input type="text" id="rig-edit-group-name" placeholder="그룹 이름">
+            <button type="button" class="btn" id="rig-group-edit-rename">이름 변경</button>
+          </div>
+          <div class="rig-group-section-title">그룹에 속한 그림</div>
+          <div class="rig-group-member-pieces" id="rig-group-member-pieces"></div>
+          <div class="rig-group-section-title">그룹에 추가할 수 있는 그림</div>
+          <div class="rig-group-avail-pieces" id="rig-group-avail-pieces"></div>
+          <div class="row rig-group-edit-actions">
+            <button type="button" class="btn" id="rig-group-edit-done">닫기</button>
+          </div>
+        </div>
+
+        <!-- 메인 3단 레이아웃: 좌 뼈/그룹 | 중 스크린 | 우 P, R, I -->
         <div class="rig-main-layout">
-          <!-- 좌측 뼈 트리 -->
+          <!-- 좌측 뼈 / 그룹 칸 -->
           <div class="rig-col-bones">
-            <div class="rig-bone-tree-header">
-              <strong>뼈 트리</strong>
+            <nav class="rig-view-menu" aria-label="뼈대 보기 메뉴">
+              <button type="button" id="rig-tab-bones" data-rig-view="bones" aria-pressed="true">뼈</button>
+              <button type="button" id="rig-tab-groups" data-rig-view="groups" aria-pressed="false">그룹</button>
+            </nav>
+
+            <!-- 뼈 패널 -->
+            <div class="rig-side-panel" id="rig-panel-bones" data-rig-panel="bones">
+              <div class="rig-bone-tree" id="rig-bone-tree"></div>
+              <div class="rig-bone-actions">
+                <input id="rig-bone-new-name" type="text" placeholder="새 뼈" aria-label="새 뼈 이름">
+                <div class="rig-bone-btn-row">
+                  <button type="button" class="btn small" id="rig-bone-add" title="자식 뼈 더하기">+</button>
+                  <button type="button" class="btn small danger" id="rig-bone-delete" title="고른 뼈나 그림 지우기" aria-label="고른 뼈나 그림 지우기">🗑</button>
+                </div>
+              </div>
             </div>
-            <div class="rig-bone-tree" id="rig-bone-tree"></div>
-            <div class="rig-bone-actions">
-              <input id="rig-bone-new-name" type="text" placeholder="새 뼈" aria-label="새 뼈 이름">
-              <div class="rig-bone-btn-row">
-                <button type="button" class="btn small" id="rig-bone-add" title="자식 뼈 더하기">+</button>
-                <button type="button" class="btn small danger" id="rig-bone-delete" title="고른 뼈나 그림 지우기" aria-label="고른 뼈나 그림 지우기">🗑</button>
+
+            <!-- 그룹 패널 -->
+            <div class="rig-side-panel" id="rig-panel-groups" data-rig-panel="groups" hidden>
+              <div class="rig-group-list" id="rig-group-list" role="list" aria-label="그룹 목록"></div>
+              <div class="rig-group-panel-actions">
+                <div class="row rig-group-btn-row">
+                  <div class="rig-group-plus-wrap">
+                    <button type="button" class="btn small" id="rig-group-plus-btn" aria-haspopup="menu" aria-expanded="false" title="그룹 추가 또는 불러오기">+</button>
+                    <div class="rig-group-plus-menu" id="rig-group-plus-menu" role="menu" hidden>
+                      <button type="button" class="btn small" id="rig-group-add-btn" role="menuitem">추가하기</button>
+                      <button type="button" class="btn small" id="rig-group-import-btn" role="menuitem">불러오기</button>
+                    </div>
+                  </div>
+                  <button type="button" class="btn small danger" id="rig-group-delete-btn" title="고른 그룹 풀기" disabled>삭제</button>
+                </div>
+                <div class="row rig-group-btn-row">
+                  <button type="button" class="btn small" id="rig-group-save-btn" title="고른 그룹 저장" disabled>저장</button>
+                  <button type="button" class="btn small" id="rig-group-edit-btn" title="고른 그룹 편집" disabled>편집</button>
+                </div>
               </div>
             </div>
           </div>

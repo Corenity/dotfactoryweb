@@ -1,11 +1,11 @@
 // 뼈대 단계의 그림 넣기·프리셋/그룹 정보·preset-1 열기/저장 화면입니다.
-import { PRESET_KINDS, parsePreset } from './core/preset.js';
+import { parsePreset } from './core/preset.js';
 import {
   attachedPiecesToRigPreset, checkRigPresetBones, nextRigZIndex,
 } from './core/rig-preset.js';
 import {
-  addPresetToRigLayers, groupDraftRigPieces, groupVisibilityState, rigLayerForPiece,
-  rigLayerToPreset, toggleGroupVisibility, toggleGroupLayerVisibility, ungroupRigPresetLayer, uniquePresetIdFromName,
+  addPresetToRigLayers, groupDraftRigPieces, rigLayerToPreset,
+  toggleGroupLayerVisibility, ungroupRigPresetLayer, uniquePresetIdFromName,
   updateGroupPieces,
 } from './core/preset-layers.js';
 import { dropKey } from './core/paint.js';
@@ -16,29 +16,39 @@ const $ = selector => document.querySelector(selector);
 export function mountRigPreset(app, model) {
   const warning = $('#rig-preset-warning');
 
-  // 그룹화 모달
-  const groupPop = $('#rig-group-pop');
-  const groupBtn = $('#rig-group-btn');
-  const groupPopCloseBtn = $('#rig-group-pop-close');
+  // 왼쪽 메뉴 탭 및 패널
+  const tabBones = $('#rig-tab-bones');
+  const tabGroups = $('#rig-tab-groups');
+  const panelBones = $('#rig-panel-bones');
+  const panelGroups = $('#rig-panel-groups');
+
+  // 그룹 패널 요소들
   const groupList = $('#rig-group-list');
+  const groupPlusWrap = $('.rig-group-plus-wrap');
+  const groupPlusBtn = $('#rig-group-plus-btn');
+  const groupPlusMenu = $('#rig-group-plus-menu');
   const groupAddBtn = $('#rig-group-add-btn');
   const groupImportBtn = $('#rig-group-import-btn');
+  const groupDeleteBtn = $('#rig-group-delete-btn');
+  const groupSaveBtn = $('#rig-group-save-btn');
+  const groupEditBtn = $('#rig-group-edit-btn');
 
-  const groupViewList = $('#rig-group-view-list');
-  const groupViewAdd = $('#rig-group-view-add');
-  const groupViewEdit = $('#rig-group-view-edit');
-
+  // 그룹 추가 모달
+  const groupAddPop = $('#rig-group-add-pop');
+  const groupAddCloseBtn = $('#rig-group-add-close');
   const groupDraftPieces = $('#rig-group-draft-pieces');
   const newGroupNameInput = $('#rig-new-group-name');
   const groupCreateConfirmBtn = $('#rig-group-create-confirm');
   const groupAddCancelBtn = $('#rig-group-add-cancel');
 
+  // 그룹 편집 모달
+  const groupEditPop = $('#rig-group-edit-pop');
+  const groupEditCloseBtn = $('#rig-group-edit-close');
+  const groupEditDoneBtn = $('#rig-group-edit-done');
   const editGroupNameInput = $('#rig-edit-group-name');
   const groupEditRenameBtn = $('#rig-group-edit-rename');
   const groupMemberPieces = $('#rig-group-member-pieces');
   const groupAvailPieces = $('#rig-group-avail-pieces');
-  const groupUngroupBtn = $('#rig-group-ungroup-btn');
-  const groupEditBackBtn = $('#rig-group-edit-back');
 
   const pieces = () => model.getPieces();
   const bones = () => model.getBones();
@@ -46,6 +56,7 @@ export function mountRigPreset(app, model) {
   const selectedLayerKey = () => model.getSelectedPresetLayerKey();
   const selectedLayer = () => presetLayers().find(layer => layer.key === selectedLayerKey()) || null;
 
+  let selectedGroupKey = null;
   let editingGroupKey = null;
 
   function currentPreset() {
@@ -61,44 +72,65 @@ export function mountRigPreset(app, model) {
     model.commit(before);
   }
 
-  function switchGroupView(view) {
-    if (groupViewList) groupViewList.hidden = view !== 'list';
-    if (groupViewAdd) groupViewAdd.hidden = view !== 'add';
-    if (groupViewEdit) groupViewEdit.hidden = view !== 'edit';
-    if (view === 'list') renderGroupList();
-    else if (view === 'add') renderGroupAddView();
-    else if (view === 'edit') renderGroupEditView();
+  function switchLeftTab(tab) {
+    if (tabBones) {
+      tabBones.setAttribute('aria-pressed', String(tab === 'bones'));
+    }
+    if (tabGroups) {
+      tabGroups.setAttribute('aria-pressed', String(tab === 'groups'));
+    }
+    if (panelBones) panelBones.hidden = tab !== 'bones';
+    if (panelGroups) {
+      panelGroups.hidden = tab !== 'groups';
+      if (tab === 'groups') renderGroupList();
+    }
+  }
+
+  function updateActionButtons() {
+    const hasSelected = Boolean(selectedGroupKey && presetLayers().some(l => l.key === selectedGroupKey));
+    if (groupDeleteBtn) groupDeleteBtn.disabled = !hasSelected;
+    if (groupSaveBtn) groupSaveBtn.disabled = !hasSelected;
+    if (groupEditBtn) groupEditBtn.disabled = !hasSelected;
   }
 
   function renderGroupList() {
     if (!groupList) return;
     groupList.innerHTML = '';
     const layers = presetLayers();
+    if (selectedGroupKey && !layers.some(l => l.key === selectedGroupKey)) {
+      selectedGroupKey = null;
+    }
     if (!layers.length) {
-      groupList.innerHTML = '<p class="hint">등록된 그룹이 없습니다. 「그룹 추가하기」로 그림을 묶어 보세요.</p>';
+      groupList.innerHTML = '<p class="hint">등록된 그룹이 없습니다.</p>';
+      updateActionButtons();
       return;
     }
 
     layers.forEach(layer => {
-      const row = document.createElement('div');
-      row.className = 'rig-group-item';
+      const card = document.createElement('div');
+      card.className = 'rig-group-card' + (layer.key === selectedGroupKey ? ' selected' : '');
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
+      card.dataset.key = layer.key;
 
-      const memberCount = pieces().filter(p => p.presetLayerKey === layer.key).length;
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'rig-group-name';
+      nameSpan.textContent = layer.name;
+      nameSpan.title = layer.name;
+
       const isVis = layer.visible !== false;
-      const visState = isVis ? 'all' : 'none';
-      const visLabel = isVis ? '보임' : '숨김';
-
-      const info = document.createElement('div');
-      info.className = 'rig-group-info';
-      info.innerHTML = `<div class="rig-group-title">${layer.name} <span class="rig-group-badge ${visState}">${visLabel}</span></div><div class="rig-group-meta">그림 ${memberCount}개 · ${layer.id}</div>`;
-
-      const actions = document.createElement('div');
-      actions.className = 'rig-group-actions';
-
       const visBtn = document.createElement('button');
-      visBtn.className = 'btn small';
-      visBtn.textContent = isVis ? '숨기기' : '보이기';
-      visBtn.addEventListener('click', () => {
+      visBtn.type = 'button';
+      visBtn.className = 'btn icon rig-group-vis-btn';
+      visBtn.setAttribute('aria-pressed', String(isVis));
+      visBtn.setAttribute('aria-label', `${layer.name} ${isVis ? '숨기기' : '보이기'}`);
+      visBtn.title = isVis ? '숨기기' : '보이기';
+      visBtn.innerHTML = isVis
+        ? '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" fill="none" stroke="currentColor" stroke-width="2"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="2"/></svg>';
+
+      visBtn.addEventListener('click', e => {
+        e.stopPropagation();
         const before = model.snapshot();
         const nextLayers = toggleGroupLayerVisibility(presetLayers(), layer.key);
         model.setPresetLayers(nextLayers);
@@ -108,33 +140,16 @@ export function mountRigPreset(app, model) {
         renderGroupList();
       });
 
-      const saveBtn = document.createElement('button');
-      saveBtn.className = 'btn small primary';
-      saveBtn.textContent = '그룹 저장';
-      saveBtn.title = 'preset-1 JSON 파일로 내려받기';
-      saveBtn.addEventListener('click', async () => {
-        try {
-          const preset = rigLayerToPreset(layer, pieces(), model.getSize());
-          const fileName = `${layer.id || layer.name}.json`;
-          const result = await saveJson(fileName, preset);
-          if (result !== 'cancelled') app.toast(`「${fileName}」으로 저장했습니다`);
-        } catch (err) {
-          app.toast(err.message || '그룹 저장 실패');
-        }
+      card.addEventListener('click', () => {
+        selectedGroupKey = layer.key;
+        renderGroupList();
       });
 
-      const editBtn = document.createElement('button');
-      editBtn.className = 'btn small';
-      editBtn.textContent = '편집';
-      editBtn.addEventListener('click', () => {
-        editingGroupKey = layer.key;
-        switchGroupView('edit');
-      });
-
-      actions.append(visBtn, saveBtn, editBtn);
-      row.append(info, actions);
-      groupList.appendChild(row);
+      card.append(nameSpan, visBtn);
+      groupList.appendChild(card);
     });
+
+    updateActionButtons();
   }
 
   function renderGroupAddView() {
@@ -164,7 +179,7 @@ export function mountRigPreset(app, model) {
   function renderGroupEditView() {
     const layer = presetLayers().find(l => l.key === editingGroupKey);
     if (!layer) {
-      switchGroupView('list');
+      if (groupEditPop) groupEditPop.hidden = true;
       return;
     }
     if (editGroupNameInput) editGroupNameInput.value = layer.name;
@@ -181,6 +196,7 @@ export function mountRigPreset(app, model) {
           const nameSpan = document.createElement('span');
           nameSpan.textContent = `${p.name || p.piece} (${p.bone}, 깊이: ${p.zIndex})`;
           const dropBtn = document.createElement('button');
+          dropBtn.type = 'button';
           dropBtn.className = 'btn small danger';
           dropBtn.textContent = '빼기';
           dropBtn.addEventListener('click', () => {
@@ -189,6 +205,7 @@ export function mountRigPreset(app, model) {
             model.setPieces(nextPieces);
             finishChange(before);
             renderGroupEditView();
+            renderGroupList();
           });
           row.append(nameSpan, dropBtn);
           groupMemberPieces.appendChild(row);
@@ -208,6 +225,7 @@ export function mountRigPreset(app, model) {
           const nameSpan = document.createElement('span');
           nameSpan.textContent = `${p.name || p.piece} (${p.bone}, 깊이: ${p.zIndex})`;
           const addBtn = document.createElement('button');
+          addBtn.type = 'button';
           addBtn.className = 'btn small primary';
           addBtn.textContent = '추가';
           addBtn.addEventListener('click', () => {
@@ -216,6 +234,7 @@ export function mountRigPreset(app, model) {
             model.setPieces(nextPieces);
             finishChange(before);
             renderGroupEditView();
+            renderGroupList();
           });
           row.append(nameSpan, addBtn);
           groupAvailPieces.appendChild(row);
@@ -289,8 +308,9 @@ export function mountRigPreset(app, model) {
       model.setPresetLayers(added.layers);
       model.setSelectedPresetLayerKey(added.layer.key);
       model.setPresetMeta({ id: preset.id, name: preset.name, kind: preset.kind });
+      selectedGroupKey = added.layer.key;
       finishChange(before);
-      if (!groupPop?.hidden) renderGroupList();
+      renderGroupList();
       const check = checkRigPresetBones(preset, bones());
       app.toast(check.compatible ? `프리셋 「${preset.name}」을 열었습니다` : `프리셋을 보존해 열었습니다. 없는 뼈: ${check.missingBones.join(', ')}`);
     } catch (error) {
@@ -328,7 +348,6 @@ export function mountRigPreset(app, model) {
     }
   }
 
-
   function updateViewModeBadge() {
     const badge = $('#rig-view-mode-btn');
     if (!badge) return;
@@ -350,18 +369,53 @@ export function mountRigPreset(app, model) {
     $('#rig-preset-open')?.addEventListener('click', openPreset);
     $('#rig-preset-save')?.addEventListener('click', savePreset);
 
-    // 그룹화 모달
-    groupBtn?.addEventListener('click', () => {
-      if (groupPop) {
-        groupPop.hidden = false;
-        switchGroupView('list');
+    // 왼쪽 메뉴 탭 전환
+    tabBones?.addEventListener('click', () => switchLeftTab('bones'));
+    tabGroups?.addEventListener('click', () => switchLeftTab('groups'));
+
+    // + 메뉴 팝업 토글 및 외부 클릭 닫기
+    groupPlusBtn?.addEventListener('click', e => {
+      e.stopPropagation();
+      if (!groupPlusMenu) return;
+      const willOpen = groupPlusMenu.hidden;
+      groupPlusMenu.hidden = !willOpen;
+      groupPlusBtn.setAttribute('aria-expanded', String(willOpen));
+    });
+
+    document.addEventListener('click', e => {
+      if (groupPlusMenu && !groupPlusMenu.hidden) {
+        if (!groupPlusWrap?.contains(e.target)) {
+          groupPlusMenu.hidden = true;
+          groupPlusBtn?.setAttribute('aria-expanded', 'false');
+        }
       }
     });
-    groupPopCloseBtn?.addEventListener('click', () => {
-      if (groupPop) groupPop.hidden = true;
+
+    // + 메뉴의 추가하기 / 불러오기
+    groupAddBtn?.addEventListener('click', () => {
+      if (groupPlusMenu) {
+        groupPlusMenu.hidden = true;
+        groupPlusBtn?.setAttribute('aria-expanded', 'false');
+      }
+      renderGroupAddView();
+      if (groupAddPop) groupAddPop.hidden = false;
     });
-    groupAddBtn?.addEventListener('click', () => switchGroupView('add'));
-    groupImportBtn?.addEventListener('click', openPreset);
+
+    groupImportBtn?.addEventListener('click', () => {
+      if (groupPlusMenu) {
+        groupPlusMenu.hidden = true;
+        groupPlusBtn?.setAttribute('aria-expanded', 'false');
+      }
+      openPreset();
+    });
+
+    // 그룹 추가 팝업
+    groupAddCloseBtn?.addEventListener('click', () => {
+      if (groupAddPop) groupAddPop.hidden = true;
+    });
+    groupAddCancelBtn?.addEventListener('click', () => {
+      if (groupAddPop) groupAddPop.hidden = true;
+    });
 
     groupCreateConfirmBtn?.addEventListener('click', () => {
       const name = (newGroupNameInput?.value || '').trim() || '새 그룹';
@@ -377,15 +431,59 @@ export function mountRigPreset(app, model) {
         const grouped = groupDraftRigPieces(presetLayers(), pieces(), { id, name, kind: 'bare' }, selectedIds);
         model.setPresetLayers(grouped.layers);
         model.setPieces(grouped.pieces);
+        selectedGroupKey = grouped.layer.key;
         finishChange(before);
         app.toast(`그룹 「${name}」을 만들었습니다`);
-        switchGroupView('list');
+        if (groupAddPop) groupAddPop.hidden = true;
+        renderGroupList();
       } catch (err) {
         app.toast(err.message || '그룹 생성 실패');
       }
     });
 
-    groupAddCancelBtn?.addEventListener('click', () => switchGroupView('list'));
+    // 그룹 삭제 (묶음만 풀기)
+    groupDeleteBtn?.addEventListener('click', () => {
+      const layer = presetLayers().find(l => l.key === selectedGroupKey);
+      if (!layer) return;
+      const before = model.snapshot();
+      const result = ungroupRigPresetLayer(presetLayers(), pieces(), layer.key);
+      model.setPresetLayers(result.layers);
+      model.setPieces(result.pieces);
+      selectedGroupKey = null;
+      finishChange(before);
+      app.toast(`그룹 「${layer.name}」을 풀었습니다`);
+      renderGroupList();
+    });
+
+    // 그룹 저장 (preset-1 JSON 내려받기)
+    groupSaveBtn?.addEventListener('click', async () => {
+      const layer = presetLayers().find(l => l.key === selectedGroupKey);
+      if (!layer) return;
+      try {
+        const preset = rigLayerToPreset(layer, pieces(), model.getSize());
+        const fileName = `${layer.id || layer.name}.json`;
+        const result = await saveJson(fileName, preset);
+        if (result !== 'cancelled') app.toast(`「${fileName}」으로 저장했습니다`);
+      } catch (err) {
+        app.toast(err.message || '그룹 저장 실패');
+      }
+    });
+
+    // 그룹 편집
+    groupEditBtn?.addEventListener('click', () => {
+      const layer = presetLayers().find(l => l.key === selectedGroupKey);
+      if (!layer) return;
+      editingGroupKey = layer.key;
+      renderGroupEditView();
+      if (groupEditPop) groupEditPop.hidden = false;
+    });
+
+    groupEditCloseBtn?.addEventListener('click', () => {
+      if (groupEditPop) groupEditPop.hidden = true;
+    });
+    groupEditDoneBtn?.addEventListener('click', () => {
+      if (groupEditPop) groupEditPop.hidden = true;
+    });
 
     groupEditRenameBtn?.addEventListener('click', () => {
       const layer = presetLayers().find(l => l.key === editingGroupKey);
@@ -401,21 +499,8 @@ export function mountRigPreset(app, model) {
       finishChange(before);
       app.toast('그룹 이름을 변경했습니다');
       renderGroupEditView();
+      renderGroupList();
     });
-
-    groupUngroupBtn?.addEventListener('click', () => {
-      const layer = presetLayers().find(l => l.key === editingGroupKey);
-      if (!layer) return;
-      const before = model.snapshot();
-      const result = ungroupRigPresetLayer(presetLayers(), pieces(), layer.key);
-      model.setPresetLayers(result.layers);
-      model.setPieces(result.pieces);
-      finishChange(before);
-      app.toast(`그룹 「${layer.name}」을 풀었습니다`);
-      switchGroupView('list');
-    });
-
-    groupEditBackBtn?.addEventListener('click', () => switchGroupView('list'));
   }
 
   bindEvents();
@@ -424,7 +509,8 @@ export function mountRigPreset(app, model) {
     currentPreset,
     refresh() {
       renderWarning();
-      if (groupPop && !groupPop.hidden) renderGroupList();
+      renderGroupList();
+      if (groupEditPop && !groupEditPop.hidden) renderGroupEditView();
     },
   };
 }
