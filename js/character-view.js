@@ -497,27 +497,32 @@ export function mountCharacter(app, model = {}) {
   });
 
   // 확대 축소 (+, −)
-  zoomInBtn?.addEventListener('click', () => {
-    if (zoomScale < 8) {
-      zoomScale++;
-      if (canvas) {
-        const [width, height] = getBasis().canvas || currentCanvas();
-        canvas.style.width = `${width * zoomScale}px`;
-        canvas.style.height = `${height * zoomScale}px`;
-      }
-    }
-  });
+  function zoomAt(nextScale, cursorX, cursorY) {
+    const next = Math.max(2, Math.min(8, nextScale));
+    if (next === zoomScale) return;
+    const r = stage?.getBoundingClientRect() || { left: 0, top: 0, width: 360, height: 256 };
+    const cr = canvas?.getBoundingClientRect() || { left: 0, top: 0, width: 288, height: 256 };
+    const cx = cursorX - (cr.left - r.left);
+    const cy = cursorY - (cr.top - r.top);
+    const ratio = next / zoomScale;
+    panX = Math.round(panX - cx * (ratio - 1));
+    panY = Math.round(panY - cy * (ratio - 1));
+    zoomScale = next;
+    render();
+  }
 
-  zoomOutBtn?.addEventListener('click', () => {
-    if (zoomScale > 2) {
-      zoomScale--;
-      if (canvas) {
-        const [width, height] = getBasis().canvas || currentCanvas();
-        canvas.style.width = `${width * zoomScale}px`;
-        canvas.style.height = `${height * zoomScale}px`;
-      }
-    }
-  });
+  function zoomStep(direction) {
+    const r = stage?.getBoundingClientRect() || { width: 360, height: 256 };
+    zoomAt(zoomScale + direction, r.width / 2, r.height / 2);
+  }
+
+  zoomInBtn?.addEventListener('click', () => zoomStep(1));
+  zoomOutBtn?.addEventListener('click', () => zoomStep(-1));
+  stage?.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = stage.getBoundingClientRect();
+    zoomAt(zoomScale + (e.deltaY < 0 ? 1 : -1), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
 
   // 통합 묶음 ZIP
   saveBundleBtn?.addEventListener('click', async () => {

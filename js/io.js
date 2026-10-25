@@ -10,6 +10,15 @@ export function desktopCanvasActive(media = globalThis.matchMedia?.(DESKTOP_CANV
   return Boolean(media?.matches);
 }
 
+/** 커서 위치 중심으로 확대할 때 유지되어야 할 새 panX, panY를 계산합니다. */
+export function zoomAtAnchor(panX, panY, cell, nextCell, cursorX, cursorY) {
+  const ux = (cursorX - panX) / cell, uy = (cursorY - panY) / cell;
+  return {
+    panX: Math.round(cursorX - ux * nextCell),
+    panY: Math.round(cursorY - uy * nextCell),
+  };
+}
+
 /** 마우스 가운데·오른쪽 단추로 그림판을 옮깁니다. 창 폭은 이동 동작을 제한하지 않습니다. */
 export function mountDesktopCanvasPan(stage, {
   readPan,
@@ -23,6 +32,19 @@ export function mountDesktopCanvasPan(stage, {
   const stop = event => {
     event.preventDefault();
     event.stopImmediatePropagation?.();
+  };
+
+  const onMouseDown = event => {
+    if (enabled() && (event.button === 1 || event.button === 2)) {
+      event.preventDefault();
+      event.stopImmediatePropagation?.();
+    }
+  };
+  const onAuxClick = event => {
+    if (enabled() && (event.button === 1 || event.button === 2)) {
+      event.preventDefault();
+      event.stopImmediatePropagation?.();
+    }
   };
 
   const onPointerDown = event => {
@@ -47,6 +69,8 @@ export function mountDesktopCanvasPan(stage, {
     if (enabled() && (event.pointerType === 'mouse' || event.button === 2)) event.preventDefault();
   };
 
+  stage.addEventListener('mousedown', onMouseDown, { capture: true });
+  stage.addEventListener('auxclick', onAuxClick, { capture: true });
   stage.addEventListener('pointerdown', onPointerDown, { capture: true });
   stage.addEventListener('pointermove', onPointerMove, { capture: true });
   stage.addEventListener('pointerup', onPointerEnd, { capture: true });
@@ -60,7 +84,16 @@ export function mountDesktopCanvasPan(stage, {
 
   return {
     active: () => Boolean(drag),
-    disconnect: () => observer?.disconnect(),
+    disconnect: () => {
+      observer?.disconnect();
+      stage.removeEventListener?.('mousedown', onMouseDown, { capture: true });
+      stage.removeEventListener?.('auxclick', onAuxClick, { capture: true });
+      stage.removeEventListener?.('pointerdown', onPointerDown, { capture: true });
+      stage.removeEventListener?.('pointermove', onPointerMove, { capture: true });
+      stage.removeEventListener?.('pointerup', onPointerEnd, { capture: true });
+      stage.removeEventListener?.('pointercancel', onPointerEnd, { capture: true });
+      stage.removeEventListener?.('contextmenu', onContextMenu, { capture: true });
+    },
   };
 }
 

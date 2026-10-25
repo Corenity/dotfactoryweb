@@ -2,7 +2,7 @@
 import { KEY, toHex, dropKey } from './core/paint.js';
 import { overlayGuide, GUIDE_OPACITY, guideOpacity, moveGuide } from './core/assemble.js';
 import { importRegionConfig, regionGuideImage } from './core/region-slice.js';
-import { pickFiles, readImageFile, baseName, mountDesktopCanvasPan } from './io.js';
+import { pickFiles, readImageFile, baseName, mountDesktopCanvasPan, zoomAtAnchor } from './io.js';
 
 const $ = sel => document.querySelector(sel);
 
@@ -56,18 +56,21 @@ export function mountRigSlice(app, model) {
     render();
   }
 
-  function zoomStep(direction) {
+  function zoomAt(nextCell, cursorX, cursorY) {
     if (!hasTarget()) return;
-    const next = Math.max(1, Math.min(16, cell + direction));
+    const next = Math.max(1, Math.min(16, nextCell));
     if (next === cell) return;
+    const p = zoomAtAnchor(panX, panY, cell, next, cursorX, cursorY);
+    cell = next;
+    panX = p.panX;
+    panY = p.panY;
+    render();
+  }
+
+  function zoomStep(direction) {
     const w = stage.clientWidth || 320;
     const h = stage.clientHeight || 240;
-    const cx = w / 2, cy = h / 2;
-    const ux = (cx - panX) / cell, uy = (cy - panY) / cell;
-    cell = next;
-    panX = Math.round(cx - ux * cell);
-    panY = Math.round(cy - uy * cell);
-    render();
+    zoomAt(cell + direction, w / 2, h / 2);
   }
 
   function render() {
@@ -280,6 +283,12 @@ export function mountRigSlice(app, model) {
     $('#rig-zoom-in')?.addEventListener('click', () => zoomStep(1));
     $('#rig-zoom-out')?.addEventListener('click', () => zoomStep(-1));
     $('#rig-zoom-fit')?.addEventListener('click', fit);
+    stage.addEventListener('wheel', e => {
+      if (!hasTarget()) return;
+      e.preventDefault();
+      const r = stage.getBoundingClientRect();
+      zoomAt(cell + (e.deltaY < 0 ? 1 : -1), e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
 
     // 포인터 이벤트: 1손가락 붓/지우개 칠하기, 2손가락 화면 이동
     stage.addEventListener('pointerdown', e => {

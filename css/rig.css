@@ -269,7 +269,8 @@
 }
 
 @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
-  #rig .stage.rig-screen-stage {
+  #rig .stage.rig-screen-stage,
+  #motion .stage.rig-screen-stage {
     height: clamp(420px, 65vh, 720px);
     min-height: 420px;
     max-height: none;

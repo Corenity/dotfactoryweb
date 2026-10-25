@@ -4,7 +4,7 @@ import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-r
 import { addMotion, changeMotionLength, changeMotionStep, copyPreviousKey, deleteKey, frameTimes, hasKey, poseAt, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
 import { encodeGif } from './core/gif.js';
 import { sortRigPiecesByLayers } from './core/preset-layers.js';
-import { drawPixels, saveFile, saveJson, pickFiles, mountDesktopCanvasPan } from './io.js';
+import { drawPixels, saveFile, saveJson, pickFiles, mountDesktopCanvasPan, zoomAtAnchor } from './io.js';
 import { toAnimation, parseAnimation, checkSkeletonCompatibility, adaptAnimationToBones, mergeAnimations } from './core/animation.js';
 import { scrollTreeItemIntoView } from './rig-bones-view.js';
 
@@ -108,13 +108,19 @@ export function mountMotion(app, model) {
     render();
   }
 
-  function zoom(direction) {
-    const next = Math.max(1, Math.min(16, cell + direction));
+  function zoomAt(nextCell, cursorX, cursorY) {
+    const next = Math.max(1, Math.min(16, nextCell));
     if (next === cell) return;
-    const cx = (stage.clientWidth || 320) / 2, cy = (stage.clientHeight || 240) / 2;
-    const x = (cx - panX) / cell, y = (cy - panY) / cell;
-    cell = next; panX = Math.round(cx - x * cell); panY = Math.round(cy - y * cell);
+    const p = zoomAtAnchor(panX, panY, cell, next, cursorX, cursorY);
+    cell = next;
+    panX = p.panX;
+    panY = p.panY;
     render();
+  }
+
+  function zoom(direction) {
+    const cx = (stage.clientWidth || 320) / 2, cy = (stage.clientHeight || 240) / 2;
+    zoomAt(cell + direction, cx, cy);
   }
 
   function drawBones(posed) {
@@ -452,6 +458,11 @@ export function mountMotion(app, model) {
     $('#motion-zoom-in').addEventListener('click', () => zoom(1));
     $('#motion-zoom-out').addEventListener('click', () => zoom(-1));
     $('#motion-zoom-fit').addEventListener('click', fit);
+    stage.addEventListener('wheel', e => {
+      e.preventDefault();
+      const r = stage.getBoundingClientRect();
+      zoomAt(cell + (e.deltaY < 0 ? 1 : -1), e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
     toolPosButton.addEventListener('click', () => switchTool('P'));
     toolRotButton.addEventListener('click', () => switchTool('R'));
     viewModeButton?.addEventListener('click', () => {
