@@ -165,14 +165,39 @@ export function ungroupRigPresetLayer(layers, pieces, layerKey) {
   return { layers: safeLayers, pieces: nextPieces };
 }
 
+export function rigPieceKey(piece, index = null) {
+  const base = piece?.id || piece?.name || piece?.piece || 'piece';
+  return index != null ? `${base}#${index}` : String(base);
+}
+
+const PIECE_KEY_PATTERN = /#\d+$/;
+
+function matchPieceTarget(piece, index, targetSet) {
+  if (!targetSet || targetSet.size === 0) return false;
+  if (targetSet.has(piece)) return true;
+  if (index != null && (targetSet.has(index) || targetSet.has(String(index)) || targetSet.has(`#${index}`))) {
+    return true;
+  }
+  const key = rigPieceKey(piece, index);
+  if (targetSet.has(key)) return true;
+  for (const target of targetSet) {
+    if (typeof target === 'string' && PIECE_KEY_PATTERN.test(target)) {
+      continue;
+    }
+    if (target === piece?.id || target === piece?.name || target === piece?.piece) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** 그룹 편집: 그림 추가/빼기 */
 export function updateGroupPieces(pieces, layerKey, { addPieceIds = [], removePieceIds = [] } = {}) {
   const addSet = new Set(addPieceIds);
   const removeSet = new Set(removePieceIds);
-  return (pieces || []).map(p => {
-    const id = p.id || p.name;
-    if (addSet.has(id)) return { ...p, presetLayerKey: layerKey };
-    if (removeSet.has(id)) return { ...p, presetLayerKey: null };
+  return (pieces || []).map((p, index) => {
+    if (matchPieceTarget(p, index, addSet)) return { ...p, presetLayerKey: layerKey };
+    if (matchPieceTarget(p, index, removeSet)) return { ...p, presetLayerKey: null };
     return { ...p };
   });
 }
@@ -207,8 +232,16 @@ export function rigLayerToPreset(layer, pieces = [], canvas = currentCanvas()) {
 export function groupDraftRigPieces(layers, pieces, meta, selectedPieceIds = null) {
   const safeLayers = normalizeRigPresetLayers(layers);
   const targetIds = selectedPieceIds ? new Set(selectedPieceIds) : null;
-  const draftPieces = (pieces || []).filter(p => !p?.presetLayerKey && (!targetIds || targetIds.has(p.id || p.name)));
-  if (!draftPieces.length) throw new Error('새 그룹에 넣을 그림을 골라 주세요');
+  const list = pieces || [];
+  const selectedIndices = [];
+  for (let i = 0; i < list.length; i++) {
+    const p = list[i];
+    if (p?.presetLayerKey) continue;
+    if (!targetIds || matchPieceTarget(p, i, targetIds)) {
+      selectedIndices.push(i);
+    }
+  }
+  if (!selectedIndices.length) throw new Error('새 그룹에 넣을 그림을 골라 주세요');
   const layer = {
     key: nextPresetLayerKey(safeLayers),
     id: String(meta?.id || uniquePresetIdFromName(meta?.name || '새 프리셋', safeLayers)).trim().toLowerCase(),
@@ -216,10 +249,10 @@ export function groupDraftRigPieces(layers, pieces, meta, selectedPieceIds = nul
     kind: String(meta?.kind || 'bare').trim(),
     visible: true,
   };
-  const targetSet = new Set(draftPieces.map(p => p.id || p.name));
+  const targetIndexSet = new Set(selectedIndices);
   const nextLayers = [...safeLayers, layer];
-  const nextPieces = (pieces || []).map(p => {
-    if (!p?.presetLayerKey && targetSet.has(p.id || p.name)) {
+  const nextPieces = list.map((p, i) => {
+    if (targetIndexSet.has(i)) {
       return { ...p, presetLayerKey: layer.key };
     }
     return { ...p };

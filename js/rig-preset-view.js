@@ -6,7 +6,7 @@ import {
 import {
   addPresetToRigLayers, groupDraftRigPieces, rigLayerToPreset,
   toggleGroupLayerVisibility, ungroupRigPresetLayer, uniquePresetIdFromName,
-  updateGroupPieces,
+  updateGroupPieces, rigPieceKey,
 } from './core/preset-layers.js';
 import { dropKey } from './core/paint.js';
 import { pickFiles, readImageFile, readDataUrl, toPngDataUrl, saveJson, baseName } from './io.js';
@@ -163,12 +163,14 @@ export function mountRigPreset(app, model) {
     }
 
     drafts.forEach(p => {
+      const pieceIndex = pieces().indexOf(p);
+      const key = rigPieceKey(p, pieceIndex);
       const label = document.createElement('label');
       label.className = 'rig-piece-check-item';
       const chk = document.createElement('input');
       chk.type = 'checkbox';
       chk.checked = true;
-      chk.dataset.pieceId = p.id || p.name;
+      chk.dataset.pieceId = key;
       const text = document.createElement('span');
       text.textContent = `${p.name || p.piece} (${p.bone}, 깊이: ${p.zIndex})`;
       label.append(chk, text);
@@ -191,6 +193,8 @@ export function mountRigPreset(app, model) {
         groupMemberPieces.innerHTML = '<p class="hint">소속된 그림이 없습니다.</p>';
       } else {
         members.forEach(p => {
+          const pieceIndex = pieces().indexOf(p);
+          const key = rigPieceKey(p, pieceIndex);
           const row = document.createElement('div');
           row.className = 'rig-piece-member-item';
           const nameSpan = document.createElement('span');
@@ -201,7 +205,7 @@ export function mountRigPreset(app, model) {
           dropBtn.textContent = '빼기';
           dropBtn.addEventListener('click', () => {
             const before = model.snapshot();
-            const nextPieces = updateGroupPieces(pieces(), layer.key, { removePieceIds: [p.id || p.name] });
+            const nextPieces = updateGroupPieces(pieces(), layer.key, { removePieceIds: [key] });
             model.setPieces(nextPieces);
             finishChange(before);
             renderGroupEditView();
@@ -220,6 +224,8 @@ export function mountRigPreset(app, model) {
         groupAvailPieces.innerHTML = '<p class="hint">추가할 수 있는 미소속 그림이 없습니다.</p>';
       } else {
         drafts.forEach(p => {
+          const pieceIndex = pieces().indexOf(p);
+          const key = rigPieceKey(p, pieceIndex);
           const row = document.createElement('div');
           row.className = 'rig-piece-member-item';
           const nameSpan = document.createElement('span');
@@ -230,7 +236,7 @@ export function mountRigPreset(app, model) {
           addBtn.textContent = '추가';
           addBtn.addEventListener('click', () => {
             const before = model.snapshot();
-            const nextPieces = updateGroupPieces(pieces(), layer.key, { addPieceIds: [p.id || p.name] });
+            const nextPieces = updateGroupPieces(pieces(), layer.key, { addPieceIds: [key] });
             model.setPieces(nextPieces);
             finishChange(before);
             renderGroupEditView();
