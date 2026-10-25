@@ -53,7 +53,18 @@ input[type="color"] {
 @supports (height: 100svh) {
   #paint { height: calc(100svh - var(--top-h, 61px) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 }
-#paint .stage { flex: 1 1 0; height: auto; min-height: 160px; }
+.paint-workspace { display: flex; flex: 1 1 0; width: 100%; min-width: 0; min-height: 160px; gap: 4px; box-sizing: border-box; }
+#paint .stage { flex: 1 1 0; width: 0; min-width: 0; height: auto; min-height: 0; }
+.paint-view-menu { display: flex; flex: 0 0 48px; flex-direction: column; gap: 4px; }
+.paint-view-menu button {
+  flex: 0 0 44px; height: 44px; padding: 2px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); color: var(--muted); font: inherit; font-size: 12px;
+}
+.paint-view-menu button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
+.paint-view-panel[hidden] { display: none; }
+.paint-view-panel { flex-wrap: nowrap; min-height: 44px; gap: 4px; }
+.paint-view-panel .btn { min-height: 44px; }
+.paint-move-row .arrows { margin-left: auto; }
 
 /* 좌표와 선택 단추는 그림판 위에 겹쳐 띄워 줄 하나를 아낍니다. 좌표는 손가락 조작을 막지 않습니다. */
 .stage-pos {
@@ -67,10 +78,8 @@ input[type="color"] {
 .selection-actions .selection-color { display: flex; align-items: center; gap: 3px; padding: 0 6px; }
 #paint-selection-color-chip { width: 13px; height: 13px; border: 1px solid #fff9; border-radius: 3px; }
 .paint-controls { flex-wrap: nowrap; gap: 4px; }
-.paint-controls .btn { min-width: 36px; min-height: 36px; height: 36px; padding: 0 7px; border-radius: 8px; }
+.paint-controls .btn { min-width: 44px; height: 44px; padding: 0 7px; border-radius: 8px; }
 .paint-controls #paint-zoom { min-width: 34px; text-align: center; white-space: nowrap; }
-.paint-controls .arrows { gap: 4px; margin-left: auto; }
-.paint-controls .arrows .btn { width: 36px; padding: 0; }
 
 .guide { padding: 4px; border: 1px solid transparent; border-radius: 10px; }
 .guide.is-target { border-color: var(--accent); background: #26304a; }
@@ -85,28 +94,21 @@ input[type="color"] {
 .guide-picker-menu[hidden] { display: none; }
 .guide-picker-menu .btn { display: block; width: 100%; min-height: 44px; text-align: left; }
 
-/* 화살표 · 스포이드가 원본과 대볼 그림 중 어느 쪽을 다룰지 고르는 두 칸 단추입니다. 고른 칸이 파랗게 찹니다. */
-.segmented {
-  flex: none; display: flex; gap: 3px; padding: 3px;
-  border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
-}
-.segmented button {
-  min-height: 36px; padding: 0 10px; border: 0; border-radius: 7px;
-  background: transparent; color: var(--muted); font: inherit; font-size: 15px; white-space: nowrap;
-  transition: background-color 0.12s, color 0.12s;
-}
-.segmented button[aria-checked="true"],
-.segmented button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
-.segmented button:disabled { opacity: 0.45; }
 .btn[hidden] { display: none; }
 
 /* 파일 단추 네 개는 한 줄에 같은 폭으로 둡니다. */
 .paint-files { flex-wrap: nowrap; gap: 6px; }
 .paint-files .btn { flex: 1 1 0; min-width: 0; padding: 0 4px; font-size: 14px; white-space: nowrap; }
-/* 진하기 밀대는 대볼 그림 줄 아래에 한 줄을 다 써서 손가락으로 끌기 쉽게 합니다. */
-.guide .guide-opacity { flex: 1 1 100%; }
 .guide-opacity input[type="range"] { flex: 1; min-height: 44px; }
 .guide-opacity span { min-width: 3em; text-align: right; }
+.paint-compare-row { padding: 0; border: 0; }
+.paint-compare-row .guide-picker { flex: 0 0 auto; }
+.paint-compare-row #paint-guide-pick { min-width: 52px; padding: 0 6px; }
+.paint-compare-row .guide-opacity { flex: 1 1 0; min-width: 0; gap: 2px; }
+.paint-compare-row .guide-opacity input[type="range"] { min-width: 0; width: 100%; }
+.paint-compare-row .guide-opacity span { min-width: 31px; font-size: 12px; }
+.paint-compare-row .arrows { flex: 0 0 auto; gap: 2px; }
+.paint-compare-row .arrows .btn, .paint-move-row .arrows .btn { width: 44px; min-width: 44px; padding: 0; }
 
 .layers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 

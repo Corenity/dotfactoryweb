@@ -19,11 +19,12 @@ const FIT_PAD = 12;
 
 export function mountPaint(app) {
   const stage = $('#paint-stage');
+  const workspace = $('.paint-workspace');
   const canvas = $('#paint-canvas');
   const colorBtn = $('#paint-color-btn'), selectionColorBtn = $('#paint-selection-color'), colorPop = $('#paint-color-pop');
   let image = null, name = '그림', history = new History();
   let guide = null; // { image, name, opacity, dx, dy, kind?: 'regions' }
-  let guideTarget = false;
+  let activeView = 'original';
   let mine = loadColors(); // 내 색: 다른 색에서 고른 색. 그림을 바꿔도 남습니다.
   let tool = 'pen', cell = 8, panX = 0, panY = 0;
   let strokeBefore = null, last = null;
@@ -50,7 +51,8 @@ export function mountPaint(app) {
   function render() {
     renderGuide();
     renderSelectionBar();
-    for (const b of document.querySelectorAll('[data-move]')) b.disabled = !image;
+    for (const b of document.querySelectorAll('[data-paint-panel="original"] [data-move]')) b.disabled = !image;
+    for (const b of document.querySelectorAll('[data-paint-panel="compare"] [data-move]')) b.disabled = !image || !guide;
     $('#paint-empty').hidden = !!image;
     canvas.hidden = !image;
     if (!image) return;
@@ -170,15 +172,13 @@ export function mountPaint(app) {
   }
 
   function renderGuide() {
-    $('#paint-guide-name').textContent = guide ? guide.name : '없음';
-    $('#paint-guide-name').classList.toggle('is-empty', !guide);
-    for (const b of $('#paint-target').querySelectorAll('[data-target]')) {
-      b.setAttribute('aria-checked', String((b.dataset.target === 'guide') === guideTarget));
-      if (b.dataset.target === 'guide') b.disabled = !guide;
+    for (const b of document.querySelectorAll('[data-paint-view]')) {
+      b.setAttribute('aria-pressed', String(b.dataset.paintView === activeView));
     }
-    $('#paint-guide-row').classList.toggle('is-target', guideTarget);
-    $('#paint-guide-pick').textContent = guide ? '바꾸기' : '고르기';
-    $('#paint-guide-drop').hidden = !guide;
+    for (const panel of document.querySelectorAll('[data-paint-panel]')) panel.hidden = panel.dataset.paintPanel !== activeView;
+    $('#paint-guide-pick').textContent = guide ? '빼기' : '고르기';
+    $('#paint-guide-pick').setAttribute('aria-expanded', 'false');
+    if (guide) $('#paint-guide-menu').hidden = true;
     const opacity = guide ? guide.opacity : GUIDE_OPACITY;
     $('#paint-guide-opacity').value = String(Math.round(opacity * 100));
     $('#paint-guide-opacity').disabled = !guide;
@@ -238,15 +238,16 @@ export function mountPaint(app) {
   // 한도는 단추 줄을 뺀 남는 높이(CSS 에서 늘어나는 그림판)이고, 줄일 때는 늘어나지 않게 고정합니다.
   function fit() {
     if (!image) return;
-    stage.style.height = stage.style.minHeight = stage.style.flex = '';
+    workspace.style.height = workspace.style.minHeight = workspace.style.flex = '';
     const w = stage.clientWidth, h = stage.clientHeight;
+    if (!w || !h) return;
     fittedWidth = w;
     cell = Math.max(1, Math.floor(Math.min(w / image.width, h / image.height)));
     const fitted = image.height * cell + FIT_PAD * 2;
     if (fitted < h) {
-      stage.style.height = `${fitted + stage.offsetHeight - h}px`;
-      stage.style.minHeight = '0';
-      stage.style.flex = '0 0 auto';
+      workspace.style.height = `${fitted + workspace.offsetHeight - h}px`;
+      workspace.style.minHeight = '0';
+      workspace.style.flex = '0 0 auto';
     }
     panX = Math.round((w - image.width * cell) / 2);
     panY = Math.round((stage.clientHeight - image.height * cell) / 2);
@@ -319,8 +320,8 @@ export function mountPaint(app) {
     if (tool === 'select') { selectMove(at); selectEnd(); strokeBefore = null; last = null; return; }
     if (tool === 'fill' && inside(at)) floodFill(image, at[0], at[1], color());
     if (tool === 'picker' && inside(at)) {
-      // 대볼 그림을 골라 둔 동안은 대볼 그림의 원래 색을 가져옵니다.
-      const px = guideTarget && guide ? guidePixelAt(guide.image, at[0], at[1], guide.dx, guide.dy) : getPixel(image, at[0], at[1]);
+      // 「비교」 메뉴에서 대볼 그림이 보이는 동안은 그 그림의 원래 색을 가져옵니다.
+      const px = activeView === 'compare' && guide ? guidePixelAt(guide.image, at[0], at[1], guide.dx, guide.dy) : getPixel(image, at[0], at[1]);
       if (px?.[3]) { setColor(toHex(px)); app.toast(`색을 골랐습니다 ${toHex(px)}`); setTool('pen'); }
     }
     if (!sameImage(strokeBefore, image)) { history.push(strokeBefore); changed(); }
@@ -424,7 +425,13 @@ export function mountPaint(app) {
     if (image && !confirm(`지금 그림을 비우고 ${width}×${height} 새 그림을 만들까요? 내려받지 않은 고침은 사라집니다.`)) return;
     load(blank(width, height), '새 그림');
   });
+  for (const b of document.querySelectorAll('[data-paint-view]')) b.addEventListener('click', () => {
+    activeView = b.dataset.paintView;
+    closeGuideMenu();
+    render();
+  });
   $('#paint-guide-pick').addEventListener('click', () => {
+    if (guide) { guide = null; closeGuideMenu(); changed(); return; }
     const menu = $('#paint-guide-menu');
     menu.hidden = !menu.hidden;
     $('#paint-guide-pick').setAttribute('aria-expanded', String(!menu.hidden));
@@ -449,18 +456,13 @@ export function mountPaint(app) {
       useRegionGuide(JSON.parse(await file.text()), baseName(file.name));
     } catch (err) { app.toast(err.message || '영역 설정을 불러오지 못했습니다'); }
   });
-  for (const b of $('#paint-target').querySelectorAll('[data-target]')) b.addEventListener('click', () => {
-    guideTarget = b.dataset.target === 'guide' && !!guide;
-    render();
-  });
-  $('#paint-guide-drop').addEventListener('click', () => { guide = null; guideTarget = false; changed(); });
   $('#paint-guide-opacity').addEventListener('input', () => { if (guide) { guide.opacity = guideOpacity($('#paint-guide-opacity').value / 100); changed(); } });
-  // 대상을 「대볼 그림」으로 고른 동안은 대볼 그림만 옮깁니다. 아니면 선택 영역, 그림 전체 순서로 대상을 정합니다.
+  // 「비교」 메뉴를 고른 동안은 대볼 그림만 옮깁니다. 아니면 선택 영역, 그림 전체 순서로 대상을 정합니다.
   // 그림 전체가 판 밖으로 나간 칸은 잘리며 한 칸씩 되돌릴 수 있고, 선택 영역은 내려놓을 때 한 단계로 기록합니다.
-  for (const b of document.querySelectorAll('[data-move]')) b.addEventListener('click', () => {
+  for (const b of document.querySelectorAll('[data-paint-panel] [data-move]')) b.addEventListener('click', () => {
     if (!image) return;
     const [dx, dy] = b.dataset.move.split(',').map(Number);
-    if (guideTarget && guide) { guide.dx += dx; guide.dy += dy; changed(); return; }
+    if (activeView === 'compare' && guide) { guide.dx += dx; guide.dy += dy; changed(); return; }
     if (sel) { if (moveSelection(sel.x + dx, sel.y + dy)) changed(); return; }
     const next = shiftPixels(image, dx, dy);
     if (sameImage(image, next)) return;
@@ -503,7 +505,6 @@ export function mountPaint(app) {
     if (guide?.kind === 'regions' && (guide.image.width !== image.width || guide.image.height !== image.height)) {
       app.toast(`대볼 영역의 그림판 크기(${guide.image.width}×${guide.image.height})가 편집 그림 크기(${image.width}×${image.height})와 달라 뺐습니다`);
       guide = null;
-      guideTarget = false;
     }
     history = new History();
     $('#paint-clean-status').textContent = '';

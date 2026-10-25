@@ -109,21 +109,26 @@
           <label class="inline">다른 색<input type="color" id="paint-color" value="#000000"></label>
         </div>
       </div>
-      <div class="stage" id="paint-stage">
-        <canvas id="paint-canvas" class="pixels"></canvas>
-        <p class="empty" id="paint-empty">축소한 그림을 보내거나 「열기」로 PNG 를 여세요.</p>
-        <span class="stage-pos" id="paint-pos"></span>
-        <span class="selection-actions" id="paint-selection-actions" hidden>
-          <button class="btn selection-color" id="paint-selection-color" aria-label="선택을 칠할 색 고르기" aria-expanded="false" aria-controls="paint-color-pop"><span id="paint-selection-color-chip"></span>색</button>
-          <button class="btn" id="paint-selection-fill">칠하기</button>
-          <button class="btn" id="paint-selection-erase">지우기</button>
-        </span>
+      <div class="paint-workspace">
+        <nav class="paint-view-menu" aria-label="편집 보기 메뉴">
+          <button type="button" data-paint-view="original" aria-pressed="true">원본</button>
+          <button type="button" data-paint-view="compare" aria-pressed="false">비교</button>
+          <button type="button" data-paint-view="zoom" aria-pressed="false">줌</button>
+          <button type="button" data-paint-view="clean" aria-pressed="false">색정리</button>
+        </nav>
+        <div class="stage" id="paint-stage">
+          <canvas id="paint-canvas" class="pixels"></canvas>
+          <p class="empty" id="paint-empty">축소한 그림을 보내거나 「열기」로 PNG 를 여세요.</p>
+          <span class="stage-pos" id="paint-pos"></span>
+          <span class="selection-actions" id="paint-selection-actions" hidden>
+            <button class="btn selection-color" id="paint-selection-color" aria-label="선택을 칠할 색 고르기" aria-expanded="false" aria-controls="paint-color-pop"><span id="paint-selection-color-chip"></span>색</button>
+            <button class="btn" id="paint-selection-fill">칠하기</button>
+            <button class="btn" id="paint-selection-erase">지우기</button>
+          </span>
+        </div>
       </div>
-      <div class="row paint-controls">
-        <button class="btn" id="paint-zoom-out" aria-label="작게 보기">−</button>
-        <span class="hint" id="paint-zoom"></span>
-        <button class="btn" id="paint-zoom-in" aria-label="크게 보기">+</button>
-        <button class="btn" id="paint-fit">맞춤</button>
+      <div class="row paint-view-panel paint-move-row" data-paint-panel="original">
+        <span class="hint">그림 옮기기</span>
         <span class="arrows">
           <button class="btn small" data-move="-1,0" aria-label="왼쪽으로 한 칸 옮기기" disabled>←</button>
           <button class="btn small" data-move="1,0" aria-label="오른쪽으로 한 칸 옮기기" disabled>→</button>
@@ -131,12 +136,7 @@
           <button class="btn small" data-move="0,1" aria-label="아래로 한 칸 옮기기" disabled>↓</button>
         </span>
       </div>
-      <div class="row guide" id="paint-guide-row">
-        <div class="segmented" id="paint-target" role="radiogroup" aria-label="화살표 · 스포이드가 다룰 그림">
-          <button type="button" role="radio" data-target="image" aria-checked="true">원본</button>
-          <button type="button" role="radio" data-target="guide" aria-checked="false" disabled>대볼 그림</button>
-        </div>
-        <span class="guide-name is-empty" id="paint-guide-name">없음</span>
+      <div class="row guide paint-view-panel paint-compare-row" id="paint-guide-row" data-paint-panel="compare" hidden>
         <div class="guide-picker">
           <button class="btn small" id="paint-guide-pick" type="button" aria-haspopup="menu" aria-expanded="false">고르기</button>
           <div class="guide-picker-menu" id="paint-guide-menu" role="menu" aria-label="대볼 자료 고르기" hidden>
@@ -144,10 +144,21 @@
             <button class="btn" type="button" role="menuitem" data-guide-source="region-file">영역 설정 파일</button>
           </div>
         </div>
-        <button class="btn small" id="paint-guide-drop" hidden>빼기</button>
-        <label class="inline guide-opacity">진하기<input type="range" id="paint-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="paint-guide-opacity-value">50%</span></label>
+        <label class="inline guide-opacity"><input type="range" id="paint-guide-opacity" min="0" max="100" step="10" value="50" aria-label="대볼 그림 진하기" disabled><span id="paint-guide-opacity-value">50%</span></label>
+        <span class="arrows">
+          <button class="btn small" data-move="-1,0" aria-label="대볼 그림 왼쪽으로 한 칸 옮기기" disabled>←</button>
+          <button class="btn small" data-move="1,0" aria-label="대볼 그림 오른쪽으로 한 칸 옮기기" disabled>→</button>
+          <button class="btn small" data-move="0,-1" aria-label="대볼 그림 위로 한 칸 옮기기" disabled>↑</button>
+          <button class="btn small" data-move="0,1" aria-label="대볼 그림 아래로 한 칸 옮기기" disabled>↓</button>
+        </span>
       </div>
-      <div class="row" id="paint-clean-wrap">
+      <div class="row paint-controls paint-view-panel" data-paint-panel="zoom" hidden>
+        <button class="btn" id="paint-zoom-out" aria-label="작게 보기">−</button>
+        <span class="hint" id="paint-zoom"></span>
+        <button class="btn" id="paint-zoom-in" aria-label="크게 보기">+</button>
+        <button class="btn" id="paint-fit">맞춤</button>
+      </div>
+      <div class="row paint-view-panel" id="paint-clean-wrap" data-paint-panel="clean" hidden>
         <label class="inline" for="paint-clean-level">색 묶기<input id="paint-clean-level" type="range" min="1" max="15" value="5" step="1"></label>
         <span class="hint" id="paint-clean-val">5%</span>
         <button class="btn" id="paint-clean-run">색 정리</button>
