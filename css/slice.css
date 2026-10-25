@@ -111,12 +111,22 @@
 /* 색 영역 자르기 도구 및 목록 스타일 */
 .slice-tools-row {
   display: flex;
-  gap: 8px;
+  flex-wrap: nowrap;
+  gap: 6px;
   align-items: center;
 }
 
 .slice-tools-row .btn {
+  min-width: 44px;
   min-height: 44px;
+  padding: 0 8px;
+  box-sizing: border-box;
+}
+
+.slice-tools-row .hint {
+  min-width: 36px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
 .slice-regions-actions {

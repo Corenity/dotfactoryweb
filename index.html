@@ -198,21 +198,18 @@
         <button class="btn icon" id="slice-undo" aria-label="되돌리기" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button class="btn icon" id="slice-redo" aria-label="다시하기" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </div>
-      <div class="row">
+      <div class="row slice-tools-row">
         <button class="btn" id="rig-zoom-out" aria-label="작게 보기">−</button>
         <span class="hint" id="rig-zoom-text">400%</span>
         <button class="btn" id="rig-zoom-in" aria-label="크게 보기">+</button>
         <button class="btn" id="rig-zoom-fit">맞춤</button>
+        <button class="btn primary" id="slice-tool-brush" type="button" aria-pressed="true">붓</button>
+        <button class="btn" id="slice-tool-eraser" type="button" aria-pressed="false">지우개</button>
       </div>
       <div class="stage" id="rig-stage">
         <canvas id="rig-canvas" class="pixels"></canvas>
         <canvas id="rig-overlay" class="pixels"></canvas>
         <p class="empty" id="rig-empty">「그림 올리기」로 캐릭터 그림을 여세요.</p>
-      </div>
-      <div class="row slice-tools-row">
-        <button class="btn primary" id="slice-tool-brush" type="button" aria-pressed="true">붓</button>
-        <button class="btn" id="slice-tool-eraser" type="button" aria-pressed="false">지우개</button>
-        <label class="inline">크기<select id="slice-brush-size"><option value="1">1칸</option><option value="2">2칸</option><option value="3">3칸</option></select></label>
       </div>
       <div class="row slice-regions-actions">
         <button class="btn" id="slice-add-region">+ 영역 더하기</button>

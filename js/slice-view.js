@@ -385,10 +385,9 @@ export function mountSlice(app) {
     }
   });
 
-  // 도구 선택: 붓 / 지우개 / 붓 크기
+  // 도구 선택: 붓 / 지우개
   const btnBrush = $('#slice-tool-brush');
   const btnEraser = $('#slice-tool-eraser');
-  const selectSize = $('#slice-brush-size');
 
   function updateToolUI() {
     if (btnBrush) {
@@ -410,10 +409,6 @@ export function mountSlice(app) {
   btnEraser?.addEventListener('click', () => {
     activeTool = 'eraser';
     updateToolUI();
-  });
-
-  selectSize?.addEventListener('change', e => {
-    brushSize = Number(e.target.value) || 1;
   });
 
   // 영역 더하기
