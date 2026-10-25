@@ -5,6 +5,7 @@ import { overlayGuide, guidePixelAt, guideOpacity, GUIDE_OPACITY } from './core/
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName } from './io.js';
 import { selectRect, insideRect, lift, fillPiece, place } from './core/select.js';
 import { loadColors, saveColors } from './store.js';
+import { currentCanvas } from './core/profile.js';
 
 const $ = sel => document.querySelector(sel);
 // 한 칸을 화면에서 몇 픽셀로 그릴지 고르는 단계입니다. + · − 는 이 단계를 하나씩 오갑니다.
@@ -401,8 +402,9 @@ export function mountPaint(app) {
     try { load(await readImageFile(file), baseName(file.name)); } catch (err) { app.toast(`열지 못했습니다: ${err.message}`); }
   });
   $('#paint-new').addEventListener('click', () => {
-    if (image && !confirm('지금 그림을 비우고 72×64 새 그림을 만들까요? 내려받지 않은 고침은 사라집니다.')) return;
-    load(blank(72, 64), '새 그림');
+    const [width, height] = currentCanvas();
+    if (image && !confirm(`지금 그림을 비우고 ${width}×${height} 새 그림을 만들까요? 내려받지 않은 고침은 사라집니다.`)) return;
+    load(blank(width, height), '새 그림');
   });
   $('#paint-guide-pick').addEventListener('click', async () => {
     const [file] = await pickFiles({ accept: 'image/png' });

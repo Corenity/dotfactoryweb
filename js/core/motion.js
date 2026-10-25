@@ -1,6 +1,7 @@
 // 움직임의 끊어지는 자세와 GIF 프레임을 계산하는 순수 모듈입니다.
 import { normalizeBones } from './rig.js';
 import { composeRig } from './rig-render.js';
+import { currentCanvas } from './profile.js';
 
 const EPSILON = 1e-7;
 
@@ -137,7 +138,7 @@ export function copyPreviousKey(bones, motion, boneName, time) {
   return pose ? setKey(motion, boneName, time, pose) : motion;
 }
 
-export function renderMotionFrames(pieces, bones, motion, width = 72, height = 64, presetLayers = []) {
+export function renderMotionFrames(pieces, bones, motion, width = currentCanvas()[0], height = currentCanvas()[1], presetLayers = []) {
   const times = frameTimes(motion);
   return {
     times,

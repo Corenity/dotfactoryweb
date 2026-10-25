@@ -22,6 +22,7 @@ import {
   characterBundleInput,
   characterGodotProject,
 } from './core/character.js';
+import { CURRENT_PROFILE, currentCanvas } from './core/profile.js';
 
 const $ = sel => document.querySelector(sel);
 
@@ -77,7 +78,7 @@ async function loadDefaultBare() {
       id: 'bare',
       name: '기본 맨몸',
       kind: 'bare',
-      canvas: [72, 64],
+      canvas: currentCanvas(),
       layers,
     });
     for (let i = 0; i < preset.layers.length; i++) {
@@ -123,15 +124,15 @@ export function mountCharacter(app, model = {}) {
     if (fromModel) return fromModel;
     const proj = model.getProject?.();
     if (proj) return { canvas: proj.canvas, skeletonName: proj.skeletonName, bones: proj.bones, restPose: proj.restPose };
-    return { canvas: [72, 64], skeletonName: 'character_skeleton', bones: DEFAULT_BONES, restPose: null };
+    return { canvas: currentCanvas(), skeletonName: CURRENT_PROFILE.skeletonName, bones: DEFAULT_BONES, restPose: null };
   }
 
   function updateBasisUI() {
     if (!basisEl) return;
     const basis = getBasis();
-    const name = basis?.skeletonName || 'character_skeleton';
-    const isDefault = name === 'character_skeleton' && (!basis.bones || basis.bones.length === 6);
-    basisEl.textContent = `기준 뼈대: ${isDefault ? '기본 6개 뼈' : name}`;
+    const name = basis?.skeletonName || CURRENT_PROFILE.skeletonName;
+    const isDefault = name === CURRENT_PROFILE.skeletonName && (!basis.bones || basis.bones.length === DEFAULT_BONES.length);
+    basisEl.textContent = `기준 뼈대: ${isDefault ? `기본 ${DEFAULT_BONES.length}개 뼈` : name}`;
   }
 
   function ensureImages(flattened) {
@@ -157,6 +158,7 @@ export function mountCharacter(app, model = {}) {
   function render() {
     if (!ctx) return;
     const basis = getBasis();
+    const [width, height] = Array.isArray(basis.canvas) ? basis.canvas : currentCanvas();
     const bones = (basis.bones && basis.bones.length > 0) ? basis.bones : DEFAULT_BONES;
     const options = characterMotionOptions(state);
     const chosen = options.find(opt => opt.key === state.selectedMotion) || options[0];
@@ -168,14 +170,14 @@ export function mountCharacter(app, model = {}) {
     ensureImages(flattened);
 
     const composed = composeStackedLayers(flattened, {
-      width: 72,
-      height: 64,
+      width,
+      height,
       bones: pose,
       restBones: bones,
     });
 
     // 초록 배경 (3, 192, 55, 255)
-    const frameBuf = new Uint8ClampedArray(72 * 64 * 4);
+    const frameBuf = new Uint8ClampedArray(width * height * 4);
     for (let i = 0; i < frameBuf.length; i += 4) {
       frameBuf[i] = 3;
       frameBuf[i + 1] = 192;
@@ -202,7 +204,11 @@ export function mountCharacter(app, model = {}) {
       }
     }
 
-    ctx.putImageData(new ImageData(frameBuf, 72, 64), 0, 0);
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+    canvas.style.width = `${width * zoomScale}px`;
+    canvas.style.height = `${height * zoomScale}px`;
+    ctx.putImageData(new ImageData(frameBuf, width, height), 0, 0);
 
     if (timeDisplay) {
       timeDisplay.textContent = `${currentTime.toFixed(1)}s / ${duration.toFixed(1)}s`;
@@ -487,8 +493,9 @@ export function mountCharacter(app, model = {}) {
     if (zoomScale < 8) {
       zoomScale++;
       if (canvas) {
-        canvas.style.width = `${72 * zoomScale}px`;
-        canvas.style.height = `${64 * zoomScale}px`;
+        const [width, height] = getBasis().canvas || currentCanvas();
+        canvas.style.width = `${width * zoomScale}px`;
+        canvas.style.height = `${height * zoomScale}px`;
       }
     }
   });
@@ -497,8 +504,9 @@ export function mountCharacter(app, model = {}) {
     if (zoomScale > 2) {
       zoomScale--;
       if (canvas) {
-        canvas.style.width = `${72 * zoomScale}px`;
-        canvas.style.height = `${64 * zoomScale}px`;
+        const [width, height] = getBasis().canvas || currentCanvas();
+        canvas.style.width = `${width * zoomScale}px`;
+        canvas.style.height = `${height * zoomScale}px`;
       }
     }
   });

@@ -1,13 +1,14 @@
 // 오프라인에서도 열리게 화면 파일을 휴대폰에 담아 둡니다. VERSION 은 손으로 올리지 않습니다 —
 // 공개판 복사(tools/publish.mjs)가 화면 파일 내용으로 정한 값으로 바꿔 넣습니다.
-const VERSION = 'dotfactory-web-33b2964dd263';
+const VERSION = 'dotfactory-web-925e5bd7ff8d';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'icon.svg',
+  'profiles/index.json', 'profiles/project-c.json',
   'assets/bare/bare_arm_l.png', 'assets/bare/bare_arm_r.png',
   'assets/bare/bare_leg_l.png', 'assets/bare/bare_leg_r.png', 'assets/bare/bare_torso.png', 'assets/bare/face_frame.png',
   'css/app.css', 'css/paint.css', 'css/rig.css', 'css/motion.css', 'css/character.css',
   'js/app.js', 'js/nav.js', 'js/store.js', 'js/io.js', 'js/shrink-view.js', 'js/paint-view.js', 'js/slice-view.js', 'js/slice-library-view.js', 'js/rig-view.js', 'js/rig-slice-view.js', 'js/rig-auto-slice-view.js', 'js/rig-bones-view.js', 'js/rig-preset-view.js', 'js/motion-view.js', 'js/character-view.js', 'js/assemble-view.js', 'js/backdrop.js', 'js/restore-worker.js',
-  'js/core/numeric.js', 'js/core/background.js', 'js/core/resample.js', 'js/core/restore.js', 'js/core/paint.js', 'js/core/select.js', 'js/core/assemble.js', 'js/core/gif.js', 'js/core/slice.js', 'js/core/auto-slice.js', 'js/core/expression-slice.js', 'js/core/rig.js', 'js/core/rig-render.js', 'js/core/motion.js', 'js/core/zip.js', 'js/core/godot-tscn.js', 'js/core/godot-export.js', 'js/core/rig-history.js', 'js/core/skeleton.js', 'js/core/animation.js', 'js/core/preset.js', 'js/core/rig-preset.js', 'js/core/preset-layers.js', 'js/core/preset-stack.js', 'js/core/rig-migrate.js', 'js/core/slice-library.js', 'js/core/role-flow.js', 'js/core/hash.js', 'js/core/character.js',
+  'js/core/numeric.js', 'js/core/background.js', 'js/core/resample.js', 'js/core/restore.js', 'js/core/paint.js', 'js/core/select.js', 'js/core/assemble.js', 'js/core/gif.js', 'js/core/profile.js', 'js/core/slice.js', 'js/core/auto-slice.js', 'js/core/expression-slice.js', 'js/core/rig.js', 'js/core/rig-render.js', 'js/core/motion.js', 'js/core/zip.js', 'js/core/godot-tscn.js', 'js/core/godot-export.js', 'js/core/rig-history.js', 'js/core/skeleton.js', 'js/core/animation.js', 'js/core/preset.js', 'js/core/rig-preset.js', 'js/core/preset-layers.js', 'js/core/preset-stack.js', 'js/core/rig-migrate.js', 'js/core/slice-library.js', 'js/core/role-flow.js', 'js/core/hash.js', 'js/core/character.js',
 ];
 
 self.addEventListener('install', event => {

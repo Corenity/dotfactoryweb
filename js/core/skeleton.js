@@ -1,8 +1,9 @@
 // dotfactory-web/skeleton-1 순수 모듈 — 뼈 구조, 기본 자세, 캔버스 크기 및 뼈대 적용 정합성을 다룹니다.
 import { DEFAULT_BONES, defaultBoneFor, isValidBoneName, createRestPose } from './rig.js';
+import { CURRENT_PROFILE, currentCanvas } from './profile.js';
 
 export const SCHEMA = 'dotfactory-web/skeleton-1';
-export const DEFAULT_CANVAS = Object.freeze([72, 64]);
+export const DEFAULT_CANVAS = CURRENT_PROFILE.canvas;
 
 function finiteNumber(val, label, { min = -Infinity, max = Infinity, integer = false } = {}) {
   const num = Number(val);
@@ -79,7 +80,7 @@ export function normalizeSkeletonBones(list) {
   return result;
 }
 
-export function toSkeleton({ canvas = [72, 64], bones = null } = {}) {
+export function toSkeleton({ canvas = currentCanvas(), bones = null } = {}) {
   return {
     schema: SCHEMA,
     canvas: normalizeCanvas(canvas),

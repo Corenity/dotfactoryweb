@@ -3,15 +3,12 @@
 import { transformNearest, pieceTransform, boneWorldTransforms } from './rig-render.js';
 import { normalizeBones } from './rig.js';
 import { toPreset } from './preset.js';
+import { CURRENT_PROFILE, currentCanvas } from './profile.js';
 
-export const DEFAULT_BARE_LAYERS_META = Object.freeze([
-  { id: 'face_face', bone: 'Head', zIndex: 0, slot: 'face', piece: 'face', file: 'assets/bare/face_frame.png' },
-  { id: 'bare_leg_l', bone: 'LegL', zIndex: 6, slot: 'bare', piece: 'leg_l', file: 'assets/bare/bare_leg_l.png' },
-  { id: 'bare_leg_r', bone: 'LegR', zIndex: 6, slot: 'bare', piece: 'leg_r', file: 'assets/bare/bare_leg_r.png' },
-  { id: 'bare_torso', bone: 'Torso', zIndex: 7, slot: 'bare', piece: 'torso', file: 'assets/bare/bare_torso.png' },
-  { id: 'bare_arm_l', bone: 'ArmL', zIndex: 11, slot: 'bare', piece: 'arm_l', file: 'assets/bare/bare_arm_l.png' },
-  { id: 'bare_arm_r', bone: 'ArmR', zIndex: 11, slot: 'bare', piece: 'arm_r', file: 'assets/bare/bare_arm_r.png' },
-]);
+export const DEFAULT_BARE_LAYERS_META = Object.freeze(CURRENT_PROFILE.bareLayers.map(meta => {
+  const split = meta.id.indexOf('_');
+  return Object.freeze({ ...meta, slot: meta.id.slice(0, split), piece: meta.id.slice(split + 1) });
+}));
 
 /**
  * 프리셋들의 모든 그림을 새 깊이 우선 규칙에 따라 평탄화합니다.
@@ -117,8 +114,8 @@ export function createPresetStack(barePreset = null, overlays = []) {
  * @returns {{ width: number, height: number, data: Uint8ClampedArray }}
  */
 export function composeStackedLayers(flattenedLayers, {
-  width = 72,
-  height = 64,
+  width = currentCanvas()[0],
+  height = currentCanvas()[1],
   bones = null,
   restBones = null,
 } = {}) {

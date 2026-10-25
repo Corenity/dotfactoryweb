@@ -7,6 +7,7 @@ import { flattenPresetLayers } from './preset-stack.js';
 import {
   characterLayersWithLegacyFields, nextPresetLayerKey, normalizeCharacterPresetLayers,
 } from './preset-layers.js';
+import { CURRENT_PROFILE, currentCanvas } from './profile.js';
 
 const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
@@ -113,7 +114,7 @@ export function characterMotionOptions(state) {
 export function inspectCharacter(state, basis) {
   const safe = normalizeCharacterState(state);
   const bones = Array.isArray(basis?.bones) ? basis.bones : [];
-  const skeletonName = String(basis?.skeletonName || 'character_skeleton');
+  const skeletonName = String(basis?.skeletonName || CURRENT_PROFILE.skeletonName);
   const presetResults = activeCharacterPresets(safe).map(preset => ({ preset, ...checkPresetCompatibility(preset, bones) }));
   const animationResults = safe.animations.map(entry => ({
     entry,
@@ -162,14 +163,14 @@ export function characterBundleInput(state, basis) {
   const motions = mergedCharacterMotions(state);
   const bones = Array.isArray(basis?.bones) ? basis.bones : [];
   return {
-    skeleton: toSkeleton({ canvas: basis?.canvas || [72, 64], bones }),
+    skeleton: toSkeleton({ canvas: basis?.canvas || currentCanvas(), bones }),
     animation: Object.keys(motions).length ? toAnimation({
-      skeleton: basis?.skeletonName || 'character_skeleton',
+      skeleton: basis?.skeletonName || CURRENT_PROFILE.skeletonName,
       bones: bones.map(bone => bone.name),
       motions,
     }) : null,
     presets: activeCharacterPresets(state),
-    canvas: basis?.canvas || [72, 64],
+    canvas: basis?.canvas || currentCanvas(),
   };
 }
 
@@ -187,7 +188,7 @@ export function characterGodotProject(state, basis) {
     png: layer.image,
   }));
   return toProject({
-    canvas: basis?.canvas || [72, 64],
+    canvas: basis?.canvas || currentCanvas(),
     bones: basis?.bones,
     restPose: basis?.restPose,
     pieces,

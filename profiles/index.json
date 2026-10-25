@@ -1,0 +1,10 @@
+{
+  "schema": "dotfactory-web/profile-index-1",
+  "profiles": [
+    {
+      "id": "project-c",
+      "name": "Project C",
+      "file": "project-c.json"
+    }
+  ]
+}

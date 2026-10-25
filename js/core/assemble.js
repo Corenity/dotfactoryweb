@@ -1,6 +1,7 @@
 // 합치기 — 그림 여러 장을 층 번호 순서로 겹칩니다. PC 조립(df_assemble.stack)과 같은 규칙입니다.
 // 층 번호가 큰 그림이 위에 옵니다. 알파가 0 보다 큰 칸은 아래 칸을 그대로 덮습니다(섞지 않음).
 // 그림마다 진하기(opacity)가 있지만 화면에서 볼 때만(fade) 비치고, 내려받는 그림은 늘 100% 로 겹칩니다.
+import { currentCanvas } from './profile.js';
 
 export const SCHEMA = 'dotfactory-web/assemble-1';
 
@@ -93,7 +94,8 @@ export function guidePixelAt(guide, x, y, dx = 0, dy = 0) {
 export function canvasSizeFor(items) {
   let w = 0, h = 0;
   for (const { image } of items) { w = Math.max(w, image.width); h = Math.max(h, image.height); }
-  return [w || 72, h || 64];
+  const fallback = currentCanvas();
+  return [w || fallback[0], h || fallback[1]];
 }
 
 /** 층 번호의 가장 작은 값입니다. 첫 그림이 이 층에 들어가고, 내리기 · 직접 쓰기도 이 아래로 가지 않습니다. */
@@ -125,7 +127,7 @@ export function toProject(items, width, height, pngOf, guide = null) {
 /** 저장 파일을 검사하고 그림 항목 목록(그림은 아직 data URL)으로 돌려줍니다. */
 export function parseProject(json) {
   if (!json || json.schema !== SCHEMA || !Array.isArray(json.items)) throw new Error('도트 공장 웹 합치기 파일이 아닙니다');
-  const [w, h] = Array.isArray(json.canvas) ? json.canvas : [72, 64];
+  const [w, h] = Array.isArray(json.canvas) ? json.canvas : currentCanvas();
   return {
     canvas: [w, h],
     items: json.items.map((i, n) => {

@@ -1,5 +1,6 @@
 // 뼈대 화면 되돌리기 / 다시하기 상태 관리 순수 모듈입니다.
 // DOM을 쓰지 않아 Node 시험에서도 그대로 검증할 수 있습니다.
+import { CURRENT_PROFILE, currentCanvas } from './profile.js';
 
 function cloneImage(img) {
   if (!img) return null;
@@ -25,9 +26,9 @@ function sameImage(a, b) {
 export function cloneRigState(state) {
   if (!state) return null;
   return {
-    canvas: state.canvas ? [state.canvas[0], state.canvas[1]] : [72, 64],
+    canvas: state.canvas ? [state.canvas[0], state.canvas[1]] : currentCanvas(),
     baseTitle: state.baseTitle || '캐릭터',
-    skeletonName: state.skeletonName || 'character_skeleton',
+    skeletonName: state.skeletonName || CURRENT_PROFILE.skeletonName,
     presetMeta: {
       id: state.presetMeta?.id || 'preset',
       name: state.presetMeta?.name || '새 프리셋',

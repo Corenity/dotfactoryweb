@@ -9,19 +9,19 @@ import { mountRigPreset } from './rig-preset-view.js';
 import { mountMotion } from './motion-view.js';
 import { projectFromGodotTscn, projectFromGodotZip } from './core/godot-export.js';
 import { normalizeRigLayerState, migrateLegacyLayersToDepth } from './core/preset-layers.js';
+import { CURRENT_PROFILE } from './core/profile.js';
 
 const $ = sel => document.querySelector(sel);
 
 export function mountRig(app) {
-  let canvasWidth = 72;
-  let canvasHeight = 64;
+  let [canvasWidth, canvasHeight] = CURRENT_PROFILE.canvas;
   let pieces = [];
   let bones = cloneDefaultBones();
   let restPose = null;
   let animations = defaultAnimations();
   let currentSlot = 'bare';
   let currentItem = '맨몸';
-  let skeletonName = 'character_skeleton';
+  let skeletonName = CURRENT_PROFILE.skeletonName;
   let presetMeta = { id: 'preset', name: '새 프리셋', kind: 'bare' };
   let presetLayers = [];
   let selectedPresetLayerKey = null;
@@ -120,7 +120,7 @@ export function mountRig(app) {
     snapshot: () => snapshot(),
     commit: before => recordChange(before),
     getSkeletonName: () => skeletonName,
-    setSkeletonName: value => { skeletonName = String(value || 'character_skeleton'); },
+    setSkeletonName: value => { skeletonName = String(value || CURRENT_PROFILE.skeletonName); },
   });
   presetView = mountRigPreset(app, {
     getBones: () => bones,
@@ -183,7 +183,7 @@ export function mountRig(app) {
     pieces = migrated.pieces;
     presetLayers = migrated.layers;
     selectedPresetLayerKey = null;
-    skeletonName = String(role?.skeletonName || 'character_skeleton');
+    skeletonName = String(role?.skeletonName || CURRENT_PROFILE.skeletonName);
     const draft = role?.presetDraft || role?.presetDrafts?.[0];
     presetMeta = draft
       ? { id: draft.id || 'preset', name: draft.name || '새 프리셋', kind: draft.kind || 'bare' }

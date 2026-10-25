@@ -1,38 +1,22 @@
 // 뼈 애니메이션 작업 파일 — 조각 목록 · 뼈대 트리 · 동작 키프레임을 저장하고 복원합니다.
 // 화면(DOM)을 쓰지 않는 순수 모듈로 Node 시험이 그대로 돌립니다.
 import { boneWorldTransforms, invert, transformPoint } from './rig-render.js';
+import { CURRENT_PROFILE, currentCanvas } from './profile.js';
 
 export const SCHEMA = 'dotfactory-web/rig-1';
 export const DEFAULT_MOTION_NAME = 'walk';
 
 /** 캐릭터가 보는 방향을 기준으로 L·R을 붙인 기본 뼈 나무입니다. */
-export const DEFAULT_BONES = Object.freeze([
-  { name: 'Torso', parent: null, pos: [37, 46], angle: 90, length: 4 },
-  { name: 'Head', parent: 'Torso', pos: [0, -9], angle: 90, length: 4 },
-  { name: 'ArmL', parent: 'Torso', pos: [4, -8], angle: 90, length: 4 },
-  { name: 'ArmR', parent: 'Torso', pos: [-3, -8], angle: 90, length: 4 },
-  { name: 'LegL', parent: null, pos: [40, 46], angle: 90, length: 4 },
-  { name: 'LegR', parent: null, pos: [34, 47], angle: 90, length: 4 },
-]);
+export const DEFAULT_BONES = CURRENT_PROFILE.bones;
 
-const BONE_LABELS = Object.freeze({
-  ArmL: 'ArmL · 왼팔(화면 오른쪽)', ArmR: 'ArmR · 오른팔(화면 왼쪽)',
-  LegL: 'LegL · 왼다리(화면 오른쪽)', LegR: 'LegR · 오른다리(화면 왼쪽)',
-  FootL: 'FootL · 왼발(화면 오른쪽)', FootR: 'FootR · 오른발(화면 왼쪽)',
-});
+const BONE_LABELS = CURRENT_PROFILE.boneLabels;
 
 export function boneLabel(name) {
   return BONE_LABELS[name] || name;
 }
 
 /** 조각의 기본 그리기 순서(z_index) 표입니다. character_rig.tscn 과 같습니다. */
-export const DEFAULT_Z_INDEX = Object.freeze({
-  bare_torso: 7, outfit_body: 10,
-  face_face: 0, earring_earring: 1, expression_cheek: 2, expression_nose: 3, expression_fx: 4, hair_hair: 5,
-  bare_leg_l: 6, bare_leg_r: 6, bare_foot_l: 7, bare_foot_r: 7, outfit_leg_l: 8, outfit_leg_r: 8, shoes_shoe_l: 9, shoes_shoe_r: 9,
-  bare_arm_l: 11, bare_arm_r: 11, outfit_arm_l: 12, outfit_arm_r: 12,
-  expression_mouth: 13, expression_brows: 14, expression_eyes: 15, sweat_sweat: 16, hairpin_hairpin: 17,
-});
+export const DEFAULT_Z_INDEX = CURRENT_PROFILE.zOrder;
 
 export function cloneDefaultBones() {
   return DEFAULT_BONES.map(cloneBone);
@@ -58,10 +42,10 @@ export function defaultBoneFor(slot = '', piece = '', bones = null, selectedBone
     if (!bones || !Array.isArray(bones) || bones.some(b => b.name === target)) return target;
   }
   if (bones && Array.isArray(bones)) {
-    if (bones.some(b => b.name === 'Torso')) return 'Torso';
-    return bones[0]?.name || 'Torso';
+    if (bones.some(b => b.name === CURRENT_PROFILE.fallbackBone)) return CURRENT_PROFILE.fallbackBone;
+    return bones[0]?.name || CURRENT_PROFILE.bones[0].name;
   }
-  return 'Torso';
+  return CURRENT_PROFILE.fallbackBone;
 }
 
 function slotDefaultBone(piece = '') {
@@ -383,7 +367,7 @@ export function normalizeBones(value) {
 }
 
 function normalizeCanvas(value) {
-  if (value == null) return [72, 64];
+  if (value == null) return currentCanvas();
   if (!Array.isArray(value) || value.length !== 2) throw new Error('그림판 크기가 깨졌습니다');
   const width = Math.trunc(finite(value[0], '그림판 너비'));
   const height = Math.trunc(finite(value[1], '그림판 높이'));
@@ -421,7 +405,7 @@ function normalizePieces(value, slot, item, bones) {
   });
 }
 
-export function toProject({ canvas = [72, 64], slot = 'bare', item = '맨몸', basePng = null, pieces = [], bones = null, animations = null, restPose = null, presetLayers = [] } = {}) {
+export function toProject({ canvas = currentCanvas(), slot = 'bare', item = '맨몸', basePng = null, pieces = [], bones = null, animations = null, restPose = null, presetLayers = [] } = {}) {
   const safeBones = normalizeBones(bones);
   const safeSlot = String(slot || 'bare');
   const safeItem = String(item || '맨몸');

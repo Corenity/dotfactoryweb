@@ -1,5 +1,6 @@
 // dotfactory-web/preset-1 순수 모듈 — 조각 그림, 부착 뼈, 렌더링 층(zIndex) 묶음을 다룹니다.
 import { normalizeCanvas } from './skeleton.js';
+import { currentCanvas } from './profile.js';
 
 export const SCHEMA = 'dotfactory-web/preset-1';
 
@@ -90,7 +91,7 @@ export function normalizeLayers(layersRaw) {
   return result;
 }
 
-export function toPreset({ id = 'preset', name = '새 프리셋', kind = 'bare', canvas = [72, 64], layers = [] } = {}) {
+export function toPreset({ id = 'preset', name = '새 프리셋', kind = 'bare', canvas = currentCanvas(), layers = [] } = {}) {
   const safeId = String(id || '').trim().toLowerCase();
   if (!isValidId(safeId)) {
     throw new Error(`프리셋 식별자 「${id}」는 영문 소문자, 숫자, 밑줄(_)만 쓸 수 있습니다`);

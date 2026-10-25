@@ -1,5 +1,6 @@
 // 뼈대 화면의 붙인 그림과 공개 preset-1 사이를 복사하는 순수 모듈입니다.
 import { toPreset, parsePreset, checkPresetCompatibility } from './preset.js';
+import { currentCanvas } from './profile.js';
 
 function safeLayerId(value, used) {
   const base = String(value || 'piece').toLowerCase()
@@ -18,7 +19,7 @@ export function nextRigZIndex(pieces) {
 
 /** 붙인 그림을 self-contained preset-1로 복사합니다. skeleton 필드는 만들지 않습니다. */
 export function attachedPiecesToRigPreset({
-  id = 'preset', name = '새 프리셋', kind = 'bare', canvas = [72, 64], pieces = [],
+  id = 'preset', name = '새 프리셋', kind = 'bare', canvas = currentCanvas(), pieces = [],
 } = {}) {
   const used = new Set();
   const layers = (Array.isArray(pieces) ? pieces : []).map((piece, index) => {

@@ -1,0 +1,59 @@
+{
+  "schema": "dotfactory-web/profile-1",
+  "id": "project-c",
+  "name": "Project C",
+  "canvas": [72, 64],
+  "skeletonName": "character_skeleton",
+  "fallbackBone": "Torso",
+  "bones": [
+    { "name": "Torso", "parent": null, "pos": [37, 46], "angle": 90, "length": 4 },
+    { "name": "Head", "parent": "Torso", "pos": [0, -9], "angle": 90, "length": 4 },
+    { "name": "ArmL", "parent": "Torso", "pos": [4, -8], "angle": 90, "length": 4, "label": "ArmL · 왼팔(화면 오른쪽)" },
+    { "name": "ArmR", "parent": "Torso", "pos": [-3, -8], "angle": 90, "length": 4, "label": "ArmR · 오른팔(화면 왼쪽)" },
+    { "name": "LegL", "parent": null, "pos": [40, 46], "angle": 90, "length": 4, "label": "LegL · 왼다리(화면 오른쪽)" },
+    { "name": "LegR", "parent": null, "pos": [34, 47], "angle": 90, "length": 4, "label": "LegR · 오른다리(화면 왼쪽)" }
+  ],
+  "boneLabels": {
+    "ArmL": "ArmL · 왼팔(화면 오른쪽)",
+    "ArmR": "ArmR · 오른팔(화면 왼쪽)",
+    "LegL": "LegL · 왼다리(화면 오른쪽)",
+    "LegR": "LegR · 오른다리(화면 왼쪽)",
+    "FootL": "FootL · 왼발(화면 오른쪽)",
+    "FootR": "FootR · 오른발(화면 왼쪽)"
+  },
+  "bareLayers": [
+    { "id": "face_face", "bone": "Head", "zIndex": 0, "file": "assets/bare/face_frame.png" },
+    { "id": "bare_leg_l", "bone": "LegL", "zIndex": 6, "file": "assets/bare/bare_leg_l.png" },
+    { "id": "bare_leg_r", "bone": "LegR", "zIndex": 6, "file": "assets/bare/bare_leg_r.png" },
+    { "id": "bare_torso", "bone": "Torso", "zIndex": 7, "file": "assets/bare/bare_torso.png" },
+    { "id": "bare_arm_l", "bone": "ArmL", "zIndex": 11, "file": "assets/bare/bare_arm_l.png" },
+    { "id": "bare_arm_r", "bone": "ArmR", "zIndex": 11, "file": "assets/bare/bare_arm_r.png" }
+  ],
+  "zOrder": {
+    "bare_torso": 7,
+    "outfit_body": 10,
+    "face_face": 0,
+    "earring_earring": 1,
+    "expression_cheek": 2,
+    "expression_nose": 3,
+    "expression_fx": 4,
+    "hair_hair": 5,
+    "bare_leg_l": 6,
+    "bare_leg_r": 6,
+    "bare_foot_l": 7,
+    "bare_foot_r": 7,
+    "outfit_leg_l": 8,
+    "outfit_leg_r": 8,
+    "shoes_shoe_l": 9,
+    "shoes_shoe_r": 9,
+    "bare_arm_l": 11,
+    "bare_arm_r": 11,
+    "outfit_arm_l": 12,
+    "outfit_arm_r": 12,
+    "expression_mouth": 13,
+    "expression_brows": 14,
+    "expression_eyes": 15,
+    "sweat_sweat": 16,
+    "hairpin_hairpin": 17
+  }
+}

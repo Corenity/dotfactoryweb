@@ -1,6 +1,7 @@
 // 작업 화면의 preset-1 레이어/그룹 목록을 다루는 순수 모듈입니다.
 // preset-1 공개 형식은 건드리지 않고, 작업 상태에만 key·visible을 둡니다.
 import { parsePreset, toPreset } from './preset.js';
+import { currentCanvas } from './profile.js';
 
 const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
@@ -176,7 +177,7 @@ export function updateGroupPieces(pieces, layerKey, { addPieceIds = [], removePi
   });
 }
 
-export function rigLayerToPreset(layer, pieces = [], canvas = [72, 64]) {
+export function rigLayerToPreset(layer, pieces = [], canvas = currentCanvas()) {
   if (!layer) throw new Error('저장할 프리셋 레이어를 골라 주세요');
   return toPreset({
     id: layer.id,

@@ -1,10 +1,10 @@
 // 뼈대 단계 화면 — 뼈 나무, 위치·각도, 조각 연결·층과 미리보기를 다룹니다.
 import { boneLabel, normalizeBones, applyRestPose, createRestPose, DEFAULT_BONES, addBone, removeBone, isValidBoneName } from './core/rig.js';
+import { CURRENT_PROFILE, currentCanvas } from './core/profile.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal, worldDeltaToBone } from './core/rig-render.js';
 import { sortRigPiecesByLayers } from './core/preset-layers.js';
 import { drawPixels, saveJson, pickFiles, baseName } from './io.js';
 import { toSkeleton, parseSkeleton, applySkeletonToRig } from './core/skeleton.js';
-
 const $ = selector => document.querySelector(selector);
 
 export function scrollTreeItemIntoView(tree, item, prevScrollTop = tree?.scrollTop ?? 0) {
@@ -685,7 +685,7 @@ export function mountRigBones(app, model) {
           model.commit?.(before);
 
           let message = `뼈 「${current.name}」을 지웠습니다`;
-          if (isDefault) message += '. project-c 고도 뼈와 달라집니다';
+          if (isDefault) message += `. ${CURRENT_PROFILE.id} 고도 뼈와 달라집니다`;
           if (result.reparentedChildren && result.reparentedChildren.length > 0) {
             message += '. 자식 뼈의 움직임 키는 지금 값 그대로 둡니다(부모가 바뀌어 보이는 자리가 달라질 수 있습니다)';
           }
@@ -698,9 +698,9 @@ export function mountRigBones(app, model) {
 
     if (saveSkeletonBtn) {
       saveSkeletonBtn.addEventListener('click', async () => {
-        const skeletonName = model.getSkeletonName?.() || 'character_skeleton';
+        const skeletonName = model.getSkeletonName?.() || CURRENT_PROFILE.skeletonName;
         const skeletonObj = toSkeleton({
-          canvas: model.getSize?.() || [72, 64],
+          canvas: model.getSize?.() || currentCanvas(),
           bones: bones(),
         });
         const fileName = `${skeletonName}.json`;

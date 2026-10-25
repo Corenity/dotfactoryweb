@@ -3,6 +3,7 @@ import { parseProject } from './rig.js';
 import { toSkeleton } from './skeleton.js';
 import { toAnimation } from './animation.js';
 import { toPreset, PRESET_KINDS } from './preset.js';
+import { CURRENT_PROFILE } from './profile.js';
 
 export const SLOT_TO_PRESET_KIND = Object.freeze({
   bare: 'bare',
@@ -57,7 +58,7 @@ export function migrateRig1(project) {
   const boneNames = safeProject.bones.map(b => b.name);
   for (const [motionName, motion] of Object.entries(safeProject.animations || {})) {
     animations[motionName] = toAnimation({
-      skeleton: 'character_skeleton',
+      skeleton: CURRENT_PROFILE.skeletonName,
       bones: boneNames,
       motions: { [motionName]: motion },
     });

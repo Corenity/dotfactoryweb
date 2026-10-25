@@ -1,6 +1,7 @@
 // 72×64 도트 칸에서 뼈 계층과 최근접 회전을 계산합니다. DOM은 사용하지 않습니다.
 import { normalizeBones } from './rig.js';
 import { sortRigPiecesByLayers } from './preset-layers.js';
+import { currentCanvas } from './profile.js';
 
 const DEG = Math.PI / 180;
 const identity = () => [1, 0, 0, 1, 0, 0];
@@ -111,7 +112,7 @@ export function pieceTransform(posed, rest, boneName, pos = [0, 0], rot = 0) {
 }
 
 /** 뼈에 붙은 조각을 프리셋 레이어, 층 순서로 그려 미리보기 한 장으로 만듭니다. */
-export function composeRig(pieces, bones, width = 72, height = 64, restBones = null, presetLayers = [], options = {}) {
+export function composeRig(pieces, bones, width = currentCanvas()[0], height = currentCanvas()[1], restBones = null, presetLayers = [], options = {}) {
   const normBones = normalizeBones(bones);
   const restNormBones = restBones == null ? normBones : normalizeBones(restBones);
   const posed = boneWorldTransforms(normBones);

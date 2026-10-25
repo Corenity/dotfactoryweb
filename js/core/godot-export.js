@@ -7,6 +7,7 @@ import { normalizeSkeletonBones } from './skeleton.js';
 import { boneWorldTransforms } from './rig-render.js';
 import { sha256Hex } from './hash.js';
 import { toPreset } from './preset.js';
+import { CURRENT_PROFILE, currentCanvas } from './profile.js';
 
 const RIG_FILE = 'dotfactory-rig.json';
 const TSCN_FILE = 'character/character_rig.tscn';
@@ -42,7 +43,8 @@ function pngBytes(dataUrl, label) {
   }
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const width = view.getUint32(16), height = view.getUint32(20);
-  if (width !== 72 || height !== 64) throw new Error(`조각 「${label}」은 72×64여야 합니다. 현재 ${width}×${height}입니다`);
+  const [expectedWidth, expectedHeight] = CURRENT_PROFILE.canvas;
+  if (width !== expectedWidth || height !== expectedHeight) throw new Error(`조각 「${label}」은 ${expectedWidth}×${expectedHeight}여야 합니다. 현재 ${width}×${height}입니다`);
   return bytes;
 }
 
@@ -88,7 +90,7 @@ function exportParts(project) {
       extraPieceNames.add(piece.piece);
     } else {
       if (!Object.hasOwn(SLOTS, piece.slot) || !SLOTS[piece.slot].includes(piece.piece)) {
-        throw new Error(`조각 「${piece.name}」의 칸·조각 이름은 project-c가 모르는 값입니다`);
+        throw new Error(`조각 「${piece.name}」의 칸·조각 이름은 ${CURRENT_PROFILE.id}가 모르는 값입니다`);
       }
       const item = filePart(piece.item, `조각 「${piece.name}」의 부위`);
       if (items.has(piece.slot) && items.get(piece.slot) !== item) {
@@ -108,7 +110,8 @@ function exportParts(project) {
 /** project-c res://에 바로 풀 수 있는 ZIP과 안쪽 텍스트를 만듭니다. */
 export function makeGodotExport(value) {
   const project = parseProject(value?.schema ? value : toProject(value));
-  if (project.canvas[0] !== 72 || project.canvas[1] !== 64) throw new Error(`고도용 그림판은 72×64여야 합니다. 현재 ${project.canvas[0]}×${project.canvas[1]}입니다`);
+  const [expectedWidth, expectedHeight] = CURRENT_PROFILE.canvas;
+  if (project.canvas[0] !== expectedWidth || project.canvas[1] !== expectedHeight) throw new Error(`고도용 그림판은 ${expectedWidth}×${expectedHeight}여야 합니다. 현재 ${project.canvas[0]}×${project.canvas[1]}입니다`);
   const tscn = makeGodotTscn(project), parts = exportParts(project), preset = presetText(parts.items);
   const entries = [
     { name: TSCN_FILE, data: tscn },
@@ -156,7 +159,7 @@ export const GODOT_EXPORT_PATHS = Object.freeze({ rig: RIG_FILE, scene: TSCN_FIL
  * @param {object} [params.selected] - { skeleton: boolean, animation: boolean, presets: boolean }
  * @param {string|null} [params.createdAt] - package.json created_at (null이면 현재 시각)
  * @param {string} [params.generator='DotFactoryWeb']
- * @param {[number, number]} [params.canvas=[72, 64]]
+ * @param {[number, number]} [params.canvas] 프로필 기본 그림판 크기
  * @returns {{ bytes: Uint8Array, entries: Array<{ name: string, data: string|Uint8Array }>, packageJson: object }}
  */
 export function makeBundle({
@@ -166,7 +169,7 @@ export function makeBundle({
   selected = { skeleton: true, animation: true, presets: true },
   createdAt = null,
   generator = 'DotFactoryWeb',
-  canvas = [72, 64],
+  canvas = currentCanvas(),
 } = {}) {
   const isSkeletonSelected = Boolean(selected?.skeleton && skeleton);
   const isAnimationSelected = Boolean(selected?.animation && animation);
@@ -181,16 +184,17 @@ export function makeBundle({
 
   const entries = [];
   const items = [];
+  const skeletonFile = `${CURRENT_PROFILE.skeletonName}.tscn`;
 
   // 1. 뼈대 (Skeleton)
   if (isSkeletonSelected) {
     targets.skeleton = {
-      bundle_file: 'character_skeleton.tscn',
-      suggested_dest: 'res://character/character_skeleton.tscn',
+      bundle_file: skeletonFile,
+      suggested_dest: `res://character/${skeletonFile}`,
       type: 'PackedScene',
     };
     entries.push({
-      name: 'character_skeleton.tscn',
+      name: skeletonFile,
       data: makeGodotSkeletonTscn(skeleton),
     });
   }
@@ -278,7 +282,7 @@ export function makeBundle({
     schema: 'dotfactory-bundle-1',
     created_at: createdAt || new Date().toISOString(),
     generator,
-    canvas: canvas || [72, 64],
+    canvas: canvas || currentCanvas(),
     targets,
     items,
   };
