@@ -274,6 +274,19 @@ export function applyRestPose(bones, restPose) {
   return { bones: result, changed };
 }
 
+export function resetBonesToDefaults({ bones, restPose = null, defaults = DEFAULT_BONES } = {}) {
+  const currentBones = normalizeBones(bones);
+  const defaultBones = normalizeBones(defaults);
+  const defaultNames = new Set(defaultBones.map(bone => bone.name));
+  const customBones = currentBones.filter(bone => !defaultNames.has(bone.name));
+  const nextBones = [...defaultBones, ...customBones];
+  const nextRestPose = createRestPose(nextBones);
+  const currentRestPose = restPose == null ? createRestPose(defaultBones) : normalizeRestPose(restPose);
+  const changed = JSON.stringify(currentBones) !== JSON.stringify(nextBones)
+    || JSON.stringify(currentRestPose) !== JSON.stringify(nextRestPose);
+  return { bones: nextBones, restPose: nextRestPose, changed };
+}
+
 function normalizeTrack(value, motionName, boneName, length, step) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`움직임 「${motionName}」의 뼈 「${boneName}」 키가 깨졌습니다`);
   const times = value.times, positions = value.positions, rotations = value.rotations;

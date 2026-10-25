@@ -302,7 +302,6 @@
         <button class="btn icon" id="rig-undo" aria-label="되돌리기" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M9 14 4 9l5-5M4 9h11a5 5 0 0 1 0 10h-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button class="btn icon" id="rig-redo" aria-label="다시하기" disabled><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="m15 14 5-5-5-5M20 9H9a5 5 0 0 0 0 10h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <button class="btn rig-bones-only" id="rig-bones-reset-rest" title="초기값으로">초기값으로</button>
-        <button class="btn rig-bones-only" id="rig-bones-save-rest" title="현재 위치·회전을 초기값으로 기억">초기값 저장</button>
         <button class="btn primary rig-bones-only" id="rig-group-btn">그룹화</button>
         <button class="btn rig-file-btn" id="rig-file-btn" aria-label="파일 메뉴 열기" aria-expanded="false" aria-controls="rig-file-pop">파일 ▾</button>
         <div class="color-pop rig-file-pop" id="rig-file-pop" hidden>
@@ -407,7 +406,7 @@
               <input id="rig-bone-new-name" type="text" placeholder="새 뼈" aria-label="새 뼈 이름">
               <div class="rig-bone-btn-row">
                 <button type="button" class="btn small" id="rig-bone-add" title="자식 뼈 더하기">+</button>
-                <button type="button" class="btn small danger" id="rig-bone-delete" title="고른 뼈 지우기">🗑</button>
+                <button type="button" class="btn small danger" id="rig-bone-delete" title="고른 뼈나 그림 지우기" aria-label="고른 뼈나 그림 지우기">🗑</button>
               </div>
             </div>
           </div>
@@ -435,7 +434,6 @@
             <button type="button" class="btn rig-tool-btn" id="rig-tool-img" aria-pressed="false" title="이미지 (I)">I</button>
             <div class="rig-col-tools rig-piece-tools" id="rig-piece-tools" hidden>
               <button type="button" class="btn rig-piece-tool-btn" id="rig-piece-visible">숨김</button>
-              <button type="button" class="btn rig-piece-tool-btn danger" id="rig-piece-remove">빼기</button>
               <button type="button" class="btn rig-piece-tool-btn" id="rig-piece-depth">깊이</button>
             </div>
           </div>

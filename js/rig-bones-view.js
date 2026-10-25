@@ -1,5 +1,5 @@
 // 뼈대 단계 화면 — 뼈 나무, 위치·각도, 조각 연결·층과 미리보기를 다룹니다.
-import { boneLabel, normalizeBones, applyRestPose, createRestPose, DEFAULT_BONES, addBone, removeBone, isValidBoneName } from './core/rig.js';
+import { boneLabel, normalizeBones, applyRestPose, resetBonesToDefaults, DEFAULT_BONES, addBone, removeBone, isValidBoneName } from './core/rig.js';
 import { CURRENT_PROFILE, currentCanvas } from './core/profile.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal, worldDeltaToBone } from './core/rig-render.js';
 import { sortRigPiecesByLayers } from './core/preset-layers.js';
@@ -75,7 +75,6 @@ export function mountRigBones(app, model) {
   const boneTools = $('#rig-bone-tools');
   const pieceTools = $('#rig-piece-tools');
   const pieceVisibleBtn = $('#rig-piece-visible');
-  const pieceRemoveBtn = $('#rig-piece-remove');
   const pieceDepthBtn = $('#rig-piece-depth');
   const pieceDepthInput = $('#rig-piece-depth-input');
   const pieceDepthApply = $('#rig-piece-depth-apply');
@@ -229,6 +228,11 @@ export function mountRigBones(app, model) {
     if (barDepth) barDepth.hidden = menu.barDepthHidden;
     if (pieceVisibleBtn && piece) pieceVisibleBtn.textContent = menu.pieceVisibleLabel;
     if (pieceDepthInput && piece) pieceDepthInput.value = menu.pieceDepthValue;
+    if (deleteBtn) {
+      const deleteLabel = piece ? '고른 그림 빼기' : '고른 뼈 지우기';
+      deleteBtn.title = deleteLabel;
+      deleteBtn.setAttribute('aria-label', deleteLabel);
+    }
   }
 
   function switchTool(tool) {
@@ -439,21 +443,6 @@ export function mountRigBones(app, model) {
       model.commit?.(before);
     });
 
-    pieceRemoveBtn?.addEventListener('click', () => {
-      const piece = selectedPiece();
-      if (!piece) return;
-      const before = model.snapshot?.();
-      const boneName = piece.bone;
-      pieces().splice(selectedPieceIndex, 1);
-      selected = boneName;
-      selectedPieceIndex = null;
-      activePieceMenu = null;
-      notify();
-      refreshControls();
-      render();
-      model.commit?.(before);
-    });
-
     pieceDepthBtn?.addEventListener('click', () => {
       if (!selectedPiece()) return;
       activePieceMenu = 'depth';
@@ -597,22 +586,14 @@ export function mountRigBones(app, model) {
     $('#rig-bone-right')?.addEventListener('click', () => nudge(1, 0));
 
     $('#rig-bones-reset-rest')?.addEventListener('click', () => {
-      const { bones: nextBones, changed } = applyRestPose(bones(), model.getRestPose?.());
-      if (!changed) return;
+      const result = resetBonesToDefaults({ bones: bones(), restPose: model.getRestPose?.() });
+      if (!result.changed) return;
       const before = model.snapshot?.();
-      model.setBones(nextBones);
+      model.setBones(result.bones);
+      model.setRestPose?.(result.restPose);
       notify();
       refreshControls();
       render();
-      model.commit?.(before);
-    });
-
-    $('#rig-bones-save-rest')?.addEventListener('click', () => {
-      const before = model.snapshot?.();
-      const newRestPose = createRestPose(bones());
-      model.setRestPose?.(newRestPose);
-      notify();
-      app.toast('초기값을 저장했습니다');
       model.commit?.(before);
     });
 
@@ -654,6 +635,20 @@ export function mountRigBones(app, model) {
 
     if (deleteBtn) {
       deleteBtn.addEventListener('click', () => {
+        const piece = selectedPiece();
+        if (piece) {
+          const before = model.snapshot?.();
+          const boneName = piece.bone;
+          pieces().splice(selectedPieceIndex, 1);
+          selected = boneName;
+          selectedPieceIndex = null;
+          activePieceMenu = null;
+          notify();
+          refreshControls();
+          render();
+          model.commit?.(before);
+          return;
+        }
         const current = selectedBone();
         if (!current) return;
         if (bones().length <= 1) {
