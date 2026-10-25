@@ -9,12 +9,15 @@ import {
   cloneRegionSliceState,
   addRegion,
   removeRegion,
+  moveRegion,
   recolorRegion,
   paintCell,
   eraseCell,
   sliceByRegions,
   exportRegionConfig,
   importRegionConfig,
+  saveRegionAutosave,
+  loadRegionAutosave,
   shouldReinitRegionSlice,
 } from './core/region-slice.js';
 import { createStoredZip } from './core/zip.js';
@@ -52,16 +55,10 @@ export function mountSlice(app) {
     }
   }
 
-  function autoSaveKey() {
-    const profileId = CURRENT_PROFILE?.id || 'project-c';
-    return `dotfactory-web/slice-regions-1/${profileId}`;
-  }
-
   function saveAutosave() {
     try {
       if (typeof localStorage === 'undefined') return;
-      const exported = exportRegionConfig(regionState);
-      localStorage.setItem(autoSaveKey(), JSON.stringify(exported));
+      saveRegionAutosave(localStorage, CURRENT_PROFILE?.id, regionState);
     } catch {
       // 스토리지 제한 등은 무시
     }
@@ -70,15 +67,14 @@ export function mountSlice(app) {
   function restoreAutosave() {
     try {
       if (typeof localStorage === 'undefined') return;
-      const raw = localStorage.getItem(autoSaveKey());
-      if (!raw) return;
-      const parsed = JSON.parse(raw);
-      const restored = importRegionConfig(parsed, [width, height]);
-      regionState = restored;
+      const restored = loadRegionAutosave(localStorage, CURRENT_PROFILE?.id, [width, height]);
+      if (!restored) return;
+      regionState = restored.state;
       for (const c of regionState.regions) visibleRegions.add(c);
       if (regionState.regions.length > 0 && !selectedColor) {
-        selectedColor = regionState.regions[0];
+        selectedColor = regionState.regions.at(-1);
       }
+      saveAutosave();
     } catch {
       // 형식 불일치 등은 건너뜀
     }
@@ -132,7 +128,7 @@ export function mountSlice(app) {
     }
 
     if (selectedColor && !regionState.regions.includes(selectedColor)) {
-      selectedColor = regionState.regions[0] || null;
+      selectedColor = regionState.regions.at(-1) || null;
     }
 
     syncViews();
@@ -168,34 +164,27 @@ export function mountSlice(app) {
     closeColorPicker();
     const list = $('#slice-regions-list');
     if (!list) return;
-
-    const addBtn = $('#slice-add-region');
-
-    // 기존 영역 카드와 힌트 메시지만 제거하여 + 영역 더하기 단추는 보존
-    list.querySelectorAll('.slice-region-card, .slice-region-hint').forEach(el => el.remove());
+    list.innerHTML = '';
 
     if (regionState.regions.length === 0) {
       const hint = document.createElement('span');
       hint.className = 'hint slice-region-hint';
-      hint.textContent = '지정된 색 영역이 없습니다. 「+ 영역 더하기」를 누르세요.';
-      if (addBtn) {
-        list.insertBefore(hint, addBtn);
-      } else {
-        list.appendChild(hint);
-      }
+      hint.textContent = '아래 +로 영역을 더해 주세요.';
+      list.appendChild(hint);
       return;
     }
 
-    regionState.regions.forEach(color => {
+    [...regionState.regions].reverse().forEach((color, topIndex) => {
       const isSelected = selectedColor === color;
       const isVisible = visibleRegions.has(color);
+      const isHighest = topIndex === 0;
+      const isLowest = topIndex === regionState.regions.length - 1;
 
       const card = document.createElement('div');
       card.className = `slice-region-card${isSelected ? ' selected' : ''}`;
       card.setAttribute('role', 'listitem');
       card.setAttribute('aria-selected', String(isSelected));
-      card.title = `#${color}`;
-      card.setAttribute('aria-label', `색 영역 #${color}`);
+      card.setAttribute('aria-label', `색 영역, 깊이 ${regionState.regions.length - topIndex}`);
 
       const dotBtn = document.createElement('button');
       dotBtn.type = 'button';
@@ -293,10 +282,6 @@ export function mountSlice(app) {
         };
       });
 
-      const name = document.createElement('span');
-      name.className = 'slice-region-name';
-      name.textContent = color;
-
       const visBtn = document.createElement('button');
       visBtn.type = 'button';
       visBtn.className = 'btn icon slice-region-vis';
@@ -318,39 +303,40 @@ export function mountSlice(app) {
         canvasView.drawOverlay();
       });
 
-      const delBtn = document.createElement('button');
-      delBtn.type = 'button';
-      delBtn.className = 'btn icon slice-region-del danger';
-      delBtn.setAttribute('aria-label', `${color} 영역 삭제`);
-      delBtn.title = '영역 삭제';
-      delBtn.textContent = '✕';
-      delBtn.addEventListener('click', e => {
-        e.stopPropagation();
-        const before = historySnapshot();
-        removeRegion(regionState, color);
-        visibleRegions.delete(color);
-        if (selectedColor === color) {
-          selectedColor = regionState.regions[0] || null;
-        }
-        renderRegionsList();
-        canvasView.drawOverlay();
-        recordChange(before);
-        app.toast(`영역 「${color}」을 지웠습니다`);
-      });
+      const moveButton = (text, direction, disabled) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn small slice-region-move';
+        button.textContent = text;
+        button.disabled = disabled;
+        button.title = direction === 'up' ? '깊이 한 단계 올리기' : '깊이 한 단계 내리기';
+        button.setAttribute('aria-label', button.title);
+        button.addEventListener('click', e => {
+          e.stopPropagation();
+          const before = historySnapshot();
+          if (!moveRegion(regionState, color, direction)) return;
+          renderRegionsList();
+          canvasView.drawOverlay();
+          recordChange(before);
+        });
+        return button;
+      };
 
-      card.addEventListener('click', () => {
+      card.addEventListener('click', e => {
+        if (e.target.closest('button')) return;
         selectedColor = color;
         visibleRegions.add(color);
         renderRegionsList();
         canvasView.drawOverlay();
       });
 
-      card.append(dotBtn, name, visBtn, delBtn);
-      if (addBtn) {
-        list.insertBefore(card, addBtn);
-      } else {
-        list.appendChild(card);
-      }
+      card.append(
+        dotBtn,
+        visBtn,
+        moveButton('▲', 'up', isHighest),
+        moveButton('▼', 'down', isLowest),
+      );
+      list.appendChild(card);
     });
   }
 
@@ -483,7 +469,7 @@ export function mountSlice(app) {
     onPaintCell(x, y) {
       if (activeTool === 'brush') {
         if (!selectedColor) {
-          if (regionState.regions.length > 0) selectedColor = regionState.regions[0];
+          if (regionState.regions.length > 0) selectedColor = regionState.regions.at(-1);
           else return;
         }
         if (!visibleRegions.has(selectedColor)) {
@@ -492,7 +478,7 @@ export function mountSlice(app) {
         }
         paintCell(regionState, x, y, selectedColor, brushSize);
       } else if (activeTool === 'eraser') {
-        eraseCell(regionState, x, y, brushSize);
+        if (selectedColor) eraseCell(regionState, x, y, selectedColor, brushSize);
       }
     },
   });
@@ -554,13 +540,26 @@ export function mountSlice(app) {
     app.toast(`색 영역 「${nextColor}」을 추가했습니다`);
   });
 
+  $('#slice-delete-region')?.addEventListener('click', () => {
+    if (!selectedColor) return app.toast('지울 영역을 먼저 골라 주세요');
+    const color = selectedColor;
+    const before = historySnapshot();
+    removeRegion(regionState, color);
+    visibleRegions.delete(color);
+    selectedColor = regionState.regions.at(-1) || null;
+    renderRegionsList();
+    canvasView.drawOverlay();
+    recordChange(before);
+    app.toast(`영역 「${color}」을 지웠습니다`);
+  });
+
   // 영역 설정 저장
   $('#slice-save-regions')?.addEventListener('click', async () => {
     try {
       const config = exportRegionConfig(regionState);
       const jsonStr = JSON.stringify(config, null, 2);
-      await saveFile('slice-regions-1.json', new Blob([jsonStr], { type: 'application/json' }));
-      app.toast('영역 설정(slice-regions-1.json)을 저장했습니다');
+      await saveFile('slice-regions-2.json', new Blob([jsonStr], { type: 'application/json' }));
+      app.toast('영역 설정(slice-regions-2.json)을 저장했습니다');
     } catch (error) {
       app.toast(error.message || '영역 설정을 저장하지 못했습니다');
     }
@@ -578,7 +577,7 @@ export function mountSlice(app) {
       regionState = loaded;
       visibleRegions.clear();
       for (const c of regionState.regions) visibleRegions.add(c);
-      selectedColor = regionState.regions[0] || null;
+      selectedColor = regionState.regions.at(-1) || null;
       renderRegionsList();
       syncViews();
       recordChange(before);
@@ -707,7 +706,7 @@ export function mountSlice(app) {
           regionState = importRegionConfig(saved.regionConfig, [width, height]);
           visibleRegions.clear();
           for (const c of regionState.regions) visibleRegions.add(c);
-          selectedColor = regionState.regions[0] || null;
+          selectedColor = regionState.regions.at(-1) || null;
         } catch {
           regionState = createRegionSliceState(width, height);
         }

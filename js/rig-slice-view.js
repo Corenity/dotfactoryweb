@@ -104,22 +104,14 @@ export function mountRigSlice(app, model) {
     if (!state) return;
 
     const visibleRegions = model.getVisibleRegions();
-    const { width, height, regions, grid } = state;
-
-    for (let rIdx = 0; rIdx < regions.length; rIdx++) {
-      const color = regions[rIdx];
-      const targetLabel = rIdx + 1;
-
-      if (!visibleRegions.has(color)) continue;
-
-      ctx.fillStyle = hexToRgba(color, 0.65);
-      for (let y = 0; y < height; y++) {
-        const rowStart = y * width;
-        for (let x = 0; x < width; x++) {
-          if (grid[rowStart + x] === targetLabel) {
-            ctx.fillRect(x * cell, y * cell, cell, cell);
-          }
-        }
+    const { width, height, regions, masks } = state;
+    for (let pixel = 0; pixel < width * height; pixel++) {
+      for (let index = regions.length - 1; index >= 0; index--) {
+        const color = regions[index];
+        if (!visibleRegions.has(color) || !masks[index][pixel]) continue;
+        ctx.fillStyle = hexToRgba(color, 0.65);
+        ctx.fillRect((pixel % width) * cell, Math.floor(pixel / width) * cell, cell, cell);
+        break;
       }
     }
   }

@@ -220,13 +220,19 @@
         <button class="btn primary" id="slice-tool-brush" type="button" aria-pressed="true">붓</button>
         <button class="btn" id="slice-tool-eraser" type="button" aria-pressed="false">지우개</button>
       </div>
-      <div class="stage" id="rig-stage">
-        <canvas id="rig-canvas" class="pixels"></canvas>
-        <canvas id="rig-overlay" class="pixels"></canvas>
-        <p class="empty" id="rig-empty">아래 「그림 올리기」로 캐릭터 그림을 여세요.</p>
-      </div>
-      <div class="slice-regions-list" id="slice-regions-list" role="list" aria-label="색 영역 목록">
-        <button class="btn slice-region-add" id="slice-add-region" type="button" aria-label="영역 더하기">+ 영역 더하기</button>
+      <div class="slice-workspace">
+        <aside class="slice-regions-panel" aria-label="색 영역과 깊이">
+          <div class="slice-regions-list" id="slice-regions-list" role="list" aria-label="색 영역 목록"></div>
+          <div class="slice-region-actions">
+            <button class="btn" id="slice-add-region" type="button" aria-label="영역 더하기" title="영역 더하기">+</button>
+            <button class="btn danger" id="slice-delete-region" type="button" aria-label="고른 영역 삭제" title="고른 영역 삭제">삭제</button>
+          </div>
+        </aside>
+        <div class="stage" id="rig-stage">
+          <canvas id="rig-canvas" class="pixels"></canvas>
+          <canvas id="rig-overlay" class="pixels"></canvas>
+          <p class="empty" id="rig-empty">아래 「그림 올리기」로 캐릭터 그림을 여세요.</p>
+        </div>
       </div>
       <div class="row">
         <button class="btn primary" id="slice-cut-btn" style="flex:1;">자르기 (조각으로 저장)</button>

@@ -137,49 +137,61 @@
   flex-shrink: 0;
 }
 
+.slice-workspace {
+  display: grid;
+  grid-template-columns: 146px minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+}
+
+.slice-regions-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 48vh;
+  min-height: 220px;
+  max-height: 400px;
+  min-width: 0;
+}
+
 .slice-regions-list {
   display: flex;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
+  flex-direction: column;
   gap: 3px;
-  margin: 4px 0;
-  align-items: center;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-#slice .slice-region-add {
+.slice-region-actions {
+  display: flex;
+  gap: 4px;
+}
+
+#slice .slice-region-actions .btn {
+  flex: 1 1 0;
   min-width: 36px;
-  min-height: 40px;
-  height: 40px;
-  padding: 0 8px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0 3px;
   font-size: 12px;
-  border-radius: 8px;
-  border: 1px dashed var(--line, #38383a);
-  background: transparent;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-#slice .slice-region-add:hover {
-  border-color: var(--accent, #0a84ff);
-  color: var(--accent, #0a84ff);
 }
 
 #slice .slice-region-card {
   position: relative;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 0;
-  padding: 2px 1px;
+  padding: 1px 0;
   background: var(--bg-card, #1c1c1e);
   border: 1px solid var(--line, #38383a);
   border-radius: 8px;
-  min-height: 40px;
-  height: 40px;
+  min-height: 38px;
+  height: 38px;
+  width: 146px;
   box-sizing: border-box;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 #slice .slice-region-card.selected {
@@ -222,13 +234,8 @@
   pointer-events: none;
 }
 
-#slice .slice-region-card .slice-region-name {
-  display: none;
-}
-
 #slice .slice-region-card .btn,
-#slice .slice-region-card .slice-region-vis,
-#slice .slice-region-card .slice-region-del {
+#slice .slice-region-card .slice-region-vis {
   min-width: 36px;
   max-width: 36px;
   width: 36px;
@@ -250,11 +257,15 @@
   opacity: 0.35;
 }
 
+#slice .slice-region-card .btn:disabled {
+  opacity: 0.25;
+}
+
 /* 색상 바꾸기 팝오버 */
 #slice .slice-color-popover {
   position: static;
   min-width: 0;
-  margin: 4px 0;
+  margin: 0;
   background: var(--bg-card, #1c1c1e);
   border: 1px solid var(--line, #38383a);
   border-radius: 8px;

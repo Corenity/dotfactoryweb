@@ -58,11 +58,14 @@ function sameRegionSliceState(a, b) {
   for (let i = 0; i < a.regions.length; i++) {
     if (a.regions[i] !== b.regions[i]) return false;
   }
-  const ga = a.grid;
-  const gb = b.grid;
-  if (ga.length !== gb.length) return false;
-  for (let i = 0; i < ga.length; i++) {
-    if (ga[i] !== gb[i]) return false;
+  if (a.masks.length !== b.masks.length) return false;
+  for (let region = 0; region < a.masks.length; region++) {
+    const aMask = a.masks[region];
+    const bMask = b.masks[region];
+    if (aMask.length !== bMask.length) return false;
+    for (let i = 0; i < aMask.length; i++) {
+      if (aMask[i] !== bMask[i]) return false;
+    }
   }
   return true;
 }
