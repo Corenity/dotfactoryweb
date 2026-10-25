@@ -2,7 +2,7 @@
 // 대볼 그림 한 장은 합치기와 같이 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 내려받기 · 합치기에 더하기에는 넣지 않습니다.
 import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
 import { overlayGuide, guidePixelAt, guideOpacity, moveGuide, GUIDE_OPACITY } from './core/assemble.js';
-import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName } from './io.js';
+import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName, desktopCanvasActive, mountDesktopCanvasPan } from './io.js';
 import { selectRect, insideRect, lift, fillPiece, place } from './core/select.js';
 import { loadColors, saveColors } from './store.js';
 import { currentCanvas } from './core/profile.js';
@@ -33,6 +33,11 @@ export function mountPaint(app) {
   let marquee = null, sel = null;
   const pointers = new Map();
   let pan = null;
+  mountDesktopCanvasPan(stage, {
+    readPan: () => ({ x: panX, y: panY }),
+    writePan: (x, y) => { panX = Math.round(x); panY = Math.round(y); render(); },
+    onResize: () => { if (image && !$('#paint').hidden) fit(); },
+  });
 
   // 배경 초록으로 칠하면 그 칸은 배경(투명)이 됩니다. 불러올 때 초록을 배경으로 보는 것과 같게 둡니다.
   function color() {
@@ -244,7 +249,7 @@ export function mountPaint(app) {
     fittedWidth = w;
     cell = Math.max(1, Math.floor(Math.min(w / image.width, h / image.height)));
     const fitted = image.height * cell + FIT_PAD * 2;
-    if (fitted < h) {
+    if (!desktopCanvasActive() && fitted < h) {
       workspace.style.height = `${fitted + workspace.offsetHeight - h}px`;
       workspace.style.minHeight = '0';
       workspace.style.flex = '0 0 auto';
@@ -336,9 +341,9 @@ export function mountPaint(app) {
 
   stage.addEventListener('pointerdown', e => {
     if (!image) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
     stage.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (e.pointerType === 'mouse' && e.button !== 0) { pan = { x: e.clientX, y: e.clientY, panX, panY }; return; }
     if (pointers.size === 1) {
       const at = cellAt(e.clientX, e.clientY);
       $('#paint-pos').textContent = inside(at) ? `x ${at[0]} · y ${at[1]}` : '';
@@ -357,7 +362,7 @@ export function mountPaint(app) {
     if (pan) {
       const list = [...pointers.values()];
       const x = list.reduce((s, p) => s + p.x, 0) / list.length, y = list.reduce((s, p) => s + p.y, 0) / list.length;
-      if (list.length >= 2 || e.pointerType === 'mouse') { panX = pan.panX + Math.round(x - pan.x); panY = pan.panY + Math.round(y - pan.y); render(); }
+      if (list.length >= 2) { panX = pan.panX + Math.round(x - pan.x); panY = pan.panY + Math.round(y - pan.y); render(); }
       return;
     }
     if (pointers.size === 1 && strokeBefore) {

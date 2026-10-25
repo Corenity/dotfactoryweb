@@ -1,5 +1,69 @@
 // 그림 파일 읽기 · 그리기 · 내려받기. 화면 쪽 공용 도구입니다.
 
+export const DESKTOP_CANVAS_MEDIA = '(min-width: 900px) and (hover: hover) and (pointer: fine)';
+
+export function isDesktopCanvasPanPointer(event) {
+  return event?.pointerType === 'mouse' && (event.button === 1 || event.button === 2);
+}
+
+export function desktopCanvasActive(media = globalThis.matchMedia?.(DESKTOP_CANVAS_MEDIA)) {
+  return Boolean(media?.matches);
+}
+
+/** 마우스 가운데·오른쪽 단추로 그림판을 옮깁니다. 창 폭은 이동 동작을 제한하지 않습니다. */
+export function mountDesktopCanvasPan(stage, {
+  readPan,
+  writePan,
+  enabled = () => true,
+  onResize = null,
+  media = globalThis.matchMedia?.(DESKTOP_CANVAS_MEDIA),
+  ResizeObserverClass = globalThis.ResizeObserver,
+} = {}) {
+  let drag = null;
+  const stop = event => {
+    event.preventDefault();
+    event.stopImmediatePropagation?.();
+  };
+
+  const onPointerDown = event => {
+    if (!enabled() || !isDesktopCanvasPanPointer(event)) return;
+    stop(event);
+    const point = readPan();
+    drag = { id: event.pointerId, x: event.clientX, y: event.clientY, panX: point.x, panY: point.y };
+    stage.setPointerCapture?.(event.pointerId);
+  };
+  const onPointerMove = event => {
+    if (!drag || drag.id !== event.pointerId) return;
+    stop(event);
+    writePan(drag.panX + event.clientX - drag.x, drag.panY + event.clientY - drag.y);
+  };
+  const onPointerEnd = event => {
+    if (!drag || drag.id !== event.pointerId) return;
+    stop(event);
+    stage.releasePointerCapture?.(event.pointerId);
+    drag = null;
+  };
+  const onContextMenu = event => {
+    if (enabled() && (event.pointerType === 'mouse' || event.button === 2)) event.preventDefault();
+  };
+
+  stage.addEventListener('pointerdown', onPointerDown, { capture: true });
+  stage.addEventListener('pointermove', onPointerMove, { capture: true });
+  stage.addEventListener('pointerup', onPointerEnd, { capture: true });
+  stage.addEventListener('pointercancel', onPointerEnd, { capture: true });
+  stage.addEventListener('contextmenu', onContextMenu, { capture: true });
+
+  const observer = onResize && ResizeObserverClass ? new ResizeObserverClass(() => {
+    if (desktopCanvasActive(media)) onResize();
+  }) : null;
+  observer?.observe(stage);
+
+  return {
+    active: () => Boolean(drag),
+    disconnect: () => observer?.disconnect(),
+  };
+}
+
 /** 파일(Blob)을 { width, height, data } 그림으로 읽습니다. 색 보정 없이 파일에 적힌 값 그대로 읽습니다. */
 export async function readImageFile(file) {
   let source;

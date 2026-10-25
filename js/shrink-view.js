@@ -1,5 +1,5 @@
 // 크기 화면 — 한 그림을 도트 칸 그림으로 줄이거나, 원래 칸을 그대로 정수 배로 키웁니다.
-import { readImageFile, toCanvas, drawPixels, pickFiles, savePng, baseName } from './io.js';
+import { readImageFile, toCanvas, drawPixels, pickFiles, savePng, baseName, mountDesktopCanvasPan } from './io.js';
 import { backdropToggle } from './backdrop.js';
 import { dropKey } from './core/paint.js';
 import { scaleNearest } from './core/scale.js';
@@ -8,8 +8,15 @@ const $ = sel => document.querySelector(sel);
 
 export function mountShrink(app) {
   let source = null, sourceName = '', result = null, resultMode = '', resultFactor = 0, busy = false, mode = 'shrink';
+  let panX = 0, panY = 0;
+  const canvas = $('#shrink-out'), stage = canvas.parentElement;
   // 결과의 배경은 늘 투명 칸으로 받고, 초록은 보여 줄 때와 내려받을 때만 깝니다.
   const bg = backdropToggle($('#shrink-clear'), () => result && drawOut());
+  mountDesktopCanvasPan(stage, {
+    readPan: () => ({ x: panX, y: panY }),
+    writePan: (x, y) => { panX = Math.round(x); panY = Math.round(y); if (result) drawOut(); },
+    onResize: () => { if (result) drawOut(); },
+  });
 
   const status = text => { $('#shrink-status').textContent = text; };
 
@@ -23,6 +30,7 @@ export function mountShrink(app) {
       $('#shrink-name').textContent = `${file.name} · ${source.width}×${source.height}`;
       $('#shrink-run').disabled = false;
       result = null;
+      panX = panY = 0;
       $('#shrink-result').hidden = true;
       status('');
     } catch (err) {
@@ -42,6 +50,7 @@ export function mountShrink(app) {
     $('#grow-options').hidden = shrinking;
     $('#shrink-run').textContent = shrinking ? '축소' : '확대';
     result = null;
+    panX = panY = 0;
     $('#shrink-result').hidden = true;
     status('');
   }
@@ -119,7 +128,10 @@ export function mountShrink(app) {
     $('#shrink-info').textContent = `${result.width}×${result.height}px · 원본 한 칸을 ${factor}×${factor}px로 확대`;
   }
 
-  function drawOut() { drawPixels($('#shrink-out'), result, resultMode === 'grow' ? 1 : 4, bg.backdrop); }
+  function drawOut() {
+    drawPixels(canvas, result, resultMode === 'grow' ? 1 : 4, bg.backdrop);
+    canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+  }
 
   // PC 「기준 보기」와 같은 색으로 잰 기준을 원본 위에 그립니다.
   function drawGuide(d) {

@@ -2,7 +2,7 @@
 import { KEY, toHex, dropKey } from './core/paint.js';
 import { overlayGuide, GUIDE_OPACITY, guideOpacity, moveGuide } from './core/assemble.js';
 import { importRegionConfig, regionGuideImage } from './core/region-slice.js';
-import { pickFiles, readImageFile, baseName } from './io.js';
+import { pickFiles, readImageFile, baseName, mountDesktopCanvasPan } from './io.js';
 
 const $ = sel => document.querySelector(sel);
 
@@ -31,6 +31,11 @@ export function mountRigSlice(app, model) {
   let [canvasWidth, canvasHeight] = model.getSize();
   let guide = null; // { image, name, opacity, dx, dy, kind: 'image' | 'regions' }
   let activeView = 'original';
+  mountDesktopCanvasPan(stage, {
+    readPan: () => ({ x: panX, y: panY }),
+    writePan: (x, y) => { panX = Math.round(x); panY = Math.round(y); render(); },
+    onResize: () => { if (hasTarget() && !$('#slice').hidden) fit(); },
+  });
 
   function sync() {
     baseImage = model.getBaseImage();
@@ -279,13 +284,9 @@ export function mountRigSlice(app, model) {
     // 포인터 이벤트: 1손가락 붓/지우개 칠하기, 2손가락 화면 이동
     stage.addEventListener('pointerdown', e => {
       if (!hasTarget()) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
       stage.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-
-      if (e.pointerType === 'mouse' && e.button !== 0) {
-        pan = { x: e.clientX, y: e.clientY, panX, panY };
-        return;
-      }
 
       if (pointers.size === 1) {
         isDrawing = true;
@@ -310,7 +311,7 @@ export function mountRigSlice(app, model) {
         const list = [...pointers.values()];
         const x = list.reduce((s, p) => s + p.x, 0) / list.length;
         const y = list.reduce((s, p) => s + p.y, 0) / list.length;
-        if (list.length >= 2 || e.pointerType === 'mouse') {
+        if (list.length >= 2) {
           panX = pan.panX + Math.round(x - pan.x);
           panY = pan.panY + Math.round(y - pan.y);
           render();

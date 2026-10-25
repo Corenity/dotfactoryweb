@@ -1,7 +1,7 @@
 // 합치기 화면 — 그림 여러 장을 층 번호 · 보이기 · 칸 이동으로 겹쳐 보고 저장합니다.
 // 대볼 그림 한 장은 합친 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 합친 그림 내려받기에는 넣지 않습니다.
 import { compose, overlayGuide, guideOpacity, layerOpacity, GUIDE_OPACITY, canvasSizeFor, nextLayer, MIN_LAYER, clampLayer, toProject, parseProject } from './core/assemble.js';
-import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, saveJson, toPngDataUrl, baseName } from './io.js';
+import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, saveJson, toPngDataUrl, baseName, desktopCanvasActive, mountDesktopCanvasPan } from './io.js';
 import { dropKey } from './core/paint.js';
 import { backdropToggle } from './backdrop.js';
 
@@ -10,8 +10,15 @@ const $ = sel => document.querySelector(sel);
 export function mountAssemble(app) {
   let items = [];
   let guide = null; // { image, name, opacity }
+  let panX = 0, panY = 0;
+  const canvas = $('#asm-canvas'), stage = canvas.parentElement;
   // 맨 아래에 초록을 깔아 보여 줍니다. 넣는 그림은 초록 칸을 투명으로 바꿔 받아 아래를 가리지 않습니다.
   const bg = backdropToggle($('#asm-clear'), render);
+  mountDesktopCanvasPan(stage, {
+    readPan: () => ({ x: panX, y: panY }),
+    writePan: (x, y) => { panX = Math.round(x); panY = Math.round(y); drawStage(); },
+    onResize: drawStage,
+  });
 
   // 대볼 그림도 그림판 크기에 넣어, 부위만 있을 때와 대볼 그림을 얹었을 때 판이 같게 합니다.
   function size() { return canvasSizeFor(guide ? [...items, guide] : items); }
@@ -25,10 +32,13 @@ export function mountAssemble(app) {
   // 화면에서는 그림마다 진하기만큼 비쳐 보입니다(fade). 진하기 밀대를 끄는 동안은 목록을 다시 만들지 않고 이것만 다시 그립니다.
   function drawStage() {
     const [w, h] = size();
-    const stage = $('#asm-canvas').parentElement;
-    const scale = Math.max(1, Math.floor(Math.min(stage.clientWidth || 360, 480) / w));
+    const desktop = desktopCanvasActive();
+    const availableWidth = desktop ? Math.max(1, (stage.clientWidth || 360) - 16) : Math.min(stage.clientWidth || 360, 480);
+    const availableHeight = desktop ? Math.max(1, (stage.clientHeight || 320) - 16) : Infinity;
+    const scale = Math.max(1, Math.floor(Math.min(availableWidth / w, availableHeight / h)));
     const shown = compose(items, w, h, { fade: true });
-    drawPixels($('#asm-canvas'), guide ? overlayGuide(shown, guide.image, guide.opacity) : shown, scale, bg.backdrop);
+    drawPixels(canvas, guide ? overlayGuide(shown, guide.image, guide.opacity) : shown, scale, bg.backdrop);
+    canvas.style.transform = `translate(${panX}px, ${panY}px)`;
     $('#asm-size').textContent = items.length ? `${w}×${h} 칸 · 그림 ${items.length}장` : '그림을 더하세요';
   }
 

@@ -3,7 +3,7 @@ import { boneLabel, normalizeBones, applyRestPose, resetBonesToDefaults, DEFAULT
 import { CURRENT_PROFILE, currentCanvas } from './core/profile.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal, worldDeltaToBone } from './core/rig-render.js';
 import { sortRigPiecesByLayers } from './core/preset-layers.js';
-import { drawPixels, saveJson, pickFiles, baseName } from './io.js';
+import { drawPixels, saveJson, pickFiles, baseName, mountDesktopCanvasPan } from './io.js';
 import { toSkeleton, parseSkeleton, applySkeletonToRig } from './core/skeleton.js';
 const $ = selector => document.querySelector(selector);
 
@@ -90,6 +90,11 @@ export function mountRigBones(app, model) {
   let dragBefore = null;
   let panning = null;
   let rotDragBefore = null;
+  mountDesktopCanvasPan(stage, {
+    readPan: () => ({ x: panX, y: panY }),
+    writePan: (x, y) => { panX = Math.round(x); panY = Math.round(y); render(); },
+    onResize: () => { if (!panel.hidden) fit(); },
+  });
 
   function bones() { return model.getBones(); }
   function pieces() { return model.getPieces(); }
@@ -344,6 +349,7 @@ export function mountRigBones(app, model) {
 
   function bindPointers() {
     stage.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
       stage.setPointerCapture(event.pointerId);
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (pointers.size === 1) {

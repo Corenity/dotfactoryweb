@@ -182,6 +182,18 @@
   background: #03c037;
 }
 
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .play-stage {
+    position: relative;
+    height: clamp(420px, 65vh, 720px);
+    min-height: 420px;
+    max-height: none;
+    overflow: hidden;
+    touch-action: none;
+  }
+  .play-stage canvas { max-width: none; transform-origin: center; }
+}
+
 .character-export-card .bundle-options {
   display: flex;
   flex-direction: column;

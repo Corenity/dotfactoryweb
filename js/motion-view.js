@@ -4,7 +4,7 @@ import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-r
 import { addMotion, changeMotionLength, changeMotionStep, copyPreviousKey, deleteKey, frameTimes, hasKey, poseAt, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
 import { encodeGif } from './core/gif.js';
 import { sortRigPiecesByLayers } from './core/preset-layers.js';
-import { drawPixels, saveFile, saveJson, pickFiles } from './io.js';
+import { drawPixels, saveFile, saveJson, pickFiles, mountDesktopCanvasPan } from './io.js';
 import { toAnimation, parseAnimation, checkSkeletonCompatibility, adaptAnimationToBones, mergeAnimations } from './core/animation.js';
 import { scrollTreeItemIntoView } from './rig-bones-view.js';
 
@@ -61,6 +61,11 @@ export function mountMotion(app, model) {
   let panning = null;
   let activeTool = 'P';
   let rotDragBefore = null;
+  mountDesktopCanvasPan(stage, {
+    readPan: () => ({ x: panX, y: panY }),
+    writePan: (x, y) => { panX = Math.round(x); panY = Math.round(y); render(); },
+    onResize: () => { if (!panel.hidden) fit(); },
+  });
 
   const animations = () => model.getAnimations();
   const bones = () => model.getBones();
@@ -311,6 +316,7 @@ export function mountMotion(app, model) {
 
   function bindPointers() {
     stage.addEventListener('pointerdown', event => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
       stage.setPointerCapture(event.pointerId);
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (pointers.size === 1) {

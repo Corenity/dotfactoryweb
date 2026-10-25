@@ -47,6 +47,19 @@ input[type="color"] {
 .stage.small { height: auto; min-height: 0; display: grid; place-items: center; padding: 8px; touch-action: auto; }
 .stage.small canvas { position: static; max-width: 100%; }
 
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  #paint { height: auto; }
+  #paint .paint-workspace { flex: none; height: clamp(420px, 65vh, 720px); }
+  #paint .stage { height: 100%; min-height: 420px; }
+  .stage.small {
+    height: clamp(420px, 65vh, 720px);
+    min-height: 420px;
+    overflow: hidden;
+    touch-action: none;
+  }
+  .stage.small canvas { max-width: none; transform-origin: center; }
+}
+
 /* 다듬기는 아이폰에서 스크롤 없이 한 화면에 담습니다. 화면을 주소창이 나와 있을 때의 높이(svh)에 맞추고
    단추 줄을 뺀 나머지 높이를 그림판이 씁니다. 맞춤이 그림판을 그림 높이로 줄이면 남는 곳은 맨 아래로 갑니다. */
 #paint { gap: 8px; height: calc(100vh - var(--top-h, 61px) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }

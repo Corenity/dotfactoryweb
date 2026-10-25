@@ -7,7 +7,7 @@ import { parseAnimation } from './core/animation.js';
 import { DEFAULT_BARE_LAYERS_META, composeStackedLayers } from './core/preset-stack.js';
 import { makeBundle, makeGodotExport } from './core/godot-export.js';
 import { makeBackgroundTransparent } from './core/background.js';
-import { pickFiles, readImageFile, toPngDataUrl, saveFile } from './io.js';
+import { pickFiles, readImageFile, toPngDataUrl, saveFile, mountDesktopCanvasPan } from './io.js';
 import {
   normalizeCharacterState,
   addCharacterPreset,
@@ -118,6 +118,13 @@ export function mountCharacter(app, model = {}) {
   let rafId = 0;
   let lastTimestamp = 0;
   let zoomScale = 4;
+  let panX = 0, panY = 0;
+  const stage = canvas?.parentElement;
+  if (stage) mountDesktopCanvasPan(stage, {
+    readPan: () => ({ x: panX, y: panY }),
+    writePan: (x, y) => { panX = Math.round(x); panY = Math.round(y); render(); },
+    onResize: render,
+  });
 
   function getBasis() {
     const fromModel = model.getRigBasis?.();
@@ -208,6 +215,7 @@ export function mountCharacter(app, model = {}) {
     if (canvas.height !== height) canvas.height = height;
     canvas.style.width = `${width * zoomScale}px`;
     canvas.style.height = `${height * zoomScale}px`;
+    canvas.style.transform = `translate(${panX}px, ${panY}px)`;
     ctx.putImageData(new ImageData(frameBuf, width, height), 0, 0);
 
     if (timeDisplay) {
