@@ -226,21 +226,6 @@ export function mountSlice(app) {
         popover.setAttribute('role', 'dialog');
         popover.setAttribute('aria-label', '영역 색상 선택');
 
-        // 팝오버 내부 빈 곳 클릭 시 부모 카드로 이벤트가 전파되어 칩이 선택되는 것을 방지
-        popover.addEventListener('pointerdown', ev => ev.stopPropagation());
-        popover.addEventListener('click', ev => ev.stopPropagation());
-
-        // 오른쪽 칩(세 번째 칸 등)에서 열리면 화면 오른쪽 밖으로 나가지 않게 오른쪽 맞춤
-        const rect = card.getBoundingClientRect();
-        const screenWidth = window.innerWidth || document.documentElement.clientWidth || 375;
-        if (rect.left + 210 > screenWidth) {
-          popover.style.left = 'auto';
-          popover.style.right = '0';
-        } else {
-          popover.style.left = '0';
-          popover.style.right = 'auto';
-        }
-
         availableColors.forEach(newColor => {
           const itemBtn = document.createElement('button');
           itemBtn.type = 'button';
@@ -272,10 +257,10 @@ export function mountSlice(app) {
           popover.appendChild(itemBtn);
         });
 
-        card.appendChild(popover);
+        list.insertAdjacentElement('afterend', popover);
 
         const onDocClick = ev => {
-          if (!card.contains(ev.target)) {
+          if (!card.contains(ev.target) && !popover.contains(ev.target)) {
             closeColorPicker();
           }
         };

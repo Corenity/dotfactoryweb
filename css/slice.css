@@ -252,10 +252,9 @@
 
 /* 색상 바꾸기 팝오버 */
 #slice .slice-color-popover {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  z-index: 100;
+  position: static;
+  min-width: 0;
+  margin: 4px 0;
   background: var(--bg-card, #1c1c1e);
   border: 1px solid var(--line, #38383a);
   border-radius: 8px;
@@ -263,9 +262,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-  width: max-content;
-  max-width: min(210px, calc(100vw - 24px));
+  width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
 }
 
