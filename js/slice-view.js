@@ -10,6 +10,7 @@ import {
   addRegion,
   removeRegion,
   moveRegion,
+  canMoveRegion,
   recolorRegion,
   paintCell,
   eraseCell,
@@ -160,7 +161,15 @@ export function mountSlice(app) {
     canvasView.fit();
   }
 
+  function updateRegionMoveButtons() {
+    const upBtn = $('#slice-region-up');
+    const downBtn = $('#slice-region-down');
+    if (upBtn) upBtn.disabled = !canMoveRegion(regionState, selectedColor, 'up');
+    if (downBtn) downBtn.disabled = !canMoveRegion(regionState, selectedColor, 'down');
+  }
+
   function renderRegionsList() {
+    updateRegionMoveButtons();
     closeColorPicker();
     const list = $('#slice-regions-list');
     if (!list) return;
@@ -177,8 +186,6 @@ export function mountSlice(app) {
     [...regionState.regions].reverse().forEach((color, topIndex) => {
       const isSelected = selectedColor === color;
       const isVisible = visibleRegions.has(color);
-      const isHighest = topIndex === 0;
-      const isLowest = topIndex === regionState.regions.length - 1;
 
       const card = document.createElement('div');
       card.className = `slice-region-card${isSelected ? ' selected' : ''}`;
@@ -256,6 +263,15 @@ export function mountSlice(app) {
         });
 
         list.insertAdjacentElement('afterend', popover);
+        try {
+          const cardRect = card.getBoundingClientRect();
+          const panel = list.closest('.slice-regions-panel');
+          if (panel) {
+            const panelRect = panel.getBoundingClientRect();
+            const topOffset = Math.max(0, Math.min(cardRect.top - panelRect.top, Math.max(0, panelRect.height - 140)));
+            popover.style.top = `${topOffset}px`;
+          }
+        } catch (_) {}
 
         const onDocClick = ev => {
           if (!card.contains(ev.target) && !popover.contains(ev.target)) {
@@ -303,25 +319,6 @@ export function mountSlice(app) {
         canvasView.drawOverlay();
       });
 
-      const moveButton = (text, direction, disabled) => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'btn small slice-region-move';
-        button.textContent = text;
-        button.disabled = disabled;
-        button.title = direction === 'up' ? '깊이 한 단계 올리기' : '깊이 한 단계 내리기';
-        button.setAttribute('aria-label', button.title);
-        button.addEventListener('click', e => {
-          e.stopPropagation();
-          const before = historySnapshot();
-          if (!moveRegion(regionState, color, direction)) return;
-          renderRegionsList();
-          canvasView.drawOverlay();
-          recordChange(before);
-        });
-        return button;
-      };
-
       card.addEventListener('click', e => {
         if (e.target.closest('button')) return;
         selectedColor = color;
@@ -330,12 +327,7 @@ export function mountSlice(app) {
         canvasView.drawOverlay();
       });
 
-      card.append(
-        dotBtn,
-        visBtn,
-        moveButton('▲', 'up', isHighest),
-        moveButton('▼', 'down', isLowest),
-      );
+      card.append(dotBtn, visBtn);
       list.appendChild(card);
     });
   }
@@ -523,6 +515,18 @@ export function mountSlice(app) {
     activeTool = 'eraser';
     updateToolUI();
   });
+
+  const moveSelectedRegion = direction => {
+    if (!canMoveRegion(regionState, selectedColor, direction)) return;
+    const before = historySnapshot();
+    if (!moveRegion(regionState, selectedColor, direction)) return;
+    renderRegionsList();
+    canvasView.drawOverlay();
+    recordChange(before);
+  };
+
+  $('#slice-region-up')?.addEventListener('click', () => moveSelectedRegion('up'));
+  $('#slice-region-down')?.addEventListener('click', () => moveSelectedRegion('down'));
 
   // 영역 더하기
   $('#slice-add-region')?.addEventListener('click', () => {

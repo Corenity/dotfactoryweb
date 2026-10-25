@@ -97,6 +97,15 @@ export function moveRegion(state, color, direction) {
   return true;
 }
 
+export function canMoveRegion(state, color, direction) {
+  if (!color || !state || !Array.isArray(state.regions)) return false;
+  const index = state.regions.indexOf(normalizeColor(color));
+  if (index < 0) return false;
+  if (direction === 'up') return index < state.regions.length - 1;
+  if (direction === 'down') return index > 0;
+  return false;
+}
+
 export function recolorRegion(state, from, to) {
   const fromHex = normalizeColor(from);
   const toHex = normalizeColor(to);

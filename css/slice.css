@@ -139,12 +139,13 @@
 
 .slice-workspace {
   display: grid;
-  grid-template-columns: 146px minmax(0, 1fr);
+  grid-template-columns: 76px minmax(0, 1fr);
   gap: 6px;
   min-width: 0;
 }
 
 .slice-regions-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -164,16 +165,18 @@
 }
 
 .slice-region-actions {
+  flex-wrap: wrap;
   display: flex;
   gap: 4px;
 }
 
 #slice .slice-region-actions .btn {
-  flex: 1 1 0;
+  flex: 1 1 36px;
+  max-width: 36px;
   min-width: 36px;
   min-height: 36px;
   height: 36px;
-  padding: 0 3px;
+  padding: 0 2px;
   font-size: 12px;
 }
 
@@ -188,7 +191,8 @@
   border-radius: 8px;
   min-height: 38px;
   height: 38px;
-  width: 146px;
+  justify-content: space-between;
+  width: 76px;
   box-sizing: border-box;
   cursor: pointer;
   flex-shrink: 0;
@@ -257,14 +261,19 @@
   opacity: 0.35;
 }
 
+#slice .slice-region-actions .btn:disabled,
 #slice .slice-region-card .btn:disabled {
   opacity: 0.25;
 }
 
 /* 색상 바꾸기 팝오버 */
 #slice .slice-color-popover {
-  position: static;
-  min-width: 0;
+  position: absolute;
+  left: calc(100% + 4px);
+  top: 0;
+  z-index: 30;
+  min-width: 170px;
+  width: 170px;
   margin: 0;
   background: var(--bg-card, #1c1c1e);
   border: 1px solid var(--line, #38383a);
@@ -273,9 +282,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  width: 100%;
-  max-width: 100%;
   box-sizing: border-box;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
 #slice .slice-color-item {
