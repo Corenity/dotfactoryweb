@@ -631,25 +631,6 @@ export function mountSlice(app) {
     }
   });
 
-  // 조각 PNG 올리기 (보관함 연동)
-  $('#rig-add-piece-png')?.addEventListener('click', async () => {
-    try {
-      const [file] = await pickFiles({ accept: 'image/png,image/*' });
-      if (!file) return;
-      const before = historySnapshot();
-      const image = dropKey(await readImageFile(file));
-      if (baseImage && (image.width !== width || image.height !== height)) {
-        return app.toast(`조각 크기(${image.width}×${image.height})가 현재 판 크기(${width}×${height})와 다릅니다`);
-      }
-      const name = baseName(file.name);
-      savePiece(image, name, 'manual', name);
-      recordChange(before);
-      app.toast(`조각 「${name}」을 보관했습니다`);
-    } catch (error) {
-      app.toast(error.message || '조각 PNG를 열 수 없습니다');
-    }
-  });
-
   // 모두 ZIP 내려받기
   $('#slice-save-all')?.addEventListener('click', async () => {
     if (pieces.length === 0) {

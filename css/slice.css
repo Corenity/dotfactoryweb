@@ -1,8 +1,6 @@
 /* site/css/slice.css — 자르기(색 영역 자르기 및 조각 보관함) 화면 스타일 */
 
 #slice {
-  display: flex;
-  flex-direction: column;
   gap: 8px;
   max-width: 100%;
   box-sizing: border-box;
