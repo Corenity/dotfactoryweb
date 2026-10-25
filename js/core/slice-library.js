@@ -46,6 +46,20 @@ export function toSliceLibraryItem(value = {}) {
   };
 }
 
+export function slicePieceActionState(pieces) {
+  if (!Array.isArray(pieces)) throw new Error('자르기 조각 목록이 올바르지 않습니다');
+  const shouldClear = pieces.length > 0;
+  return {
+    shouldClear,
+    label: shouldClear ? '클리어' : '자르기 (조각으로 저장)',
+  };
+}
+
+export function clearSlicePieces(pieces) {
+  if (!Array.isArray(pieces)) throw new Error('자르기 조각 목록이 올바르지 않습니다');
+  return pieces.length > 0 ? [] : pieces;
+}
+
 export function copyRigPiecesToSliceLibrary(pieces, canvas = [72, 64]) {
   if (!Array.isArray(pieces)) throw new Error('옛 조각 목록이 올바르지 않습니다');
   if (!Array.isArray(canvas) || canvas.length !== 2) throw new Error('옛 조각 그림판 크기가 올바르지 않습니다');

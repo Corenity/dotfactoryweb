@@ -22,7 +22,7 @@ import {
   shouldReinitRegionSlice,
 } from './core/region-slice.js';
 import { createStoredZip } from './core/zip.js';
-import { toSliceLibraryItem } from './core/slice-library.js';
+import { clearSlicePieces, slicePieceActionState, toSliceLibraryItem } from './core/slice-library.js';
 import { pickFiles, readImageFile, readDataUrl, toPngDataUrl, saveFile, savePng, baseName, drawPixels } from './io.js';
 import { mountRigSlice } from './rig-slice-view.js';
 
@@ -361,6 +361,15 @@ export function mountSlice(app) {
   }
 
   function renderPiecesList() {
+    const cutButton = $('#slice-cut-btn');
+    const actionState = slicePieceActionState(pieces);
+    if (cutButton) {
+      cutButton.textContent = actionState.label;
+      cutButton.setAttribute('aria-label', actionState.label);
+      cutButton.classList.toggle('primary', !actionState.shouldClear);
+      cutButton.classList.toggle('danger', actionState.shouldClear);
+    }
+
     const list = $('#rig-pieces-list');
     if (!list) return;
     list.innerHTML = '';
@@ -593,6 +602,16 @@ export function mountSlice(app) {
 
   // 자르기 실행 (조각으로 저장)
   $('#slice-cut-btn')?.addEventListener('click', () => {
+    const actionState = slicePieceActionState(pieces);
+    if (actionState.shouldClear) {
+      const before = historySnapshot();
+      pieces = clearSlicePieces(pieces);
+      renderPiecesList();
+      recordChange(before);
+      app.toast('조각을 모두 지웠습니다');
+      return;
+    }
+
     if (!baseImage) {
       return app.toast('먼저 「그림 올리기」로 캐릭터 그림을 열어주세요');
     }
