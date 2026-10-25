@@ -103,25 +103,14 @@ export function mountRigSlice(app, model) {
     const state = model.getRegionState();
     if (!state) return;
 
-    const tool = model.getActiveTool();
-    const selectedColor = model.getSelectedRegion();
     const visibleRegions = model.getVisibleRegions();
-
-    // 규칙: 어떤 영역을 골라 칠하는 중에는 다른 영역 색은 보이지 않는다.
-    // 지우개 모드이거나 선택된 영역이 없는 경우 켜져 있는 모든 영역 표시
-    const focusMode = tool === 'brush' && !!selectedColor;
-
     const { width, height, regions, grid } = state;
 
     for (let rIdx = 0; rIdx < regions.length; rIdx++) {
       const color = regions[rIdx];
       const targetLabel = rIdx + 1;
 
-      if (focusMode) {
-        if (color !== selectedColor) continue;
-      } else {
-        if (!visibleRegions.has(color)) continue;
-      }
+      if (!visibleRegions.has(color)) continue;
 
       ctx.fillStyle = hexToRgba(color, 0.65);
       for (let y = 0; y < height; y++) {

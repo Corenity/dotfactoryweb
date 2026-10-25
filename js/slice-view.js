@@ -1,7 +1,7 @@
 // site/js/slice-view.js — 색 영역 자르기 화면 총괄 모듈
 import { CURRENT_PROFILE } from './core/profile.js';
 import { dropKey, KEY, toHex } from './core/paint.js';
-import { RigHistory, cloneRigState } from './core/rig-history.js';
+import { SliceHistory, cloneSliceState } from './core/slice-history.js';
 import {
   REGION_PALETTE,
   createRegionSliceState,
@@ -34,7 +34,7 @@ export function mountSlice(app) {
   let activeTool = 'brush';
   let brushSize = 1;
 
-  const history = new RigHistory();
+  const history = new SliceHistory();
   const undoButton = $('#slice-undo');
   const redoButton = $('#slice-redo');
 
@@ -74,14 +74,14 @@ export function mountSlice(app) {
   }
 
   function historySnapshot() {
-    return {
+    return cloneSliceState({
       canvas: [width, height],
       baseTitle,
       baseImage,
-      pieces: pieces.map(p => ({ ...p })),
-      regionState: cloneRegionSliceState(regionState),
+      pieces,
+      regionState,
       selectedColor,
-    };
+    });
   }
 
   function updateUndoRedo() {
@@ -100,6 +100,7 @@ export function mountSlice(app) {
   function applyHistory(value) {
     if (!value) return;
     const needReinit = shouldReinitRegionSlice(baseImage, value.baseImage);
+    const prevRegions = new Set(regionState.regions);
     [width, height] = value.canvas;
     baseTitle = value.baseTitle;
     baseImage = value.baseImage;
@@ -107,7 +108,17 @@ export function mountSlice(app) {
     regionState = cloneRegionSliceState(value.regionState);
     selectedColor = value.selectedColor;
 
-    for (const c of regionState.regions) visibleRegions.add(c);
+    for (const c of regionState.regions) {
+      if (!prevRegions.has(c)) {
+        visibleRegions.add(c);
+      }
+    }
+    for (const c of Array.from(visibleRegions)) {
+      if (!regionState.regions.includes(c)) {
+        visibleRegions.delete(c);
+      }
+    }
+
     if (selectedColor && !regionState.regions.includes(selectedColor)) {
       selectedColor = regionState.regions[0] || null;
     }
@@ -347,6 +358,10 @@ export function mountSlice(app) {
         if (!selectedColor) {
           if (regionState.regions.length > 0) selectedColor = regionState.regions[0];
           else return;
+        }
+        if (!visibleRegions.has(selectedColor)) {
+          visibleRegions.add(selectedColor);
+          renderRegionsList();
         }
         paintCell(regionState, x, y, selectedColor, brushSize);
       } else if (activeTool === 'eraser') {
