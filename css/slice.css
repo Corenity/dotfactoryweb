@@ -137,6 +137,14 @@
   flex-shrink: 0;
 }
 
+#slice-guide-row {
+  padding: 4px 0;
+}
+
+#slice-guide-row .btn {
+  min-height: 44px;
+}
+
 .slice-workspace {
   display: grid;
   grid-template-columns: 76px minmax(0, 1fr);

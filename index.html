@@ -226,6 +226,19 @@
         <button class="btn primary" id="slice-tool-brush" type="button" aria-pressed="true">붓</button>
         <button class="btn" id="slice-tool-eraser" type="button" aria-pressed="false">지우개</button>
       </div>
+      <div class="row guide" id="slice-guide-row">
+        <span class="hint">대볼 그림</span>
+        <span class="guide-name is-empty" id="slice-guide-name">없음</span>
+        <div class="guide-picker">
+          <button class="btn small" id="slice-guide-pick" type="button" aria-haspopup="menu" aria-expanded="false">고르기</button>
+          <div class="guide-picker-menu" id="slice-guide-menu" role="menu" aria-label="대볼 자료 고르기" hidden>
+            <button class="btn" type="button" role="menuitem" data-slice-guide-source="png">PNG 그림</button>
+            <button class="btn" type="button" role="menuitem" data-slice-guide-source="region-file">영역 설정 파일</button>
+          </div>
+        </div>
+        <button class="btn small" id="slice-guide-drop" hidden>빼기</button>
+        <label class="inline guide-opacity">진하기<input type="range" id="slice-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="slice-guide-opacity-value">50%</span></label>
+      </div>
       <div class="slice-workspace">
         <aside class="slice-regions-panel" aria-label="색 영역과 깊이">
           <div class="slice-regions-list" id="slice-regions-list" role="list" aria-label="색 영역 목록"></div>

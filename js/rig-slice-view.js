@@ -1,5 +1,8 @@
-// site/js/rig-slice-view.js — 자르기 그림판 뷰 모듈 (색 영역 오버레이 렌더링, 줌·이동, 붓/지우개)
-import { KEY, toHex } from './core/paint.js';
+// site/js/rig-slice-view.js — 자르기 그림판 뷰 모듈 (색 영역 오버레이 렌더링, 대볼 그림, 줌·이동, 붓/지우개)
+import { KEY, toHex, dropKey } from './core/paint.js';
+import { overlayGuide, GUIDE_OPACITY, guideOpacity } from './core/assemble.js';
+import { importRegionConfig, regionGuideImage } from './core/region-slice.js';
+import { pickFiles, readImageFile, baseName } from './io.js';
 
 const $ = sel => document.querySelector(sel);
 
@@ -26,6 +29,7 @@ export function mountRigSlice(app, model) {
 
   let baseImage = model.getBaseImage();
   let [canvasWidth, canvasHeight] = model.getSize();
+  let guide = null; // { image, name, opacity, kind: 'image' | 'regions' }
 
   function sync() {
     baseImage = model.getBaseImage();
@@ -34,8 +38,10 @@ export function mountRigSlice(app, model) {
     canvasHeight = h;
   }
 
+  const hasTarget = () => !!(baseImage || guide?.image);
+
   function fit() {
-    if (!baseImage) return;
+    if (!hasTarget()) return;
     const w = stage.clientWidth || 320;
     const h = stage.clientHeight || 240;
     cell = Math.max(1, Math.floor(Math.min(w / canvasWidth, h / canvasHeight)));
@@ -45,7 +51,7 @@ export function mountRigSlice(app, model) {
   }
 
   function zoomStep(direction) {
-    if (!baseImage) return;
+    if (!hasTarget()) return;
     const next = Math.max(1, Math.min(16, cell + direction));
     if (next === cell) return;
     const w = stage.clientWidth || 320;
@@ -59,12 +65,13 @@ export function mountRigSlice(app, model) {
   }
 
   function render() {
-    emptyHint.hidden = !!baseImage;
-    baseCanvas.hidden = !baseImage;
-    overlayCanvas.hidden = !baseImage;
+    const visible = hasTarget();
+    emptyHint.hidden = visible;
+    baseCanvas.hidden = !visible;
+    overlayCanvas.hidden = !visible;
     zoomText.textContent = `${cell}배`;
 
-    if (!baseImage) return;
+    if (!visible) return;
 
     // 1. 원본 그림판 배경 (초록) 채우기 및 원본 도트 그리기
     const ctx = baseCanvas.getContext('2d');
@@ -73,8 +80,14 @@ export function mountRigSlice(app, model) {
     ctx.fillStyle = toHex(KEY);
     ctx.fillRect(0, 0, baseCanvas.width, baseCanvas.height);
 
-    // 원본 도트 렌더링
-    const imgData = baseImage.data;
+    // 대볼 그림 합성: 원래 그림 위에 대볼 그림을 비치게 얹고, 그 위에 영역 색이 오도록 함
+    const targetImage = baseImage || { width: canvasWidth, height: canvasHeight, data: new Uint8ClampedArray(canvasWidth * canvasHeight * 4) };
+    const shown = (guide?.image)
+      ? overlayGuide(targetImage, guide.image, guide.opacity)
+      : targetImage;
+
+    // 도트 렌더링
+    const imgData = shown.data;
     for (let y = 0; y < canvasHeight; y++) {
       for (let x = 0; x < canvasWidth; x++) {
         const p4 = (y * canvasWidth + x) * 4;
@@ -96,7 +109,7 @@ export function mountRigSlice(app, model) {
   }
 
   function drawOverlay() {
-    if (!baseImage) return;
+    if (!hasTarget()) return;
     const ctx = overlayCanvas.getContext('2d');
     ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
@@ -129,6 +142,108 @@ export function mountRigSlice(app, model) {
     model.onPaintCell(cx, cy);
   }
 
+  function renderGuide() {
+    const nameEl = $('#slice-guide-name');
+    const pickBtn = $('#slice-guide-pick');
+    const dropBtn = $('#slice-guide-drop');
+    const opacityInput = $('#slice-guide-opacity');
+    const opacityValEl = $('#slice-guide-opacity-value');
+    if (!nameEl) return;
+    nameEl.textContent = guide ? guide.name : '없음';
+    nameEl.classList.toggle('is-empty', !guide);
+    if (pickBtn) pickBtn.textContent = guide ? '바꾸기' : '고르기';
+    if (dropBtn) dropBtn.hidden = !guide;
+    const opacity = guide ? guide.opacity : GUIDE_OPACITY;
+    if (opacityInput) {
+      opacityInput.value = String(Math.round(opacity * 100));
+      opacityInput.disabled = !guide;
+    }
+    if (opacityValEl) opacityValEl.textContent = `${Math.round(opacity * 100)}%`;
+  }
+
+  function closeGuideMenu() {
+    const menuEl = $('#slice-guide-menu');
+    if (menuEl) menuEl.hidden = true;
+    $('#slice-guide-pick')?.setAttribute('aria-expanded', 'false');
+  }
+
+  function initGuide() {
+    const pickBtn = $('#slice-guide-pick');
+    const menuEl = $('#slice-guide-menu');
+    const dropBtn = $('#slice-guide-drop');
+    const opacityInput = $('#slice-guide-opacity');
+    if (!pickBtn || !menuEl) return;
+
+    pickBtn.addEventListener('click', () => {
+      menuEl.hidden = !menuEl.hidden;
+      pickBtn.setAttribute('aria-expanded', String(!menuEl.hidden));
+    });
+
+    for (const option of menuEl.querySelectorAll('[data-slice-guide-source]')) {
+      option.addEventListener('click', async () => {
+        closeGuideMenu();
+        const source = option.dataset.sliceGuideSource;
+        if (source === 'png') {
+          const [file] = await pickFiles({ accept: 'image/png' });
+          if (!file) return;
+          try {
+            const raw = await readImageFile(file);
+            guide = {
+              image: dropKey(raw),
+              name: baseName(file.name),
+              opacity: guide?.opacity ?? GUIDE_OPACITY,
+              kind: 'image',
+            };
+            renderGuide();
+            render();
+          } catch {
+            app.toast(`${file.name} 을 읽지 못했습니다`);
+          }
+          return;
+        }
+        const [file] = await pickFiles({ accept: '.json,application/json' });
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const expected = baseImage ? [baseImage.width, baseImage.height] : [canvasWidth, canvasHeight];
+          const state = importRegionConfig(JSON.parse(text), expected);
+          guide = {
+            image: regionGuideImage(state),
+            name: baseName(file.name),
+            opacity: guide?.opacity ?? GUIDE_OPACITY,
+            kind: 'regions',
+          };
+          renderGuide();
+          render();
+        } catch (err) {
+          app.toast(err.message || '영역 설정을 불러오지 못했습니다');
+        }
+      });
+    }
+
+    dropBtn?.addEventListener('click', () => {
+      guide = null;
+      renderGuide();
+      render();
+    });
+
+    opacityInput?.addEventListener('input', () => {
+      if (guide) {
+        guide.opacity = guideOpacity(Number(opacityInput.value) / 100);
+        renderGuide();
+        render();
+      }
+    });
+
+    document.addEventListener('pointerdown', e => {
+      if (!menuEl.hidden && !menuEl.contains(e.target) && !pickBtn.contains(e.target)) {
+        closeGuideMenu();
+      }
+    });
+
+    renderGuide();
+  }
+
   function bindEvents() {
     $('#rig-zoom-in')?.addEventListener('click', () => zoomStep(1));
     $('#rig-zoom-out')?.addEventListener('click', () => zoomStep(-1));
@@ -136,7 +251,7 @@ export function mountRigSlice(app, model) {
 
     // 포인터 이벤트: 1손가락 붓/지우개 칠하기, 2손가락 화면 이동
     stage.addEventListener('pointerdown', e => {
-      if (!baseImage) return;
+      if (!hasTarget()) return;
       stage.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
@@ -198,6 +313,8 @@ export function mountRigSlice(app, model) {
 
     stage.addEventListener('pointerup', onPointerUp);
     stage.addEventListener('pointercancel', onPointerUp);
+
+    initGuide();
   }
 
   bindEvents();
@@ -207,5 +324,6 @@ export function mountRigSlice(app, model) {
     render,
     drawOverlay,
     sync,
+    getGuide: () => guide,
   };
 }
