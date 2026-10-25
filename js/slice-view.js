@@ -155,10 +155,21 @@ export function mountSlice(app) {
   function renderRegionsList() {
     const list = $('#slice-regions-list');
     if (!list) return;
-    list.innerHTML = '';
+
+    const addBtn = $('#slice-add-region');
+
+    // 기존 영역 카드와 힌트 메시지만 제거하여 + 영역 더하기 단추는 보존
+    list.querySelectorAll('.slice-region-card, .slice-region-hint').forEach(el => el.remove());
 
     if (regionState.regions.length === 0) {
-      list.innerHTML = '<span class="hint">지정된 색 영역이 없습니다. 「+ 영역 더하기」를 누르세요.</span>';
+      const hint = document.createElement('span');
+      hint.className = 'hint slice-region-hint';
+      hint.textContent = '지정된 색 영역이 없습니다. 「+ 영역 더하기」를 누르세요.';
+      if (addBtn) {
+        list.insertBefore(hint, addBtn);
+      } else {
+        list.appendChild(hint);
+      }
       return;
     }
 
@@ -170,6 +181,8 @@ export function mountSlice(app) {
       card.className = `slice-region-card${isSelected ? ' selected' : ''}`;
       card.setAttribute('role', 'listitem');
       card.setAttribute('aria-selected', String(isSelected));
+      card.title = `#${color}`;
+      card.setAttribute('aria-label', `색 영역 #${color}`);
 
       const dot = document.createElement('span');
       dot.className = 'slice-region-dot';
@@ -181,10 +194,14 @@ export function mountSlice(app) {
 
       const visBtn = document.createElement('button');
       visBtn.type = 'button';
-      visBtn.className = 'btn slice-region-vis';
+      visBtn.className = 'btn icon slice-region-vis';
       visBtn.setAttribute('aria-pressed', String(isVisible));
-      visBtn.setAttribute('aria-label', `${color} 보이기`);
-      visBtn.textContent = isVisible ? '보임' : '숨김';
+      visBtn.setAttribute('aria-label', `${color} ${isVisible ? '숨기기' : '보이기'}`);
+      visBtn.title = isVisible ? '숨기기' : '보이기';
+      visBtn.innerHTML = isVisible
+        ? '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" fill="none" stroke="currentColor" stroke-width="2"/><line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" stroke-width="2"/></svg>';
+
       visBtn.addEventListener('click', e => {
         e.stopPropagation();
         if (visibleRegions.has(color)) {
@@ -198,8 +215,9 @@ export function mountSlice(app) {
 
       const delBtn = document.createElement('button');
       delBtn.type = 'button';
-      delBtn.className = 'btn slice-region-del danger';
+      delBtn.className = 'btn icon slice-region-del danger';
       delBtn.setAttribute('aria-label', `${color} 영역 삭제`);
+      delBtn.title = '영역 삭제';
       delBtn.textContent = '✕';
       delBtn.addEventListener('click', e => {
         e.stopPropagation();
@@ -223,7 +241,11 @@ export function mountSlice(app) {
       });
 
       card.append(dot, name, visBtn, delBtn);
-      list.appendChild(card);
+      if (addBtn) {
+        list.insertBefore(card, addBtn);
+      } else {
+        list.appendChild(card);
+      }
     });
   }
 

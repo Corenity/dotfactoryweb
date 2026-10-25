@@ -112,87 +112,130 @@
 .slice-tools-row {
   display: flex;
   flex-wrap: nowrap;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
 }
 
 .slice-tools-row .btn {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 8px;
+  min-width: 36px;
+  min-height: 36px;
+  height: 36px;
+  padding: 0 4px;
   box-sizing: border-box;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.slice-tools-row .icon {
+  min-width: 36px;
+  min-height: 36px;
 }
 
 .slice-tools-row .hint {
-  min-width: 36px;
+  min-width: 34px;
   text-align: center;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
-}
-
-.slice-regions-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  align-items: center;
-}
-
-.slice-regions-actions .btn {
-  min-height: 44px;
+  flex-shrink: 0;
 }
 
 .slice-regions-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
   margin: 4px 0;
+  align-items: center;
 }
 
-.slice-region-card {
+#slice .slice-region-add {
+  min-width: 36px;
+  min-height: 40px;
+  height: 40px;
+  padding: 0 8px;
+  font-size: 12px;
+  border-radius: 8px;
+  border: 1px dashed var(--line, #38383a);
+  background: transparent;
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  justify-content: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#slice .slice-region-add:hover {
+  border-color: var(--accent, #0a84ff);
+  color: var(--accent, #0a84ff);
+}
+
+#slice .slice-region-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
   background: var(--bg-card, #1c1c1e);
   border: 1px solid var(--line, #38383a);
   border-radius: 8px;
-  min-height: 44px;
+  min-height: 40px;
+  height: 40px;
   box-sizing: border-box;
   cursor: pointer;
 }
 
-.slice-region-card.selected {
+#slice .slice-region-card.selected {
   border-color: var(--primary, #0a84ff);
   background: rgba(10, 132, 255, 0.15);
 }
 
-.slice-region-dot {
-  width: 18px;
-  height: 18px;
+#slice .slice-region-card .slice-region-dot {
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   display: inline-block;
   flex-shrink: 0;
   border: 1px solid rgba(255, 255, 255, 0.3);
+  margin: 0 1px;
 }
 
-.slice-region-name {
-  font-family: monospace;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text, #f2f2f7);
+#slice .slice-region-card .slice-region-name {
+  display: none;
 }
 
-.slice-region-vis,
-.slice-region-del {
+#slice .slice-region-card .btn,
+#slice .slice-region-card .slice-region-vis,
+#slice .slice-region-card .slice-region-del {
   min-width: 36px;
+  max-width: 36px;
+  width: 36px;
   min-height: 36px;
-  padding: 0 4px;
-  font-size: 12px;
+  max-height: 36px;
+  height: 36px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
   border-radius: 6px;
+  border: none;
   cursor: pointer;
+  box-sizing: border-box;
+  font-size: 13px;
+  flex-shrink: 0;
 }
 
-.slice-region-vis[aria-pressed="false"] {
-  opacity: 0.4;
+#slice .slice-region-card .slice-region-vis[aria-pressed="false"] {
+  opacity: 0.35;
+}
+
+.slice-bottom-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.slice-bottom-menu .btn {
+  min-height: 44px;
+  flex: 1 1 auto;
 }
 
 /* 크게 보기 라이트박스 모달 */
