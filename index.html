@@ -82,6 +82,13 @@
       <div class="shrink-result" id="shrink-result" hidden>
         <figure id="shrink-guide-wrap"><canvas id="shrink-guide"></canvas><figcaption><b class="blue">몸 중심</b> <b class="yellow">발 위치</b> <b class="white">잘라 낸 범위</b> <b class="green">캐릭터</b> <b class="red">뺀 장식</b></figcaption></figure>
         <figure><canvas id="shrink-out" class="pixels"></canvas><figcaption id="shrink-info"></figcaption></figure>
+        <div class="row" id="shrink-clean-wrap">
+          <label for="shrink-clean-level">색 묶기<input id="shrink-clean-level" type="range" min="1" max="15" value="5" step="1"></label>
+          <span class="hint" id="shrink-clean-val">5%</span>
+          <button class="btn" id="shrink-clean-run">색 정리</button>
+          <button class="btn" id="shrink-clean-revert" disabled>정리 전으로</button>
+          <span class="status" id="shrink-clean-status" aria-live="polite"></span>
+        </div>
         <div class="row">
           <button class="btn clear-toggle" id="shrink-clear" aria-pressed="false">투명화</button>
           <button class="btn" id="shrink-save">PNG 내려받기</button>

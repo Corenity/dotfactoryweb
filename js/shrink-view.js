@@ -3,11 +3,12 @@ import { readImageFile, toCanvas, drawPixels, pickFiles, savePng, baseName } fro
 import { backdropToggle } from './backdrop.js';
 import { dropKey } from './core/paint.js';
 import { scaleNearest } from './core/scale.js';
+import { mergeSimilarColors, countUniqueColors } from './core/color-merge.js';
 
 const $ = sel => document.querySelector(sel);
 
 export function mountShrink(app) {
-  let source = null, sourceName = '', result = null, resultMode = '', resultFactor = 0, busy = false, mode = 'shrink';
+  let source = null, sourceName = '', result = null, originalResult = null, resultMode = '', resultFactor = 0, busy = false, mode = 'shrink';
   // 결과의 배경은 늘 투명 칸으로 받고, 초록은 보여 줄 때와 내려받을 때만 깝니다.
   const bg = backdropToggle($('#shrink-clear'), () => result && drawOut());
 
@@ -41,6 +42,8 @@ export function mountShrink(app) {
     $('#shrink-options').hidden = !shrinking;
     $('#grow-options').hidden = shrinking;
     $('#shrink-run').textContent = shrinking ? '축소' : '확대';
+    originalResult = null;
+    $('#shrink-clean-wrap').style.display = 'none';
     result = null;
     $('#shrink-result').hidden = true;
     status('');
@@ -86,6 +89,7 @@ export function mountShrink(app) {
       $('#shrink-run').disabled = false;
       if (!data.ok) { status(`축소하지 못했습니다: ${data.error}`); return; }
       result = data.image;
+      originalResult = data.image;
       resultMode = 'shrink';
       status(`끝났습니다 (${((performance.now() - started) / 1000).toFixed(1)}초)`);
       showShrinkResult(data.details);
@@ -104,6 +108,9 @@ export function mountShrink(app) {
     $('#shrink-guide-wrap').hidden = false;
     $('#shrink-to-paint').hidden = false;
     $('#shrink-to-assemble').hidden = false;
+    $('#shrink-clean-wrap').style.display = '';
+    $('#shrink-clean-revert').disabled = true;
+    $('#shrink-clean-status').textContent = '';
     drawGuide(details);
     drawOut();
     const [w, h] = details.canvas;
@@ -115,6 +122,7 @@ export function mountShrink(app) {
     $('#shrink-guide-wrap').hidden = true;
     $('#shrink-to-paint').hidden = true;
     $('#shrink-to-assemble').hidden = true;
+    $('#shrink-clean-wrap').style.display = 'none';
     drawOut();
     $('#shrink-info').textContent = `${result.width}×${result.height}px · 원본 한 칸을 ${factor}×${factor}px로 확대`;
   }
@@ -147,6 +155,28 @@ export function mountShrink(app) {
   });
   $('#shrink-to-paint').addEventListener('click', () => resultMode === 'shrink' && app.sendToPaint(result, `${sourceName}_도트`));
   $('#shrink-to-assemble').addEventListener('click', () => resultMode === 'shrink' && app.addToAssemble(result, `${sourceName}_도트`));
+
+  $('#shrink-clean-level').addEventListener('input', () => {
+    $('#shrink-clean-val').textContent = `${$('#shrink-clean-level').value}%`;
+  });
+  $('#shrink-clean-run').addEventListener('click', () => {
+    if (!result || resultMode !== 'shrink') return;
+    const level = Number($('#shrink-clean-level').value) || 5;
+    const threshold = level / 100;
+    const res = mergeSimilarColors(result, { threshold });
+    result = res.image;
+    drawOut();
+    $('#shrink-clean-revert').disabled = false;
+    $('#shrink-clean-status').textContent = `${res.beforeCount}색 → ${res.afterCount}색 (${res.changedPixels}칸 정리)`;
+  });
+  $('#shrink-clean-revert').addEventListener('click', () => {
+    if (!originalResult || resultMode !== 'shrink') return;
+    result = originalResult;
+    drawOut();
+    const count = countUniqueColors(result);
+    $('#shrink-clean-revert').disabled = true;
+    $('#shrink-clean-status').textContent = `정리 전으로 되돌렸습니다 (${count}색)`;
+  });
 
   return {};
 }
