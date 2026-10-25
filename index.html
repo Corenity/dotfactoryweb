@@ -237,27 +237,36 @@
         <button class="btn primary" id="slice-tool-brush" type="button" aria-pressed="true">붓</button>
         <button class="btn" id="slice-tool-eraser" type="button" aria-pressed="false">지우개</button>
       </div>
-      <div class="row guide" id="slice-guide-row">
-        <span class="hint">대볼 그림</span>
-        <span class="guide-name is-empty" id="slice-guide-name">없음</span>
-        <div class="guide-picker">
-          <button class="btn small" id="slice-guide-pick" type="button" aria-haspopup="menu" aria-expanded="false">고르기</button>
-          <div class="guide-picker-menu" id="slice-guide-menu" role="menu" aria-label="대볼 자료 고르기" hidden>
-            <button class="btn" type="button" role="menuitem" data-slice-guide-source="png">PNG 그림</button>
-            <button class="btn" type="button" role="menuitem" data-slice-guide-source="region-file">영역 설정 파일</button>
-          </div>
-        </div>
-        <button class="btn small" id="slice-guide-drop" hidden>빼기</button>
-        <label class="inline guide-opacity">진하기<input type="range" id="slice-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="slice-guide-opacity-value">50%</span></label>
-      </div>
       <div class="slice-workspace">
-        <aside class="slice-regions-panel" aria-label="색 영역과 깊이">
-          <div class="slice-regions-list" id="slice-regions-list" role="list" aria-label="색 영역 목록"></div>
-          <div class="slice-region-actions">
-            <button class="btn" id="slice-region-up" type="button" aria-label="깊이 한 단계 올리기" title="깊이 한 단계 올리기" disabled>▲</button>
-            <button class="btn" id="slice-region-down" type="button" aria-label="깊이 한 단계 내리기" title="깊이 한 단계 내리기" disabled>▼</button>
-            <button class="btn" id="slice-add-region" type="button" aria-label="영역 더하기" title="영역 더하기">+</button>
-            <button class="btn danger" id="slice-delete-region" type="button" aria-label="고른 영역 삭제" title="고른 영역 삭제">삭제</button>
+        <aside class="slice-regions-panel" aria-label="색 영역과 대볼 그림">
+          <nav class="slice-view-menu" aria-label="자르기 보기 메뉴">
+            <button type="button" data-slice-view="original" aria-pressed="true">원본</button>
+            <button type="button" data-slice-view="compare" aria-pressed="false">비교</button>
+          </nav>
+          <div class="slice-side-panel slice-regions-panel-body" data-slice-panel="original">
+            <div class="slice-regions-list" id="slice-regions-list" role="list" aria-label="색 영역 목록"></div>
+            <div class="slice-region-actions">
+              <button class="btn" id="slice-region-up" type="button" aria-label="깊이 한 단계 올리기" title="깊이 한 단계 올리기" disabled>▲</button>
+              <button class="btn" id="slice-region-down" type="button" aria-label="깊이 한 단계 내리기" title="깊이 한 단계 내리기" disabled>▼</button>
+              <button class="btn" id="slice-add-region" type="button" aria-label="영역 더하기" title="영역 더하기">+</button>
+              <button class="btn danger" id="slice-delete-region" type="button" aria-label="고른 영역 삭제" title="고른 영역 삭제">삭제</button>
+            </div>
+          </div>
+          <div class="slice-side-panel slice-compare-panel" data-slice-panel="compare" hidden>
+            <div class="guide-picker">
+              <button class="btn" id="slice-guide-pick" type="button" aria-haspopup="menu" aria-expanded="false">고르기</button>
+              <div class="guide-picker-menu" id="slice-guide-menu" role="menu" aria-label="대볼 자료 고르기" hidden>
+                <button class="btn" type="button" role="menuitem" data-slice-guide-source="png">PNG 그림</button>
+                <button class="btn" type="button" role="menuitem" data-slice-guide-source="region-file">영역 설정 파일</button>
+              </div>
+            </div>
+            <label class="slice-guide-opacity"><span>진하기 <span id="slice-guide-opacity-value">50%</span></span><input type="range" id="slice-guide-opacity" min="0" max="100" step="10" value="50" aria-label="대볼 그림 진하기" disabled></label>
+            <span class="slice-guide-arrows" aria-label="대볼 그림 옮기기">
+              <button class="btn" data-slice-guide-move="0,-1" aria-label="대볼 그림 위로 한 칸 옮기기" disabled>↑</button>
+              <button class="btn" data-slice-guide-move="0,1" aria-label="대볼 그림 아래로 한 칸 옮기기" disabled>↓</button>
+              <button class="btn" data-slice-guide-move="-1,0" aria-label="대볼 그림 왼쪽으로 한 칸 옮기기" disabled>←</button>
+              <button class="btn" data-slice-guide-move="1,0" aria-label="대볼 그림 오른쪽으로 한 칸 옮기기" disabled>→</button>
+            </span>
           </div>
         </aside>
         <div class="stage" id="rig-stage">

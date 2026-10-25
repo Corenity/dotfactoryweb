@@ -90,6 +90,16 @@ export function guidePixelAt(guide, x, y, dx = 0, dy = 0) {
   return [guide.data[s], guide.data[s + 1], guide.data[s + 2], guide.data[s + 3]];
 }
 
+/** 대볼 그림을 지정한 칸 수만큼 옮긴 새 값을 만듭니다. 받은 값은 바꾸지 않습니다. */
+export function moveGuide(guide, dx, dy) {
+  if (!guide) return null;
+  return {
+    ...guide,
+    dx: Math.trunc(Number(guide.dx) || 0) + Math.trunc(Number(dx) || 0),
+    dy: Math.trunc(Number(guide.dy) || 0) + Math.trunc(Number(dy) || 0),
+  };
+}
+
 /** 그림판 크기는 가장 큰 그림에 맞춥니다(보통 72×64). */
 export function canvasSizeFor(items) {
   let w = 0, h = 0;

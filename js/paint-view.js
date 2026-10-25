@@ -1,7 +1,7 @@
 // 다듬기 화면 — 한 손가락으로 칠하고, 두 손가락으로 옮기고, + · − 단추로 확대 · 축소합니다.
 // 대볼 그림 한 장은 합치기와 같이 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 내려받기 · 합치기에 더하기에는 넣지 않습니다.
 import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
-import { overlayGuide, guidePixelAt, guideOpacity, GUIDE_OPACITY } from './core/assemble.js';
+import { overlayGuide, guidePixelAt, guideOpacity, moveGuide, GUIDE_OPACITY } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName } from './io.js';
 import { selectRect, insideRect, lift, fillPiece, place } from './core/select.js';
 import { loadColors, saveColors } from './store.js';
@@ -462,7 +462,7 @@ export function mountPaint(app) {
   for (const b of document.querySelectorAll('[data-paint-panel] [data-move]')) b.addEventListener('click', () => {
     if (!image) return;
     const [dx, dy] = b.dataset.move.split(',').map(Number);
-    if (activeView === 'compare' && guide) { guide.dx += dx; guide.dy += dy; changed(); return; }
+    if (activeView === 'compare' && guide) { guide = moveGuide(guide, dx, dy); changed(); return; }
     if (sel) { if (moveSelection(sel.x + dx, sel.y + dy)) changed(); return; }
     const next = shiftPixels(image, dx, dy);
     if (sameImage(image, next)) return;

@@ -91,6 +91,9 @@ input[type="color"] {
   width: max-content; min-width: 180px; padding: 4px;
   border: 1px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: 0 6px 18px #0008;
 }
+#paint-guide-menu, #slice-guide-menu {
+  left: 0; right: auto; width: min(180px, calc(100vw - 24px)); box-sizing: border-box;
+}
 .guide-picker-menu[hidden] { display: none; }
 .guide-picker-menu .btn { display: block; width: 100%; min-height: 44px; text-align: left; }
 

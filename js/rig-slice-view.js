@@ -1,6 +1,6 @@
 // site/js/rig-slice-view.js — 자르기 그림판 뷰 모듈 (색 영역 오버레이 렌더링, 대볼 그림, 줌·이동, 붓/지우개)
 import { KEY, toHex, dropKey } from './core/paint.js';
-import { overlayGuide, GUIDE_OPACITY, guideOpacity } from './core/assemble.js';
+import { overlayGuide, GUIDE_OPACITY, guideOpacity, moveGuide } from './core/assemble.js';
 import { importRegionConfig, regionGuideImage } from './core/region-slice.js';
 import { pickFiles, readImageFile, baseName } from './io.js';
 
@@ -29,7 +29,8 @@ export function mountRigSlice(app, model) {
 
   let baseImage = model.getBaseImage();
   let [canvasWidth, canvasHeight] = model.getSize();
-  let guide = null; // { image, name, opacity, kind: 'image' | 'regions' }
+  let guide = null; // { image, name, opacity, dx, dy, kind: 'image' | 'regions' }
+  let activeView = 'original';
 
   function sync() {
     baseImage = model.getBaseImage();
@@ -83,7 +84,7 @@ export function mountRigSlice(app, model) {
     // 대볼 그림 합성: 원래 그림 위에 대볼 그림을 비치게 얹고, 그 위에 영역 색이 오도록 함
     const targetImage = baseImage || { width: canvasWidth, height: canvasHeight, data: new Uint8ClampedArray(canvasWidth * canvasHeight * 4) };
     const shown = (guide?.image)
-      ? overlayGuide(targetImage, guide.image, guide.opacity)
+      ? overlayGuide(targetImage, guide.image, guide.opacity, guide.dx, guide.dy)
       : targetImage;
 
     // 도트 렌더링
@@ -143,22 +144,27 @@ export function mountRigSlice(app, model) {
   }
 
   function renderGuide() {
-    const nameEl = $('#slice-guide-name');
     const pickBtn = $('#slice-guide-pick');
-    const dropBtn = $('#slice-guide-drop');
     const opacityInput = $('#slice-guide-opacity');
     const opacityValEl = $('#slice-guide-opacity-value');
-    if (!nameEl) return;
-    nameEl.textContent = guide ? guide.name : '없음';
-    nameEl.classList.toggle('is-empty', !guide);
-    if (pickBtn) pickBtn.textContent = guide ? '바꾸기' : '고르기';
-    if (dropBtn) dropBtn.hidden = !guide;
+    for (const button of document.querySelectorAll('[data-slice-view]')) {
+      button.setAttribute('aria-pressed', String(button.dataset.sliceView === activeView));
+    }
+    for (const panel of document.querySelectorAll('[data-slice-panel]')) {
+      panel.hidden = panel.dataset.slicePanel !== activeView;
+    }
+    if (pickBtn) {
+      pickBtn.textContent = guide ? '빼기' : '고르기';
+      pickBtn.setAttribute('aria-expanded', 'false');
+    }
+    if (guide) $('#slice-guide-menu').hidden = true;
     const opacity = guide ? guide.opacity : GUIDE_OPACITY;
     if (opacityInput) {
       opacityInput.value = String(Math.round(opacity * 100));
       opacityInput.disabled = !guide;
     }
     if (opacityValEl) opacityValEl.textContent = `${Math.round(opacity * 100)}%`;
+    for (const button of document.querySelectorAll('[data-slice-guide-move]')) button.disabled = !guide;
   }
 
   function closeGuideMenu() {
@@ -170,11 +176,25 @@ export function mountRigSlice(app, model) {
   function initGuide() {
     const pickBtn = $('#slice-guide-pick');
     const menuEl = $('#slice-guide-menu');
-    const dropBtn = $('#slice-guide-drop');
     const opacityInput = $('#slice-guide-opacity');
     if (!pickBtn || !menuEl) return;
 
+    for (const button of document.querySelectorAll('[data-slice-view]')) {
+      button.addEventListener('click', () => {
+        activeView = button.dataset.sliceView;
+        closeGuideMenu();
+        renderGuide();
+      });
+    }
+
     pickBtn.addEventListener('click', () => {
+      if (guide) {
+        guide = null;
+        closeGuideMenu();
+        renderGuide();
+        render();
+        return;
+      }
       menuEl.hidden = !menuEl.hidden;
       pickBtn.setAttribute('aria-expanded', String(!menuEl.hidden));
     });
@@ -192,6 +212,8 @@ export function mountRigSlice(app, model) {
               image: dropKey(raw),
               name: baseName(file.name),
               opacity: guide?.opacity ?? GUIDE_OPACITY,
+              dx: guide?.dx ?? 0,
+              dy: guide?.dy ?? 0,
               kind: 'image',
             };
             renderGuide();
@@ -211,6 +233,8 @@ export function mountRigSlice(app, model) {
             image: regionGuideImage(state),
             name: baseName(file.name),
             opacity: guide?.opacity ?? GUIDE_OPACITY,
+            dx: guide?.dx ?? 0,
+            dy: guide?.dy ?? 0,
             kind: 'regions',
           };
           renderGuide();
@@ -221,12 +245,6 @@ export function mountRigSlice(app, model) {
       });
     }
 
-    dropBtn?.addEventListener('click', () => {
-      guide = null;
-      renderGuide();
-      render();
-    });
-
     opacityInput?.addEventListener('input', () => {
       if (guide) {
         guide.opacity = guideOpacity(Number(opacityInput.value) / 100);
@@ -234,6 +252,15 @@ export function mountRigSlice(app, model) {
         render();
       }
     });
+
+    for (const button of document.querySelectorAll('[data-slice-guide-move]')) {
+      button.addEventListener('click', () => {
+        if (!guide) return;
+        const [dx, dy] = button.dataset.sliceGuideMove.split(',').map(Number);
+        guide = moveGuide(guide, dx, dy);
+        render();
+      });
+    }
 
     document.addEventListener('pointerdown', e => {
       if (!menuEl.hidden && !menuEl.contains(e.target) && !pickBtn.contains(e.target)) {
