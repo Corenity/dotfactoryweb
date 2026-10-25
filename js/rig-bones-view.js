@@ -21,7 +21,8 @@ export function scrollTreeItemIntoView(tree, item, prevScrollTop = tree?.scrollT
   }
 }
 
-export function resolveRigSelectionMenuState({ piece = null, activeTool = 'P', activePieceMenu = null } = {}) {
+export function resolveRigSelectionMenuState({ piece = null, activeTool = 'P', activePieceMenu = null, leftTab = 'bones', tab } = {}) {
+  const isGroupTab = (tab ?? leftTab) === 'groups';
   const hasPiece = Boolean(piece);
   const nextTool = hasPiece && activeTool === 'I' ? 'P' : activeTool;
   const nextPieceMenu = hasPiece ? activePieceMenu : null;
@@ -29,16 +30,16 @@ export function resolveRigSelectionMenuState({ piece = null, activeTool = 'P', a
   return {
     activeTool: nextTool,
     activePieceMenu: nextPieceMenu,
-    boneToolsHidden: false,
-    pieceToolsHidden: !hasPiece,
+    boneToolsHidden: isGroupTab,
+    pieceToolsHidden: isGroupTab || !hasPiece,
     toolImgHidden: hasPiece,
     toolPosPressed: nextTool === 'P',
     toolRotPressed: nextTool === 'R',
     toolImgPressed: !hasPiece && nextTool === 'I',
-    barPosHidden: nextTool !== 'P' || depthOpen,
-    barRotHidden: nextTool !== 'R' || depthOpen,
-    barImgHidden: hasPiece || nextTool !== 'I' || depthOpen,
-    barDepthHidden: !depthOpen,
+    barPosHidden: isGroupTab || nextTool !== 'P' || depthOpen,
+    barRotHidden: isGroupTab || nextTool !== 'R' || depthOpen,
+    barImgHidden: isGroupTab || hasPiece || nextTool !== 'I' || depthOpen,
+    barDepthHidden: isGroupTab || !depthOpen,
     pieceVisibleLabel: hasPiece ? (piece.visible === false ? '보이기' : '숨김') : '숨김',
     pieceDepthValue: hasPiece ? String(piece.zIndex ?? 0) : '0',
   };
@@ -78,6 +79,7 @@ export function mountRigBones(app, model) {
   const pieceDepthBtn = $('#rig-piece-depth');
   const pieceDepthInput = $('#rig-piece-depth-input');
   const pieceDepthApply = $('#rig-piece-depth-apply');
+  const tabGroups = $('#rig-tab-groups');
 
   let selected = 'Torso';
   let selectedPieceIndex = null;
@@ -100,6 +102,7 @@ export function mountRigBones(app, model) {
   function pieces() { return model.getPieces(); }
   function selectedBone() { return bones().find(bone => bone.name === selected) || bones()[0]; }
   function selectedPiece() { return selectedPieceIndex == null ? null : pieces()[selectedPieceIndex] || null; }
+  function isGroupTab() { return tabGroups?.getAttribute('aria-pressed') === 'true'; }
 
   function notify() {
     model.changed();
@@ -218,7 +221,7 @@ export function mountRigBones(app, model) {
 
   function updateSelectionMenus() {
     const piece = selectedPiece();
-    const menu = resolveRigSelectionMenuState({ piece, activeTool, activePieceMenu });
+    const menu = resolveRigSelectionMenuState({ piece, activeTool, activePieceMenu, leftTab: isGroupTab() ? 'groups' : 'bones' });
     activeTool = menu.activeTool;
     activePieceMenu = menu.activePieceMenu;
     if (boneTools) boneTools.hidden = menu.boneToolsHidden;
@@ -359,6 +362,7 @@ export function mountRigBones(app, model) {
       stage.setPointerCapture(event.pointerId);
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
       if (pointers.size === 1) {
+        if (isGroupTab()) return;
         const piece = selectedPiece();
         if (piece && activeTool === 'P') {
           dragBefore = model.snapshot?.();
@@ -442,6 +446,9 @@ export function mountRigBones(app, model) {
     toolPosBtn?.addEventListener('click', () => switchTool('P'));
     toolRotBtn?.addEventListener('click', () => switchTool('R'));
     toolImgBtn?.addEventListener('click', () => switchTool('I'));
+    tabGroups?.addEventListener('click', updateSelectionMenus);
+    $('#rig-tab-bones')?.addEventListener('click', updateSelectionMenus);
+    window.addEventListener('rig-tab-change', updateSelectionMenus);
 
     pieceVisibleBtn?.addEventListener('click', () => {
       const piece = selectedPiece();

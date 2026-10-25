@@ -84,6 +84,7 @@ export function mountRigPreset(app, model) {
       panelGroups.hidden = tab !== 'groups';
       if (tab === 'groups') renderGroupList();
     }
+    window.dispatchEvent(new CustomEvent('rig-tab-change', { detail: { tab } }));
   }
 
   function updateActionButtons() {
