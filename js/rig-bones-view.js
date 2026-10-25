@@ -710,13 +710,13 @@ export function mountRigBones(app, model) {
         }
       });
     }
-
     if (openSkeletonBtn) {
       openSkeletonBtn.addEventListener('click', async () => {
         try {
           const [file] = await pickFiles({ accept: '.json,application/json,text/plain' });
           if (!file) return;
           const skeletonObj = parseSkeleton(JSON.parse(await file.text()));
+          app.warnCanvas?.(skeletonObj.canvas, '뼈대 파일');
           const before = model.snapshot?.();
           const result = applySkeletonToRig({
             skeleton: skeletonObj,

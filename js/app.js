@@ -5,8 +5,10 @@ import { mountSlice } from './slice-view.js';
 import { mountRig } from './rig-view.js';
 import { mountAssemble } from './assemble-view.js';
 import { mountCharacter } from './character-view.js';
+import { mountProfileView } from './profile-view.js';
 import { mountNav } from './nav.js';
-import { loadSaved, saveLater, saveVerifiedMigration } from './store.js';
+import { configureProfileAutosave, loadSaved, saveLater, saveVerifiedMigration } from './store.js';
+import { ACTIVE_PROFILE, CURRENT_PROFILE, profileCanvasWarning, rememberProfileId } from './core/profile.js';
 import {
   ROLE_STATE_VERSION,
   migrateLegacyAutosave,
@@ -62,6 +64,15 @@ function show(tab) {
 
 let characterState = { barePreset: null, loadedPresets: [], animations: [], selectedMotion: '' };
 let legacyExtra = {};
+const startupWarnings = [];
+try {
+  const autosave = configureProfileAutosave(CURRENT_PROFILE.id, localStorage);
+  rememberProfileId(localStorage, CURRENT_PROFILE.id);
+  if (autosave.migration.reason === 'copy-failed') startupWarnings.push('옛 자동 보관을 복사하지 못해 원래 자료를 직접 읽습니다');
+} catch (error) {
+  startupWarnings.push(`기기 자동 보관을 준비하지 못했습니다: ${error.message}`);
+}
+if (ACTIVE_PROFILE.warning) startupWarnings.push(ACTIVE_PROFILE.warning);
 
 const app = {
   show,
@@ -70,7 +81,13 @@ const app = {
   addToAssemble(image, name) { views.assemble.add(image, name); show('assemble'); toast(`합치기에 「${name}」을 더했습니다`); },
   getPieces() { return views.rig?.getPieces?.() || []; },
   getRigPreset() { return views.rig?.getPreset?.() || null; },
+  getRigBasis() { return views.rig?.getBasis?.() || null; },
   getPresetStack() { return views.character?.getPresetStack?.() || null; },
+  warnCanvas(canvas, label) {
+    const warning = profileCanvasWarning(canvas, label);
+    if (warning) toast(warning);
+    return warning;
+  },
   async loadLegacyRig(project) {
     const migrated = migrateRig1ToRoleState(project);
     if (migrated.report.verified !== true) throw new Error('옛 작업 파일을 안전하게 나눌 수 없습니다');
@@ -103,6 +120,8 @@ const views = {
     getProject: () => views.rig?.snapshot?.() || null,
   }),
 };
+mountProfileView(app);
+if (startupWarnings.length) toast(startupWarnings.join(' / '));
 
 // 머리 높이를 CSS 에 알려 줍니다. 화면을 돌려 높이가 바뀌어도 따라갑니다.
 const header = $('.top');

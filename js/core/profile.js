@@ -4,6 +4,48 @@ export const PROFILE_SCHEMA = 'dotfactory-web/profile-1';
 export const PROFILE_INDEX_SCHEMA = 'dotfactory-web/profile-index-1';
 export const PROJECT_C_PROFILE_ID = 'project-c';
 export const LEGACY_AUTOSAVE_KEY = 'dotfactory-web/autosave-1';
+export const DEVICE_PROFILES_KEY = 'dotfactory-web/profiles-1';
+export const LAST_PROFILE_KEY = 'dotfactory-web/last-profile-1';
+
+const DEVICE_PROFILES_SCHEMA = 'dotfactory-web/device-profiles-1';
+const PROJECT_C_FALLBACK_RAW = {
+  schema: PROFILE_SCHEMA,
+  id: PROJECT_C_PROFILE_ID,
+  name: 'Project C',
+  canvas: [72, 64],
+  skeletonName: 'character_skeleton',
+  fallbackBone: 'Torso',
+  bones: [
+    { name: 'Torso', parent: null, pos: [37, 46], angle: 90, length: 4 },
+    { name: 'Head', parent: 'Torso', pos: [0, -9], angle: 90, length: 4 },
+    { name: 'ArmL', parent: 'Torso', pos: [4, -8], angle: 90, length: 4, label: 'ArmL · 왼팔(화면 오른쪽)' },
+    { name: 'ArmR', parent: 'Torso', pos: [-3, -8], angle: 90, length: 4, label: 'ArmR · 오른팔(화면 왼쪽)' },
+    { name: 'LegL', parent: null, pos: [40, 46], angle: 90, length: 4, label: 'LegL · 왼다리(화면 오른쪽)' },
+    { name: 'LegR', parent: null, pos: [34, 47], angle: 90, length: 4, label: 'LegR · 오른다리(화면 왼쪽)' },
+  ],
+  boneLabels: {
+    ArmL: 'ArmL · 왼팔(화면 오른쪽)', ArmR: 'ArmR · 오른팔(화면 왼쪽)',
+    LegL: 'LegL · 왼다리(화면 오른쪽)', LegR: 'LegR · 오른다리(화면 왼쪽)',
+    FootL: 'FootL · 왼발(화면 오른쪽)', FootR: 'FootR · 오른발(화면 왼쪽)',
+  },
+  bareLayers: [
+    { id: 'face_face', bone: 'Head', zIndex: 0, file: 'assets/bare/face_frame.png' },
+    { id: 'bare_leg_l', bone: 'LegL', zIndex: 6, file: 'assets/bare/bare_leg_l.png' },
+    { id: 'bare_leg_r', bone: 'LegR', zIndex: 6, file: 'assets/bare/bare_leg_r.png' },
+    { id: 'bare_torso', bone: 'Torso', zIndex: 7, file: 'assets/bare/bare_torso.png' },
+    { id: 'bare_arm_l', bone: 'ArmL', zIndex: 11, file: 'assets/bare/bare_arm_l.png' },
+    { id: 'bare_arm_r', bone: 'ArmR', zIndex: 11, file: 'assets/bare/bare_arm_r.png' },
+  ],
+  zOrder: {
+    bare_torso: 7, outfit_body: 10, face_face: 0, earring_earring: 1,
+    expression_cheek: 2, expression_nose: 3, expression_fx: 4, hair_hair: 5,
+    bare_leg_l: 6, bare_leg_r: 6, bare_foot_l: 7, bare_foot_r: 7,
+    outfit_leg_l: 8, outfit_leg_r: 8, shoes_shoe_l: 9, shoes_shoe_r: 9,
+    bare_arm_l: 11, bare_arm_r: 11, outfit_arm_l: 12, outfit_arm_r: 12,
+    expression_mouth: 13, expression_brows: 14, expression_eyes: 15,
+    sweat_sweat: 16, hairpin_hairpin: 17,
+  },
+};
 
 const PROFILE_ROOT = new URL('../../profiles/', import.meta.url);
 const ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
@@ -37,6 +79,10 @@ function deepFreeze(value) {
   if (!value || typeof value !== 'object' || Object.isFrozen(value)) return value;
   for (const child of Object.values(value)) deepFreeze(child);
   return Object.freeze(value);
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 function normalizeBones(value) {
@@ -162,13 +208,20 @@ export async function loadProfileWithFallback(id, options = {}) {
   try {
     return { profile: await loadProfile(requestedId, options), requestedId, fallback: false, warning: '' };
   } catch (error) {
-    if (requestedId === PROJECT_C_PROFILE_ID) throw error;
-    const profile = await loadProfile(PROJECT_C_PROFILE_ID, options);
+    if (requestedId === PROJECT_C_PROFILE_ID) {
+      return {
+        profile: PROJECT_C_FALLBACK,
+        requestedId,
+        fallback: true,
+        warning: `내장 project-c 프로필을 읽지 못해 비상 기본값으로 열었습니다: ${error.message}`,
+      };
+    }
+    const fallback = await loadProfileWithFallback(PROJECT_C_PROFILE_ID, options);
     return {
-      profile,
+      profile: fallback.profile,
       requestedId,
       fallback: true,
-      warning: `프로필 「${requestedId}」을 쓸 수 없어 project-c로 돌아갔습니다: ${error.message}`,
+      warning: `프로필 「${requestedId}」을 쓸 수 없어 project-c로 돌아갔습니다: ${error.message}${fallback.warning ? ` / ${fallback.warning}` : ''}`,
     };
   }
 }
@@ -207,6 +260,141 @@ export function copyLegacyAutosaveToProfile(storage, id = PROJECT_C_PROFILE_ID) 
   return { copied: true, reason: '', sourceKey: LEGACY_AUTOSAVE_KEY, targetKey };
 }
 
-export const CURRENT_PROFILE = await loadProfile(PROJECT_C_PROFILE_ID);
+export const PROJECT_C_FALLBACK = normalizeProfile(PROJECT_C_FALLBACK_RAW);
+
+export function readDeviceProfiles(storage) {
+  if (!storage || typeof storage.getItem !== 'function') return [];
+  const source = storage.getItem(DEVICE_PROFILES_KEY);
+  if (source == null || source === '') return [];
+  const raw = object(JSON.parse(source), '기기 프로필 모음');
+  if (raw.schema !== DEVICE_PROFILES_SCHEMA || !Array.isArray(raw.profiles)) throw new Error('기기 프로필 모음이 올바르지 않습니다');
+  const ids = new Set();
+  return raw.profiles.map((entry, index) => {
+    const profile = normalizeProfile(entry);
+    if (ids.has(profile.id)) throw new Error(`기기 프로필 id 「${profile.id}」가 겹칩니다`);
+    ids.add(profile.id);
+    return profile;
+  });
+}
+
+function writeDeviceProfiles(storage, profiles) {
+  if (!storage || typeof storage.setItem !== 'function') throw new Error('기기 저장소를 쓸 수 없습니다');
+  const normalized = profiles.map(normalizeProfile);
+  const value = JSON.stringify({ schema: DEVICE_PROFILES_SCHEMA, profiles: normalized });
+  storage.setItem(DEVICE_PROFILES_KEY, value);
+  if (storage.getItem(DEVICE_PROFILES_KEY) !== value) throw new Error('기기 프로필 저장을 확인하지 못했습니다');
+  return normalized;
+}
+
+export function saveDeviceProfile(storage, value) {
+  const profile = normalizeProfile(value);
+  const profiles = readDeviceProfiles(storage).filter(entry => entry.id !== profile.id);
+  writeDeviceProfiles(storage, [...profiles, profile]);
+  return profile;
+}
+
+export function deleteDeviceProfile(storage, id) {
+  const safeId = text(id, '프로필 id', ID_PATTERN);
+  const profiles = readDeviceProfiles(storage);
+  const next = profiles.filter(profile => profile.id !== safeId);
+  if (next.length === profiles.length) return false;
+  writeDeviceProfiles(storage, next);
+  return true;
+}
+
+export function duplicateProfile(value, usedIds = []) {
+  const source = normalizeProfile(value);
+  const used = new Set(usedIds);
+  let id = `${source.id}-copy`;
+  for (let suffix = 2; used.has(id); suffix++) id = `${source.id}-copy-${suffix}`;
+  return normalizeProfile({ ...cloneJson(source), id, name: `${source.name} 복제` });
+}
+
+export function editProfile(value, { name, canvas, bones } = {}) {
+  const source = normalizeProfile(value);
+  return normalizeProfile({
+    ...cloneJson(source),
+    name: name ?? source.name,
+    canvas: canvas ?? source.canvas,
+    bones: bones ?? source.bones,
+  });
+}
+
+export function requestedProfileId(search = '', savedId = '') {
+  const params = new URLSearchParams(String(search || '').replace(/^\?/, ''));
+  if (params.has('profile')) return { id: params.get('profile'), source: 'url' };
+  if (savedId) return { id: String(savedId), source: 'saved' };
+  return { id: PROJECT_C_PROFILE_ID, source: 'default' };
+}
+
+function storedValue(storage, key) {
+  try { return storage?.getItem?.(key) || ''; } catch { return ''; }
+}
+
+export function rememberProfileId(storage, id) {
+  const safeId = text(id, '프로필 id', ID_PATTERN);
+  storage?.setItem?.(LAST_PROFILE_KEY, safeId);
+  return safeId;
+}
+
+async function loadSelectedProfile(id, { storage, readJson } = {}) {
+  const safeId = text(id, '프로필 id', ID_PATTERN);
+  let devices = [];
+  let deviceWarning = '';
+  try { devices = readDeviceProfiles(storage); } catch (error) { deviceWarning = `기기 프로필을 읽지 못했습니다: ${error.message}`; }
+  const device = devices.find(profile => profile.id === safeId);
+  if (device) return { profile: device, source: 'device' };
+  try {
+    return { profile: await loadProfile(safeId, { readJson }), source: 'builtin', warning: deviceWarning };
+  } catch (error) {
+    throw new Error([deviceWarning, error.message].filter(Boolean).join(' / '));
+  }
+}
+
+async function projectCFallback(options, reason = '') {
+  try {
+    const loaded = await loadSelectedProfile(PROJECT_C_PROFILE_ID, options);
+    return { ...loaded, emergency: false, warning: reason };
+  } catch (error) {
+    const warning = [reason, `내장 project-c 프로필을 읽지 못해 비상 기본값으로 열었습니다: ${error.message}`].filter(Boolean).join(' / ');
+    return { profile: PROJECT_C_FALLBACK, source: 'emergency', emergency: true, warning };
+  }
+}
+
+export async function resolveActiveProfile({ search = '', storage = null, readJson = readBundledJson } = {}) {
+  const selection = requestedProfileId(search, storedValue(storage, LAST_PROFILE_KEY));
+  try {
+    const loaded = await loadSelectedProfile(selection.id, { storage, readJson });
+    return { ...loaded, requestedId: selection.id, selectionSource: selection.source, fallback: false, emergency: false, warning: loaded.warning || '' };
+  } catch (error) {
+    const shownId = String(selection.id || '(빈 값)');
+    const reason = `프로필 「${shownId}」을 쓸 수 없어 project-c로 돌아갔습니다: ${error.message}`;
+    const fallback = await projectCFallback({ storage, readJson }, selection.id === PROJECT_C_PROFILE_ID ? '' : reason);
+    return { ...fallback, requestedId: shownId, selectionSource: selection.source, fallback: true };
+  }
+}
+
+export async function listProfiles({ storage = null, readJson = readBundledJson } = {}) {
+  const builtins = await loadProfileIndex({ readJson });
+  const devices = readDeviceProfiles(storage);
+  const byId = new Map(builtins.map(entry => [entry.id, { id: entry.id, name: entry.name, source: 'builtin' }]));
+  for (const profile of devices) byId.set(profile.id, { id: profile.id, name: profile.name, source: 'device' });
+  return [...byId.values()];
+}
+
+export function profileCanvasWarning(canvas, label = '파일', profile = CURRENT_PROFILE) {
+  if (!Array.isArray(canvas) || canvas.length !== 2) return '';
+  const actual = canvas.map(Number);
+  if (actual[0] === profile.canvas[0] && actual[1] === profile.canvas[1]) return '';
+  return `${label} 그림판은 ${actual[0]}×${actual[1]}이고, 현재 프로필은 ${profile.canvas[0]}×${profile.canvas[1]}입니다. 파일 크기로 엽니다`;
+}
+
+function browserStorage() {
+  try { return globalThis.localStorage || null; } catch { return null; }
+}
+
+const browserSearch = typeof location === 'undefined' ? '' : location.search;
+export const ACTIVE_PROFILE = await resolveActiveProfile({ search: browserSearch, storage: browserStorage() });
+export const CURRENT_PROFILE = ACTIVE_PROFILE.profile;
 
 export function currentCanvas() { return [...CURRENT_PROFILE.canvas]; }

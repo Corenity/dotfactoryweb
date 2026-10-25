@@ -21,6 +21,7 @@
   <header class="top">
     <div class="top-row">
       <h1 class="top-title">도트 공장</h1>
+      <button class="profile-chip" id="profile-open" type="button" aria-haspopup="dialog"><span id="profile-current">Project C</span><span aria-hidden="true">⚙</span></button>
       <nav class="tabs nav-categories" role="tablist" aria-label="큰 분류">
         <button role="tab" data-category="image" aria-selected="true">이미지</button>
         <button role="tab" data-category="animation" aria-selected="false">애니메이션</button>
@@ -521,6 +522,30 @@
       <ol class="layers" id="asm-list"></ol>
     </section>
   </main>
+
+  <dialog class="profile-dialog" id="profile-dialog" aria-labelledby="profile-title">
+    <form method="dialog" class="profile-card">
+      <div class="profile-heading">
+        <h2 id="profile-title">프로젝트 설정</h2>
+        <button class="btn" id="profile-close" value="cancel" aria-label="설정 닫기">닫기</button>
+      </div>
+      <label class="profile-field">프로필<select id="profile-choice"></select></label>
+      <p class="hint" id="profile-source"></p>
+      <label class="profile-field">이름<input id="profile-name" type="text" maxlength="80" autocomplete="off"></label>
+      <div class="profile-size">
+        <label class="profile-field">가로<input id="profile-width" type="number" inputmode="numeric" min="1" max="4096" step="1"></label>
+        <label class="profile-field">세로<input id="profile-height" type="number" inputmode="numeric" min="1" max="4096" step="1"></label>
+      </div>
+      <div class="profile-actions">
+        <button class="btn primary" id="profile-save" type="button">이름·크기 저장</button>
+        <button class="btn" id="profile-save-bones" type="button">지금 뼈대를 기본 뼈로 저장</button>
+        <button class="btn" id="profile-duplicate" type="button">프로필 복제</button>
+        <button class="btn" id="profile-delete" type="button">기기 프로필 지우기</button>
+        <button class="btn" id="profile-download" type="button">JSON 내려받기</button>
+        <button class="btn" id="profile-import" type="button">JSON 불러오기</button>
+      </div>
+    </form>
+  </dialog>
 
   <p class="toast" id="toast" role="status" hidden></p>
   <script type="module" src="js/app.js"></script>

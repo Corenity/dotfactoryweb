@@ -176,6 +176,7 @@ export function mountAssemble(app) {
 
   async function restore(json) {
     const project = parseProject(json);
+    app.warnCanvas?.(project.canvas, '합치기 설정');
     const loaded = [];
     for (const i of project.items) loaded.push({ ...i, image: dropKey(await readDataUrl(i.png)), png: undefined });
     const g = project.guide;

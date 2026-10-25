@@ -163,6 +163,7 @@ export function mountRig(app) {
 
   // 작업 열기와 자동 복원의 단일 통합 함수
   async function loadProjectData(proj, role = null) {
+    app.warnCanvas?.(proj.canvas, '뼈대 작업');
     const loadedPieces = [];
     for (const p of proj.pieces) {
       const img = await readDataUrl(p.png);

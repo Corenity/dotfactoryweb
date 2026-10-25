@@ -1,21 +1,52 @@
 // 자동 저장 — 브라우저 저장소(localStorage)에 마지막 작업 하나를 둡니다. 내려받기를 대신하지 않습니다.
 import { cleanColors } from './core/paint.js';
+import { LEGACY_AUTOSAVE_KEY, PROJECT_C_PROFILE_ID, copyLegacyAutosaveToProfile, profileAutosaveKey } from './core/profile.js';
 
-const KEY = 'dotfactory-web/autosave-1';
 // 내 색은 그림과 따로 둡니다. 새 그림을 열어도 남지만, 아이폰이 사이트 자료를 지우면 함께 사라질 수 있습니다.
 const COLORS_KEY = 'dotfactory-web/my-colors-1';
 let timer = 0;
+let autosaveKey = LEGACY_AUTOSAVE_KEY;
+let fallbackKey = '';
+let autosaveStorage = null;
+
+function workStorage() {
+  return autosaveStorage || localStorage;
+}
+
+export function configureProfileAutosave(id, storage = localStorage) {
+  clearTimeout(timer);
+  autosaveStorage = storage;
+  autosaveKey = profileAutosaveKey(id);
+  fallbackKey = '';
+  let migration = { copied: false, reason: 'not-project-c', sourceKey: LEGACY_AUTOSAVE_KEY, targetKey: autosaveKey };
+  if (id === PROJECT_C_PROFILE_ID) {
+    try {
+      migration = copyLegacyAutosaveToProfile(storage, id);
+    } catch (error) {
+      fallbackKey = LEGACY_AUTOSAVE_KEY;
+      migration = { copied: false, reason: 'copy-failed', error, sourceKey: LEGACY_AUTOSAVE_KEY, targetKey: autosaveKey };
+    }
+  }
+  return { key: autosaveKey, fallbackKey, migration };
+}
+
+export function resetAutosaveConfiguration() {
+  clearTimeout(timer);
+  autosaveStorage = null;
+  autosaveKey = LEGACY_AUTOSAVE_KEY;
+  fallbackKey = '';
+}
 
 export function saveLater(value) {
   clearTimeout(timer);
   timer = setTimeout(() => {
-    try { localStorage.setItem(KEY, JSON.stringify(value)); } catch { /* 저장소가 가득 차면 자동 저장만 건너뜁니다 */ }
+    try { workStorage().setItem(autosaveKey, JSON.stringify(value)); } catch { /* 저장소가 가득 차면 자동 저장만 건너뜁니다 */ }
   }, 800);
 }
 
 export function saveNow(value) {
   clearTimeout(timer);
-  localStorage.setItem(KEY, JSON.stringify(value));
+  workStorage().setItem(autosaveKey, JSON.stringify(value));
 }
 
 export function saveVerifiedMigration(migration) {
@@ -26,7 +57,8 @@ export function saveVerifiedMigration(migration) {
 }
 
 export async function loadSaved() {
-  const text = localStorage.getItem(KEY);
+  const storage = workStorage();
+  const text = storage.getItem(autosaveKey) || (fallbackKey ? storage.getItem(fallbackKey) : null);
   return text ? JSON.parse(text) : null;
 }
 
