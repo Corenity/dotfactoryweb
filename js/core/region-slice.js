@@ -292,6 +292,32 @@ export function importRegionConfig(config, expectedCanvas = null) {
   };
 }
 
+/** 영역 설정을 대보기용 RGBA 그림으로 바꿉니다. 지정하지 않은 칸은 투명합니다. */
+export function regionGuideImage(state) {
+  if (!state || !Number.isInteger(state.width) || !Number.isInteger(state.height)
+      || !Array.isArray(state.regions) || !(state.grid instanceof Uint8Array)
+      || state.grid.length !== state.width * state.height) {
+    throw new Error('영역 설정 자료가 올바르지 않습니다');
+  }
+  const colors = state.regions.map(color => {
+    const hex = normalizeColor(color);
+    return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
+  });
+  const data = new Uint8ClampedArray(state.grid.length * 4);
+  for (let i = 0; i < state.grid.length; i++) {
+    const label = state.grid[i];
+    if (label === 0) continue;
+    const color = colors[label - 1];
+    if (!color) throw new Error(`영역 칸 ${i}의 영역 식별자(${label})가 올바르지 않습니다`);
+    const p = i * 4;
+    data[p] = color[0];
+    data[p + 1] = color[1];
+    data[p + 2] = color[2];
+    data[p + 3] = 255;
+  }
+  return { width: state.width, height: state.height, data };
+}
+
 export function shouldReinitRegionSlice(prevImage, nextImage) {
   if (!prevImage && !nextImage) return false;
   if (!prevImage || !nextImage) return true;

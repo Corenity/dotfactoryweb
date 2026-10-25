@@ -126,7 +126,13 @@
           <button type="button" role="radio" data-target="guide" aria-checked="false" disabled>대볼 그림</button>
         </div>
         <span class="guide-name is-empty" id="paint-guide-name">없음</span>
-        <button class="btn small" id="paint-guide-pick">고르기</button>
+        <div class="guide-picker">
+          <button class="btn small" id="paint-guide-pick" type="button" aria-haspopup="menu" aria-expanded="false">고르기</button>
+          <div class="guide-picker-menu" id="paint-guide-menu" role="menu" aria-label="대볼 자료 고르기" hidden>
+            <button class="btn" type="button" role="menuitem" data-guide-source="png">PNG 그림</button>
+            <button class="btn" type="button" role="menuitem" data-guide-source="region-file">영역 설정 파일</button>
+          </div>
+        </div>
         <button class="btn small" id="paint-guide-drop" hidden>빼기</button>
         <label class="inline guide-opacity">진하기<input type="range" id="paint-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="paint-guide-opacity-value">50%</span></label>
       </div>

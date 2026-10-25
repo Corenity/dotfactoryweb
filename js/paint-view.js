@@ -6,6 +6,7 @@ import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUr
 import { selectRect, insideRect, lift, fillPiece, place } from './core/select.js';
 import { loadColors, saveColors } from './store.js';
 import { currentCanvas } from './core/profile.js';
+import { importRegionConfig, regionGuideImage } from './core/region-slice.js';
 
 const $ = sel => document.querySelector(sel);
 // 한 칸을 화면에서 몇 픽셀로 그릴지 고르는 단계입니다. + · − 는 이 단계를 하나씩 오갑니다.
@@ -20,7 +21,7 @@ export function mountPaint(app) {
   const canvas = $('#paint-canvas');
   const colorBtn = $('#paint-color-btn'), selectionColorBtn = $('#paint-selection-color'), colorPop = $('#paint-color-pop');
   let image = null, name = '그림', history = new History();
-  let guide = null; // { image, name, opacity, dx, dy }
+  let guide = null; // { image, name, opacity, dx, dy, kind?: 'regions' }
   let guideTarget = false;
   let mine = loadColors(); // 내 색: 다른 색에서 고른 색. 그림을 바꿔도 남습니다.
   let tool = 'pen', cell = 8, panX = 0, panY = 0;
@@ -181,6 +182,22 @@ export function mountPaint(app) {
     $('#paint-guide-opacity').value = String(Math.round(opacity * 100));
     $('#paint-guide-opacity').disabled = !guide;
     $('#paint-guide-opacity-value').textContent = `${Math.round(opacity * 100)}%`;
+  }
+
+  function closeGuideMenu() {
+    $('#paint-guide-menu').hidden = true;
+    $('#paint-guide-pick').setAttribute('aria-expanded', 'false');
+  }
+
+  function expectedGuideCanvas() {
+    return image ? [image.width, image.height] : currentCanvas();
+  }
+
+  function useRegionGuide(config, label) {
+    const state = importRegionConfig(config, expectedGuideCanvas());
+    guide = { image: regionGuideImage(state), name: label, kind: 'regions', opacity: guide?.opacity ?? GUIDE_OPACITY,
+      dx: guide?.dx ?? 0, dy: guide?.dy ?? 0 };
+    changed();
   }
 
   // 색 칸을 누르면 그 색으로 칠합니다. onLongPress 가 있으면 길게 눌렀을 때 그것만 하고 색은 고르지 않습니다.
@@ -406,15 +423,30 @@ export function mountPaint(app) {
     if (image && !confirm(`지금 그림을 비우고 ${width}×${height} 새 그림을 만들까요? 내려받지 않은 고침은 사라집니다.`)) return;
     load(blank(width, height), '새 그림');
   });
-  $('#paint-guide-pick').addEventListener('click', async () => {
-    const [file] = await pickFiles({ accept: 'image/png' });
+  $('#paint-guide-pick').addEventListener('click', () => {
+    const menu = $('#paint-guide-menu');
+    menu.hidden = !menu.hidden;
+    $('#paint-guide-pick').setAttribute('aria-expanded', String(!menu.hidden));
+  });
+  for (const option of $('#paint-guide-menu').querySelectorAll('[data-guide-source]')) option.addEventListener('click', async () => {
+    closeGuideMenu();
+    const source = option.dataset.guideSource;
+    if (source === 'png') {
+      const [file] = await pickFiles({ accept: 'image/png' });
+      if (!file) return;
+      try {
+        // 바꾸기로 다른 그림을 골라도 맞춰 둔 진하기와 위치는 그대로 둡니다.
+        guide = { image: dropKey(await readImageFile(file)), name: baseName(file.name), opacity: guide?.opacity ?? GUIDE_OPACITY,
+          dx: guide?.dx ?? 0, dy: guide?.dy ?? 0 };
+        changed();
+      } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
+      return;
+    }
+    const [file] = await pickFiles({ accept: '.json,application/json' });
     if (!file) return;
     try {
-      // 바꾸기로 다른 그림을 골라도 맞춰 둔 진하기와 위치는 그대로 둡니다.
-      guide = { image: dropKey(await readImageFile(file)), name: baseName(file.name), opacity: guide?.opacity ?? GUIDE_OPACITY,
-        dx: guide?.dx ?? 0, dy: guide?.dy ?? 0 };
-      changed();
-    } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
+      useRegionGuide(JSON.parse(await file.text()), baseName(file.name));
+    } catch (err) { app.toast(err.message || '영역 설정을 불러오지 못했습니다'); }
   });
   for (const b of $('#paint-target').querySelectorAll('[data-target]')) b.addEventListener('click', () => {
     guideTarget = b.dataset.target === 'guide' && !!guide;
@@ -449,6 +481,11 @@ export function mountPaint(app) {
     sel = marquee = null;
     image = dropKey(next);
     name = nextName || '그림';
+    if (guide?.kind === 'regions' && (guide.image.width !== image.width || guide.image.height !== image.height)) {
+      app.toast(`대볼 영역의 그림판 크기(${guide.image.width}×${guide.image.height})가 편집 그림 크기(${image.width}×${image.height})와 달라 뺐습니다`);
+      guide = null;
+      guideTarget = false;
+    }
     history = new History();
     requestAnimationFrame(fit);
     changed();
@@ -460,7 +497,7 @@ export function mountPaint(app) {
     shown() { if (image) requestAnimationFrame(fit); },
     snapshot: () => (image || guide ? {
       ...(image ? { name, png: toPngDataUrl(image) } : {}),
-      ...(guide ? { guide: { name: guide.name, visible: true, opacity: guide.opacity, dx: guide.dx, dy: guide.dy, png: toPngDataUrl(guide.image) } } : {}),
+      ...(guide && guide.kind !== 'regions' ? { guide: { name: guide.name, visible: true, opacity: guide.opacity, dx: guide.dx, dy: guide.dy, png: toPngDataUrl(guide.image) } } : {}),
     } : null),
     async restore(saved) {
       const g = saved?.guide;

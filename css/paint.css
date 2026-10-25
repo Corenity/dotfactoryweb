@@ -76,6 +76,14 @@ input[type="color"] {
 .guide.is-target { border-color: var(--accent); background: #26304a; }
 .guide .guide-name { flex: 1 1 0; min-width: 0; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .guide .guide-name.is-empty { color: var(--muted); }
+.guide-picker { position: relative; }
+.guide-picker-menu {
+  position: absolute; z-index: 20; top: calc(100% + 4px); right: 0;
+  width: max-content; min-width: 180px; padding: 4px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--panel); box-shadow: 0 6px 18px #0008;
+}
+.guide-picker-menu[hidden] { display: none; }
+.guide-picker-menu .btn { display: block; width: 100%; min-height: 44px; text-align: left; }
 
 /* 화살표 · 스포이드가 원본과 대볼 그림 중 어느 쪽을 다룰지 고르는 두 칸 단추입니다. 고른 칸이 파랗게 찹니다. */
 .segmented {
