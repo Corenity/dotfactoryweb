@@ -1,5 +1,5 @@
 // 뼈대 단계 화면 — 뼈 나무, 위치·각도, 조각 연결·층과 미리보기를 다룹니다.
-import { boneLabel, normalizeBones, applyRestPose, resetBonesToDefaults, DEFAULT_BONES, removeBone, editRigBone } from './core/rig.js';
+import { boneLabel, boneAngleToDisplay, displayAngleToBone, normalizeBones, applyRestPose, resetBonesToDefaults, DEFAULT_BONES, removeBone, editRigBone } from './core/rig.js';
 import { CURRENT_PROFILE, currentCanvas } from './core/profile.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal, worldDeltaToBone } from './core/rig-render.js';
 import { sortRigPiecesByLayers } from './core/preset-layers.js';
@@ -277,8 +277,9 @@ export function mountRigBones(app, model) {
     } else {
       if (xInput) xInput.value = String(bone.pos[0]);
       if (yInput) yInput.value = String(bone.pos[1]);
-      if (angleInput) angleInput.value = String(bone.angle);
-      if (rotSlider) rotSlider.value = String(bone.angle);
+      const displayAngle = boneAngleToDisplay(bone.angle);
+      if (angleInput) angleInput.value = String(displayAngle);
+      if (rotSlider) rotSlider.value = String(displayAngle);
     }
     if (parentSelect) {
       parentSelect.innerHTML = '<option value="">없음 (Skeleton2D)</option>';
@@ -527,7 +528,7 @@ export function mountRigBones(app, model) {
         if (piece) {
           if (editSelectedPiece({ rot: val })) model.commit?.(before);
         } else {
-          if (editSelected({ angle: val })) model.commit?.(before);
+          if (editSelected({ angle: displayAngleToBone(val) })) model.commit?.(before);
         }
       });
     }
@@ -540,7 +541,7 @@ export function mountRigBones(app, model) {
         if (piece) {
           editSelectedPiece({ rot: val }, { quiet: true });
         } else {
-          editSelected({ angle: val }, { quiet: true, baseState: rotDragBefore });
+          editSelected({ angle: displayAngleToBone(val) }, { quiet: true, baseState: rotDragBefore });
         }
         if (angleInput) angleInput.value = rotSlider.value;
       });
@@ -552,7 +553,7 @@ export function mountRigBones(app, model) {
         if (piece) {
           if (editSelectedPiece({ rot: val })) model.commit?.(before);
         } else {
-          if (editSelected({ angle: val }, { baseState: before })) model.commit?.(before);
+          if (editSelected({ angle: displayAngleToBone(val) }, { baseState: before })) model.commit?.(before);
         }
       });
     }

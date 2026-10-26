@@ -6,6 +6,19 @@ import { CURRENT_PROFILE, currentCanvas } from './profile.js';
 export const SCHEMA = 'dotfactory-web/rig-1';
 export const DEFAULT_MOTION_NAME = 'walk';
 
+function wrapBoneDisplayAngle(value) {
+  const wrapped = ((value + 180) % 360 + 360) % 360 - 180;
+  return wrapped === -180 && value > 0 ? 180 : wrapped;
+}
+
+export function boneAngleToDisplay(angle) {
+  return wrapBoneDisplayAngle(Math.round(Number(angle) - 90));
+}
+
+export function displayAngleToBone(angle) {
+  return wrapBoneDisplayAngle(Math.round(Number(angle))) + 90;
+}
+
 /** 캐릭터가 보는 방향을 기준으로 L·R을 붙인 기본 뼈 나무입니다. */
 export const DEFAULT_BONES = CURRENT_PROFILE.bones;
 

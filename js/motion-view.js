@@ -1,5 +1,5 @@
 // 뼈 애니메이션 3단계 화면 — 시간 줄, 끊어지는 키, 양파 껍질, 재생과 GIF를 다룹니다.
-import { defaultAnimations, boneLabel } from './core/rig.js';
+import { defaultAnimations, boneLabel, boneAngleToDisplay, displayAngleToBone } from './core/rig.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
 import { addMotion, changeMotionLength, changeMotionStep, copyPreviousKey, deleteKey, frameTimes, hasKey, poseAt, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
 import { encodeGif } from './core/gif.js';
@@ -232,8 +232,9 @@ export function mountMotion(app, model) {
     const at = slotTime(currentTime);
     const bone = selectedBone(poseAt(bones(), active, currentTime));
     if (!bone) return;
-    xInput.value = String(bone.pos[0]); yInput.value = String(bone.pos[1]); angleInput.value = String(bone.angle);
-    if (rotSlider) rotSlider.value = String(bone.angle);
+    const displayAngle = boneAngleToDisplay(bone.angle);
+    xInput.value = String(bone.pos[0]); yInput.value = String(bone.pos[1]); angleInput.value = String(displayAngle);
+    if (rotSlider) rotSlider.value = String(displayAngle);
     const keyed = hasKey(active, bone.name, at);
     status.textContent = `${Number(at.toFixed(3))}초 · ${keyed ? '이 뼈의 키가 있습니다' : '뼈대 자세 또는 앞 키를 보여 줍니다'}`;
     $('#motion-drop-key').disabled = !keyed;
@@ -469,16 +470,16 @@ export function mountMotion(app, model) {
     });
     const updatePosition = () => updateKey({ pos: [Math.trunc(Number(xInput.value)), Math.trunc(Number(yInput.value))] });
     xInput.addEventListener('change', updatePosition); yInput.addEventListener('change', updatePosition);
-    angleInput.addEventListener('change', () => updateKey({ angle: Math.trunc(Number(angleInput.value)) }));
+    angleInput.addEventListener('change', () => updateKey({ angle: displayAngleToBone(angleInput.value) }));
     if (rotSlider) {
       rotSlider.addEventListener('input', () => {
         if (!rotDragBefore) rotDragBefore = model.snapshot?.();
-        updateKey({ angle: Math.trunc(Number(rotSlider.value)) }, { quiet: true, before: rotDragBefore });
+        updateKey({ angle: displayAngleToBone(rotSlider.value) }, { quiet: true, before: rotDragBefore });
       });
       rotSlider.addEventListener('change', () => {
         const before = rotDragBefore || model.snapshot?.();
         rotDragBefore = null;
-        updateKey({ angle: Math.trunc(Number(rotSlider.value)) }, { before });
+        updateKey({ angle: displayAngleToBone(rotSlider.value) }, { before });
       });
     }
     const nudge = (dx, dy) => {
