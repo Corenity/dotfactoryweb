@@ -103,6 +103,7 @@ export function mountRig(app) {
     getAnimations: () => animations,
     setAnimations: value => { animations = value; },
     getPieces: () => pieces,
+    setPieces: value => { pieces = value; },
     getPresetLayers: () => presetLayers,
     getVisibilityMode: () => visibilityMode,
     setVisibilityMode: value => { visibilityMode = value === 'group' ? 'group' : 'individual'; },

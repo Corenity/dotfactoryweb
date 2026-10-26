@@ -1,5 +1,5 @@
 // 뼈대 단계 화면 — 뼈 나무, 위치·각도, 조각 연결·층과 미리보기를 다룹니다.
-import { boneLabel, normalizeBones, applyRestPose, resetBonesToDefaults, DEFAULT_BONES, addBone, removeBone, isValidBoneName } from './core/rig.js';
+import { boneLabel, normalizeBones, applyRestPose, resetBonesToDefaults, DEFAULT_BONES, addBone, removeBone, isValidBoneName, editRigBone } from './core/rig.js';
 import { CURRENT_PROFILE, currentCanvas } from './core/profile.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal, worldDeltaToBone } from './core/rig-render.js';
 import { sortRigPiecesByLayers } from './core/preset-layers.js';
@@ -33,6 +33,7 @@ export function resolveRigSelectionMenuState({ piece = null, activeTool = 'P', a
     boneToolsHidden: isGroupTab,
     pieceToolsHidden: isGroupTab || !hasPiece,
     toolImgHidden: hasPiece,
+    linkHidden: isGroupTab || hasPiece,
     toolPosPressed: nextTool === 'P',
     toolRotPressed: nextTool === 'R',
     toolImgPressed: !hasPiece && nextTool === 'I',
@@ -69,6 +70,7 @@ export function mountRigBones(app, model) {
   const toolPosBtn = $('#rig-tool-pos');
   const toolRotBtn = $('#rig-tool-rot');
   const toolImgBtn = $('#rig-tool-img');
+  const boneLinkBtn = $('#rig-bone-link');
   const barPos = $('#rig-bar-pos');
   const barRot = $('#rig-bar-rot');
   const barImg = $('#rig-bar-img');
@@ -85,6 +87,7 @@ export function mountRigBones(app, model) {
   let selectedPieceIndex = null;
   let activeTool = 'P';
   let activePieceMenu = null;
+  let boneLinkEnabled = true;
   let cell = 4;
   let panX = 0, panY = 0;
   const pointers = new Map();
@@ -128,12 +131,19 @@ export function mountRigBones(app, model) {
     }
   }
 
-  function editSelected(change, { quiet = false } = {}) {
+  function editSelected(change, { quiet = false, baseState = null } = {}) {
     const current = selectedBone();
     if (!current) return false;
-    const candidate = bones().map(bone => bone.name === current.name ? { ...bone, pos: [...bone.pos], ...change } : { ...bone, pos: [...bone.pos] });
     try {
-      model.setBones(normalizeBones(candidate));
+      const isTransform = Object.hasOwn(change, 'pos') || Object.hasOwn(change, 'angle');
+      if (isTransform) {
+        const source = { bones: baseState?.bones || bones(), pieces: baseState?.pieces || pieces(), restPose: model.getRestPose?.() };
+        const result = editRigBone(source, current.name, change, boneLinkEnabled);
+        model.setBones(result.bones); if (!boneLinkEnabled) model.setPieces(result.pieces);
+      } else {
+        const candidate = bones().map(bone => bone.name === current.name ? { ...bone, pos: [...bone.pos], ...change } : { ...bone, pos: [...bone.pos] });
+        model.setBones(normalizeBones(candidate));
+      }
       if (!quiet) notify();
       refreshControls();
       render();
@@ -227,6 +237,7 @@ export function mountRigBones(app, model) {
     if (boneTools) boneTools.hidden = menu.boneToolsHidden;
     if (pieceTools) pieceTools.hidden = menu.pieceToolsHidden;
     if (toolImgBtn) toolImgBtn.hidden = menu.toolImgHidden;
+    if (boneLinkBtn) boneLinkBtn.hidden = menu.linkHidden;
     if (toolPosBtn) toolPosBtn.setAttribute('aria-pressed', String(menu.toolPosPressed));
     if (toolRotBtn) toolRotBtn.setAttribute('aria-pressed', String(menu.toolRotPressed));
     if (toolImgBtn) toolImgBtn.setAttribute('aria-pressed', String(menu.toolImgPressed));
@@ -240,6 +251,11 @@ export function mountRigBones(app, model) {
       const deleteLabel = piece ? '고른 그림 빼기' : '고른 뼈 지우기';
       deleteBtn.title = deleteLabel;
       deleteBtn.setAttribute('aria-label', deleteLabel);
+    }
+    if (boneLinkBtn) {
+      const stateLabel = boneLinkEnabled ? '켜짐' : '꺼짐';
+      boneLinkBtn.setAttribute('aria-pressed', String(boneLinkEnabled)); boneLinkBtn.setAttribute('aria-label', `그림과 자식 뼈 함께 움직이기: ${stateLabel}`);
+      boneLinkBtn.title = boneLinkEnabled ? '링크 켜짐: 그림과 자식 뼈가 함께 움직입니다' : '링크 꺼짐: 고른 뼈만 움직입니다';
     }
   }
 
@@ -411,7 +427,7 @@ export function mountRigBones(app, model) {
           const [localX, localY] = worldDeltaToLocal(bones(), selected, dx, dy);
           const pos = [Math.round(dragging.pos[0] + localX), Math.round(dragging.pos[1] + localY)];
           dragging.changed = true;
-          editSelected({ pos }, { quiet: true });
+          editSelected({ pos }, { quiet: true, baseState: dragBefore });
         }
       }
     });
@@ -446,6 +462,7 @@ export function mountRigBones(app, model) {
     toolPosBtn?.addEventListener('click', () => switchTool('P'));
     toolRotBtn?.addEventListener('click', () => switchTool('R'));
     toolImgBtn?.addEventListener('click', () => switchTool('I'));
+    boneLinkBtn?.addEventListener('click', () => { boneLinkEnabled = !boneLinkEnabled; updateSelectionMenus(); });
     tabGroups?.addEventListener('click', updateSelectionMenus);
     $('#rig-tab-bones')?.addEventListener('click', updateSelectionMenus);
     window.addEventListener('rig-tab-change', updateSelectionMenus);
@@ -533,7 +550,7 @@ export function mountRigBones(app, model) {
         if (piece) {
           editSelectedPiece({ rot: val }, { quiet: true });
         } else {
-          editSelected({ angle: val }, { quiet: true });
+          editSelected({ angle: val }, { quiet: true, baseState: rotDragBefore });
         }
         if (angleInput) angleInput.value = rotSlider.value;
       });
@@ -545,7 +562,7 @@ export function mountRigBones(app, model) {
         if (piece) {
           if (editSelectedPiece({ rot: val })) model.commit?.(before);
         } else {
-          if (editSelected({ angle: val })) model.commit?.(before);
+          if (editSelected({ angle: val }, { baseState: before })) model.commit?.(before);
         }
       });
     }

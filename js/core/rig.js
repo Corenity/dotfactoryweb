@@ -1,6 +1,6 @@
 // 뼈 애니메이션 작업 파일 — 조각 목록 · 뼈대 트리 · 동작 키프레임을 저장하고 복원합니다.
 // 화면(DOM)을 쓰지 않는 순수 모듈로 Node 시험이 그대로 돌립니다.
-import { boneWorldTransforms, invert, transformPoint } from './rig-render.js';
+import { boneWorldTransforms, invert, multiply, pieceTransform, transformPoint } from './rig-render.js';
 import { CURRENT_PROFILE, currentCanvas } from './profile.js';
 
 export const SCHEMA = 'dotfactory-web/rig-1';
@@ -377,6 +377,72 @@ export function normalizeBones(value) {
     }
   }
   return bones;
+}
+
+const RADIANS_TO_DEGREES = 180 / Math.PI;
+const tidyRigNumber = value => {
+  const tidy = Number(value.toFixed(10));
+  return Object.is(tidy, -0) ? 0 : tidy;
+};
+
+function nearestEquivalentAngle(value, reference) {
+  return value + 360 * Math.round((reference - value) / 360);
+}
+
+function rigidParts(matrix, referenceAngle = 0) {
+  const rawAngle = Math.atan2(matrix[1], matrix[0]) * RADIANS_TO_DEGREES;
+  return {
+    pos: [matrix[4], matrix[5]],
+    angle: nearestEquivalentAngle(rawAngle, referenceAngle),
+  };
+}
+
+/**
+ * 뼈 하나를 고칩니다. linked=false이면 직접 붙은 그림과 직접 자식 뼈를 역보정해
+ * 그 아래 가지 전체의 화면 변환을 유지합니다. 그림 pos·rot만 파일 형식에 맞춰 정수로 반올림합니다.
+ */
+export function editRigBone({ bones, pieces = [], restPose = null } = {}, boneName, change = {}, linked = true) {
+  const beforeBones = normalizeBones(bones);
+  const current = beforeBones.find(bone => bone.name === boneName);
+  if (!current) throw new Error(`뼈 「${boneName}」를 찾을 수 없습니다`);
+  const afterBones = normalizeBones(beforeBones.map(bone => bone.name === boneName
+    ? { ...bone, pos: [...bone.pos], ...change }
+    : { ...bone, pos: [...bone.pos] }));
+  const copiedPieces = pieces.map(piece => ({
+    ...piece,
+    pos: piece.pos ? [...piece.pos] : [0, 0],
+    rot: Number(piece.rot) || 0,
+  }));
+  if (linked) return { bones: afterBones, pieces: copiedPieces };
+
+  const beforeWorld = boneWorldTransforms(beforeBones);
+  const afterWorld = boneWorldTransforms(afterBones);
+  const beforeRest = boneWorldTransforms(applyRestPose(beforeBones, restPose).bones);
+  const afterRest = boneWorldTransforms(applyRestPose(afterBones, restPose).bones);
+  const afterTarget = afterWorld.get(boneName);
+  const fixedBones = afterBones.map(bone => {
+    if (bone.parent !== boneName) return bone;
+    const local = multiply(invert(afterTarget.matrix), beforeWorld.get(bone.name).matrix);
+    const parts = rigidParts(local, bone.angle - 90);
+    return {
+      ...bone,
+      pos: parts.pos.map(tidyRigNumber),
+      angle: tidyRigNumber(parts.angle + 90),
+    };
+  });
+
+  const fixedPieces = copiedPieces.map(piece => {
+    if (piece.bone !== boneName) return piece;
+    const beforeMatrix = pieceTransform(beforeWorld, beforeRest, boneName, piece.pos, piece.rot);
+    const local = multiply(invert(afterTarget.matrix), multiply(beforeMatrix, afterRest.get(boneName).matrix));
+    const parts = rigidParts(local, piece.rot);
+    return {
+      ...piece,
+      pos: parts.pos.map(Math.round),
+      rot: Math.round(parts.angle),
+    };
+  });
+  return { bones: normalizeBones(fixedBones), pieces: fixedPieces };
 }
 
 function normalizeCanvas(value) {

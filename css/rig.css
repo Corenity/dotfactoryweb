@@ -386,6 +386,20 @@
   color: #000;
   border-color: var(--accent, #32d74b);
 }
+.rig-link-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+.rig-link-btn[aria-pressed="false"]::after {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: rotate(-45deg);
+}
 .rig-piece-tool-btn {
   width: 44px;
   min-height: 44px;
