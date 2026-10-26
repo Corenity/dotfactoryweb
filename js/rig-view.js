@@ -35,6 +35,31 @@ export function boneParentChoices(bones, selectedBone = null) {
   };
 }
 
+export function rigProjectWithoutAnimations(project) {
+  return { ...project, animations: {} };
+}
+
+export function replaceRigProjectKeepingAnimations(current, incoming, selectedBone = null) {
+  const result = replaceSkeletonInRig({
+    skeleton: toSkeleton({ canvas: incoming.canvas, bones: incoming.bones }),
+    pieces: incoming.pieces,
+    animations: current.animations,
+    presetLayers: incoming.presetLayers,
+    selectedBone,
+  });
+  return {
+    project: {
+      ...incoming,
+      bones: result.bones,
+      pieces: result.pieces,
+      presetLayers: result.presetLayers,
+      animations: result.animations,
+    },
+    selectedBone: result.selectedBone,
+    droppedKeyCount: result.droppedKeyCount,
+  };
+}
+
 export function mountRig(app) {
   let [canvasWidth, canvasHeight] = CURRENT_PROFILE.canvas;
   let pieces = [];
@@ -48,6 +73,8 @@ export function mountRig(app) {
   let presetLayers = [];
   let selectedPresetLayerKey = null;
   let visibilityMode = 'individual';
+  let openLegacyOptions = null;
+  let lastReplacement = null;
 
   const undoBtn = $('#rig-undo');
   const redoBtn = $('#rig-redo');
@@ -199,6 +226,7 @@ export function mountRig(app) {
     window.addEventListener('resize', positionMenu);
 
     createBtn?.addEventListener('click', openAddModal);
+    closeBtn?.addEventListener('close', closeAddModal);
     closeBtn?.addEventListener('click', closeAddModal);
     cancelBtn?.addEventListener('click', closeAddModal);
 
@@ -273,6 +301,7 @@ export function mountRig(app) {
     getPieces: () => pieces,
     setPieces: value => { pieces = value; },
     getPresetLayers: () => presetLayers,
+    setPresetLayers: value => { presetLayers = value; },
     getVisibilityMode: () => visibilityMode,
     setVisibilityMode: value => { visibilityMode = value === 'group' ? 'group' : 'individual'; },
     getSize: () => [canvasWidth, canvasHeight],
@@ -290,6 +319,7 @@ export function mountRig(app) {
     commit: before => recordChange(before),
     getSkeletonName: () => skeletonName,
     setSkeletonName: value => { skeletonName = String(value || CURRENT_PROFILE.skeletonName); },
+    selectedBoneChanged: name => motionView?.selectBone?.(name),
   });
   presetView = mountRigPreset(app, {
     getBones: () => bones,
@@ -328,28 +358,38 @@ export function mountRig(app) {
     getItem: () => currentItem,
     snapshot: () => snapshot(),
     commit: before => recordChange(before),
+    selectBone: name => bonesView?.selectBone?.(name),
   });
   mountBonePanel();
 
   // 작업 열기와 자동 복원의 단일 통합 함수
-  async function loadProjectData(proj, role = null) {
+  async function loadProjectData(proj, role = null, { keepAnimations = false, recordHistory = false } = {}) {
+    const before = recordHistory ? snapshot() : null;
     app.warnCanvas?.(proj.canvas, '뼈대 작업');
     const loadedPieces = [];
     for (const p of proj.pieces) {
       const img = await readDataUrl(p.png);
       loadedPieces.push({ ...p, image: img });
     }
+    const replacement = keepAnimations
+      ? replaceRigProjectKeepingAnimations(
+        { animations },
+        { ...proj, pieces: loadedPieces },
+        bonesView?.getSelectedBone?.(),
+      )
+      : null;
+    const loaded = replacement?.project || { ...proj, pieces: loadedPieces };
 
     // 상태 일괄 교체
-    canvasWidth = proj.canvas[0];
-    canvasHeight = proj.canvas[1];
-    currentSlot = proj.slot;
-    currentItem = proj.item;
-    bones = proj.bones;
-    animations = proj.animations;
-    restPose = proj.restPose || null;
-    const rawLayers = proj.presetLayers || role?.presetLayers;
-    const layerState = normalizeRigLayerState(rawLayers, loadedPieces);
+    canvasWidth = loaded.canvas[0];
+    canvasHeight = loaded.canvas[1];
+    currentSlot = loaded.slot;
+    currentItem = loaded.item;
+    bones = loaded.bones;
+    animations = loaded.animations;
+    restPose = loaded.restPose || null;
+    const rawLayers = loaded.presetLayers || role?.presetLayers;
+    const layerState = normalizeRigLayerState(rawLayers, loaded.pieces);
     const migrated = migrateLegacyLayersToDepth(layerState.layers, layerState.pieces);
     pieces = migrated.pieces;
     presetLayers = migrated.layers;
@@ -363,8 +403,13 @@ export function mountRig(app) {
     bonesView?.refresh();
     presetView?.refresh();
     motionView?.refresh();
-    history.clear();
-    updateUndoRedo();
+    if (recordHistory) recordChange(before);
+    else {
+      history.clear();
+      updateUndoRedo();
+    }
+    lastReplacement = replacement;
+    return replacement;
   }
 
   function currentPreset() {
@@ -391,13 +436,13 @@ export function mountRig(app) {
     redoBtn?.addEventListener('click', redo);
 
     // 프로젝트 저장
-    $('#rig-save-project')?.addEventListener('click', () => {
-      const proj = projectSnapshot();
-      saveJson(`rig-${currentItem}.json`, proj);
-      app.toast(`「rig-${currentItem}.json」으로 저장했습니다`);
+    $('#rig-save-project')?.addEventListener('click', async () => {
+      const fileName = `rig-${currentItem}.json`;
+      const result = await saveJson(fileName, rigProjectWithoutAnimations(projectSnapshot()));
+      if (result !== 'cancelled') app.toast(`「${fileName}」으로 저장했습니다`);
     });
 
-    // 프로젝트 열기 — rig-1 JSON, 고도 장면, 웹에서 만든 무압축 ZIP을 한 자리에서 받습니다.
+    // 전체 열기 — rig-1 JSON, 고도 장면, 웹에서 만든 무압축 ZIP을 한 자리에서 받습니다.
     $('#rig-open-project')?.addEventListener('click', async () => {
       try {
         const [file] = await pickFiles({ accept: '.json,.tscn,.zip,application/json,application/zip,text/plain' });
@@ -409,23 +454,38 @@ export function mountRig(app) {
           loaded.project.restPose = null;
           proj = loaded.project;
           warnings = loaded.warnings;
+          await loadProjectData(proj);
         } else if (name.endsWith('.tscn')) {
           const loaded = projectFromGodotTscn(await file.text());
           proj = loaded.project;
           warnings = loaded.warnings;
+          await loadProjectData(proj);
         } else if (name.endsWith('.json')) {
           proj = parseProject(JSON.parse(await file.text()));
-          await app.loadLegacyRig(proj);
+          let replacement;
+          if (proj.basePng) {
+            openLegacyOptions = { keepAnimations: true, recordHistory: true };
+            try {
+              await app.loadLegacyRig(proj);
+            } finally {
+              openLegacyOptions = null;
+            }
+            replacement = lastReplacement;
+          } else {
+            replacement = await loadProjectData(proj, null, { keepAnimations: true, recordHistory: true });
+          }
           if (importReport) {
             importReport.textContent = '';
             importReport.hidden = true;
           }
-          app.toast('옛 작업 파일을 자르기와 뼈대 작업으로 나누어 불러왔습니다');
+          const dropped = replacement?.droppedKeyCount || 0;
+          app.toast(dropped > 0 ? `전체 작업을 열고 없는 뼈의 키 ${dropped}개를 지웠습니다` : '전체 작업을 열고 현재 움직임 키를 지켰습니다');
+          app.changed();
           return;
         } else {
           throw new Error('JSON, TSCN 또는 무압축 ZIP 파일을 골라 주세요');
         }
-        await loadProjectData(proj);
+
         if (warnings) {
           if (importReport) {
             importReport.textContent = warnings.length
@@ -444,31 +504,6 @@ export function mountRig(app) {
         app.changed();
       } catch (err) {
         app.toast(err.message || '작업 파일을 열 수 없습니다');
-      }
-    });
-
-    // 파일 팝업 창 토글
-    const fileBtn = $('#rig-file-btn');
-    const filePop = $('#rig-file-pop');
-    const filePopClose = $('#rig-file-pop-close');
-
-    function toggleFilePop(show) {
-      if (!filePop) return;
-      const willShow = show != null ? show : filePop.hidden;
-      filePop.hidden = !willShow;
-      if (fileBtn) fileBtn.setAttribute('aria-expanded', String(willShow));
-    }
-
-    fileBtn?.addEventListener('click', e => {
-      e.stopPropagation();
-      toggleFilePop();
-    });
-    filePopClose?.addEventListener('click', () => toggleFilePop(false));
-    filePop?.addEventListener('click', e => e.stopPropagation());
-    document.addEventListener('click', e => {
-      if (!filePop || filePop.hidden) return;
-      if (!filePop.contains(e.target) && e.target !== fileBtn) {
-        toggleFilePop(false);
       }
     });
 
@@ -497,12 +532,18 @@ export function mountRig(app) {
   function setStep(step) {
     $('#rig').classList.toggle('rig-mode-bones', step === 'rig');
     $('#rig').classList.toggle('rig-mode-motion', step === 'motion');
+    const sidebar = $('#rig-shared-sidebar');
+    const targetLayout = step === 'motion' ? $('#motion-main-layout') : $('#rig-bones-main-layout');
+    if (sidebar && targetLayout && sidebar.parentElement !== targetLayout) targetLayout.prepend(sidebar);
     if (step === 'rig') {
       presetView.syncVisibilityModeToActiveTab();
       bonesView.show();
     }
     else bonesView.hide();
-    if (step === 'motion') motionView.show();
+    if (step === 'motion') {
+      motionView.selectBone?.(bonesView.getSelectedBone());
+      motionView.show();
+    }
     else motionView.hide();
   }
 
@@ -539,8 +580,8 @@ export function mountRig(app) {
       role.visibilityMode = visibilityMode;
       return role;
     },
-    async restoreRole(saved) {
-      await loadProjectData(roleRigToWorkingState(saved), saved);
+    async restoreRole(saved, options = openLegacyOptions || {}) {
+      return await loadProjectData(roleRigToWorkingState(saved), saved, options);
     },
     async restore(saved) {
       if (!saved) return;

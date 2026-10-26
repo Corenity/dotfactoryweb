@@ -346,40 +346,8 @@ export function mountRigPreset(app, model) {
     }
   }
 
-  async function savePreset() {
-    try {
-      const before = model.snapshot();
-      const selected = selectedLayer();
-      const nameInput = $('#rig-preset-name');
-      const name = (nameInput?.value || '').trim() || '새 프리셋';
-      let layer;
-      if (selected) {
-        selected.name = name;
-        layer = selected;
-        model.setPresetLayers([...presetLayers()]);
-      } else {
-        const meta = model.getPresetMeta();
-        const id = uniquePresetIdFromName(name, presetLayers());
-        const grouped = groupDraftRigPieces(presetLayers(), pieces(), { ...meta, id, name });
-        model.setPresetLayers(grouped.layers);
-        model.setPieces(grouped.pieces);
-        model.setSelectedPresetLayerKey(grouped.layer.key);
-        model.setPresetMeta({ id, name, kind: grouped.layer.kind });
-        layer = grouped.layer;
-      }
-      const preset = rigLayerToPreset(layer, model.getPieces(), model.getSize());
-      finishChange(before);
-      const result = await saveJson(`${preset.id}.json`, preset);
-      if (result !== 'cancelled') app.toast(`「${preset.id}.json」으로 저장했습니다`);
-    } catch (error) {
-      app.toast(error.message || '프리셋을 저장할 수 없습니다');
-    }
-  }
-
   function bindEvents() {
     $('#rig-add-piece')?.addEventListener('click', addPhonePng);
-    $('#rig-preset-open')?.addEventListener('click', openPreset);
-    $('#rig-preset-save')?.addEventListener('click', savePreset);
 
     // 왼쪽 메뉴 탭 전환
     tabBones?.addEventListener('click', () => switchLeftTab('bones'));

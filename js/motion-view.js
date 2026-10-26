@@ -1,5 +1,5 @@
 // 뼈 애니메이션 3단계 화면 — 시간 줄, 끊어지는 키, 양파 껍질, 재생과 GIF를 다룹니다.
-import { boneLabel, defaultAnimations } from './core/rig.js';
+import { defaultAnimations, boneLabel } from './core/rig.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
 import { addMotion, changeMotionLength, changeMotionStep, copyPreviousKey, deleteKey, frameTimes, hasKey, poseAt, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
 import { encodeGif } from './core/gif.js';
@@ -19,7 +19,6 @@ export function mountMotion(app, model) {
   const bonesCanvas = $('#motion-bones-canvas');
   const empty = $('#motion-empty');
   const timeline = $('#motion-timeline');
-  const tree = $('#motion-bone-tree');
   const select = $('#motion-select');
   const nameInput = $('#motion-name');
   const lengthInput = $('#motion-length');
@@ -197,30 +196,25 @@ export function mountMotion(app, model) {
     }
   }
 
-  function depthOf(bone, byName) {
-    let depth = 0, current = bone;
-    while (current.parent && depth < bones().length) { depth++; current = byName.get(current.parent); }
-    return depth;
-  }
 
-  function refreshTree() {
+
+
+
+  function syncTreeSelection() {
     const posed = poseAt(bones(), previewMotion(), currentTime);
-    if (!posed.some(bone => bone.name === selected)) selected = posed[0]?.name || '';
+    if (!posed.some(bone => bone.name === selected)) {
+      selected = posed[0]?.name || '';
+      if (!panel.hidden) model.selectBone?.(selected);
+    }
+    if (panel.hidden) return;
+    const tree = $('#rig-bone-tree');
+    if (!tree) return;
     const prevScrollTop = tree.scrollTop;
-    tree.textContent = '';
-    const byName = new Map(posed.map(bone => [bone.name, bone]));
     let activeItem = null;
-    for (const bone of posed) {
-      const button = document.createElement('button');
-      button.className = 'btn';
-      button.style.paddingLeft = `${6 + depthOf(bone, byName) * 10}px`;
-      button.textContent = `${bone.parent ? '↳ ' : ''}${bone.name}`;
-      button.title = boneLabel(bone.name);
-      const isSelected = bone.name === selected;
-      button.setAttribute('aria-pressed', String(isSelected));
-      if (isSelected) activeItem = button;
-      button.addEventListener('click', () => { selected = bone.name; refresh(); });
-      tree.append(button);
+    for (const btn of tree.querySelectorAll('button')) {
+      const isSelected = btn.title === boneLabel(selected);
+      btn.setAttribute('aria-pressed', String(isSelected));
+      if (isSelected) activeItem = btn;
     }
     scrollTreeItemIntoView(tree, activeItem, prevScrollTop);
   }
@@ -268,7 +262,7 @@ export function mountMotion(app, model) {
   function refresh() {
     refreshMotionPick();
     refreshTimeline();
-    refreshTree();
+    syncTreeSelection();
     refreshKeyControls();
     updateViewModeBadge();
     render();
@@ -328,6 +322,7 @@ export function mountMotion(app, model) {
         const hit = hitBone(event.clientX, event.clientY);
         if (hit) {
           stop(); selected = hit;
+          if (!panel.hidden) model.selectBone?.(selected);
           if (!motion()) { refresh(); return; }
           const pose = selectedBone(poseAt(bones(), motion(), slotTime(currentTime)));
           dragBefore = model.snapshot?.();
@@ -587,6 +582,11 @@ export function mountMotion(app, model) {
     show() { panel.hidden = false; switchTool(activeTool); refresh(); fit(); },
     hide() { stop(); panel.hidden = true; },
     refresh() { refresh(); },
+    selectBone(name) {
+      selected = bones().some(bone => bone.name === name) ? name : (bones()[0]?.name || '');
+      syncTreeSelection();
+      if (!panel.hidden) refresh();
+    },
     shown() { if (!panel.hidden) fit(); },
   };
 }

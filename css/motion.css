@@ -2,10 +2,17 @@
 
 #rig.rig-mode-motion .rig-slice-only,
 #rig.rig-mode-motion .rig-tools > .rig-bones-only { display: none; }
+#rig.rig-mode-motion .rig-motion-action { display: inline-flex; align-items: center; }
 .rig-motion-only { display: grid; gap: 8px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 .rig-motion-only[hidden] { display: none; }
-.motion-file-section { display: none; }
-#rig.rig-mode-motion .motion-file-section { display: flex; }
+#rig.rig-mode-motion #rig-bone-create,
+#rig.rig-mode-motion #rig-bone-delete,
+#rig.rig-mode-motion #rig-bone-save,
+#rig.rig-mode-motion #rig-group-add-btn,
+#rig.rig-mode-motion #rig-group-delete-btn,
+#rig.rig-mode-motion #rig-group-save-btn,
+#rig.rig-mode-motion #rig-group-edit-btn,
+#rig.rig-mode-motion .rig-piece-tree-row { display: none; }
 
 .motion-pick-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
 .motion-pick-row label { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }

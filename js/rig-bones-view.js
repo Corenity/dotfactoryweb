@@ -3,8 +3,7 @@ import { boneLabel, normalizeBones, applyRestPose, resetBonesToDefaults, DEFAULT
 import { CURRENT_PROFILE, currentCanvas } from './core/profile.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal, worldDeltaToBone } from './core/rig-render.js';
 import { sortRigPiecesByLayers } from './core/preset-layers.js';
-import { drawPixels, saveJson, pickFiles, baseName, mountDesktopCanvasPan, zoomAtAnchor } from './io.js';
-import { toSkeleton, parseSkeleton, applySkeletonToRig } from './core/skeleton.js';
+import { drawPixels, mountDesktopCanvasPan, zoomAtAnchor } from './io.js';
 const $ = selector => document.querySelector(selector);
 
 export function scrollTreeItemIntoView(tree, item, prevScrollTop = tree?.scrollTop ?? 0) {
@@ -62,8 +61,6 @@ export function mountRigBones(app, model) {
   const rotPlus15 = $('#rig-rot-plus15');
   const zoomText = $('#rig-bones-zoom-text');
   const deleteBtn = $('#rig-bone-delete');
-  const saveSkeletonBtn = $('#rig-bones-save');
-  const openSkeletonBtn = $('#rig-bones-open');
 
   const toolPosBtn = $('#rig-tool-pos');
   const toolRotBtn = $('#rig-tool-rot');
@@ -193,12 +190,24 @@ export function mountRigBones(app, model) {
       button.setAttribute('aria-pressed', String(isBoneSelected));
       if (isBoneSelected) activeItem = button;
       button.addEventListener('click', () => {
+        const inMotion = $('#rig')?.classList.contains('rig-mode-motion');
+        if (inMotion) {
+          selected = bone.name;
+          selectedPieceIndex = null;
+          for (const btn of tree.querySelectorAll('button')) {
+            btn.setAttribute('aria-pressed', String(btn === button));
+          }
+          scrollTreeItemIntoView(tree, button);
+          model.selectedBoneChanged?.(selected);
+          return;
+        }
         selected = bone.name;
         selectedPieceIndex = null;
         activePieceMenu = null;
         refreshControls();
         render();
         model.changed?.();
+        model.selectedBoneChanged?.(selected);
       });
       tree.appendChild(button);
 
@@ -689,61 +698,6 @@ export function mountRigBones(app, model) {
       });
     }
 
-    if (saveSkeletonBtn) {
-      saveSkeletonBtn.addEventListener('click', async () => {
-        const skeletonName = model.getSkeletonName?.() || CURRENT_PROFILE.skeletonName;
-        const skeletonObj = toSkeleton({
-          canvas: model.getSize?.() || currentCanvas(),
-          bones: bones(),
-        });
-        const fileName = `${skeletonName}.json`;
-        const result = await saveJson(fileName, skeletonObj);
-        if (result !== 'cancelled') {
-          app.toast(`「${fileName}」으로 저장했습니다`);
-        }
-      });
-    }
-    if (openSkeletonBtn) {
-      openSkeletonBtn.addEventListener('click', async () => {
-        try {
-          const [file] = await pickFiles({ accept: '.json,application/json,text/plain' });
-          if (!file) return;
-          const skeletonObj = parseSkeleton(JSON.parse(await file.text()));
-          app.warnCanvas?.(skeletonObj.canvas, '뼈대 파일');
-          const before = model.snapshot?.();
-          const result = applySkeletonToRig({
-            skeleton: skeletonObj,
-            pieces: pieces(),
-            animations: model.getAnimations?.(),
-            selectedBone: selected,
-            preserveMissingPieces: true,
-          });
-          model.setBones(result.bones);
-          if (model.setRestPose) model.setRestPose(result.restPose);
-          if (model.setAnimations && result.animations) model.setAnimations(result.animations);
-          model.setSkeletonName?.(baseName(file.name));
-          const curPieces = pieces();
-          for (let i = 0; i < curPieces.length; i++) {
-            if (result.pieces[i]) curPieces[i].bone = result.pieces[i].bone;
-          }
-          selected = result.selectedBone || result.bones[0]?.name || 'Torso';
-          notify();
-          refreshControls();
-          render();
-          model.commit?.(before);
-
-          let msg = '뼈 파일을 불러왔습니다';
-          const notes = [];
-          if (result.movedPiecesCount > 0) notes.push(`조각 ${result.movedPiecesCount}개 이동`);
-          if (result.droppedKeyCount > 0) notes.push(`키 ${result.droppedKeyCount}개 제외`);
-          if (notes.length > 0) msg += ` (${notes.join(', ')})`;
-          app.toast(msg);
-        } catch (err) {
-          app.toast(err.message || '뼈 파일을 열 수 없습니다');
-        }
-      });
-    }
-
     bindPointers();
   }
 
@@ -759,6 +713,19 @@ export function mountRigBones(app, model) {
     selectBone(name) {
       selected = bones().some(bone => bone.name === name) ? name : (bones()[0]?.name || null);
       selectedPieceIndex = null;
+      const inMotion = $('#rig')?.classList.contains('rig-mode-motion');
+      if (inMotion) {
+        if (tree) {
+          let activeItem = null;
+          for (const btn of tree.querySelectorAll('button')) {
+            const isSelected = btn.title === boneLabel(selected);
+            btn.setAttribute('aria-pressed', String(isSelected));
+            if (isSelected) activeItem = btn;
+          }
+          scrollTreeItemIntoView(tree, activeItem);
+        }
+        return;
+      }
       activePieceMenu = null;
       refreshControls();
       render();
