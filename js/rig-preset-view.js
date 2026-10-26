@@ -13,6 +13,10 @@ import { pickFiles, readImageFile, readDataUrl, toPngDataUrl, saveJson, baseName
 
 const $ = selector => document.querySelector(selector);
 
+export function rigVisibilityModeForTab(tab) {
+  return tab === 'groups' ? 'group' : 'individual';
+}
+
 export function mountRigPreset(app, model) {
   const warning = $('#rig-preset-warning');
 
@@ -84,7 +88,25 @@ export function mountRigPreset(app, model) {
       panelGroups.hidden = tab !== 'groups';
       if (tab === 'groups') renderGroupList();
     }
+    model.setVisibilityMode?.(rigVisibilityModeForTab(tab));
+    model.refreshViews?.();
     window.dispatchEvent(new CustomEvent('rig-tab-change', { detail: { tab } }));
+  }
+
+  function syncVisibilityModeToActiveTab() {
+    const tab = tabGroups?.getAttribute('aria-pressed') === 'true' ? 'groups' : 'bones';
+    model.setVisibilityMode?.(rigVisibilityModeForTab(tab));
+  }
+
+  function positionGroupPlusMenu() {
+    if (!groupPlusBtn || !groupPlusMenu || groupPlusMenu.hidden) return;
+    const buttonRect = groupPlusBtn.getBoundingClientRect();
+    const menuWidth = groupPlusMenu.offsetWidth;
+    const menuHeight = groupPlusMenu.offsetHeight;
+    const left = Math.max(4, Math.min(buttonRect.left, window.innerWidth - menuWidth - 4));
+    const top = Math.max(4, buttonRect.top - menuHeight - 4);
+    groupPlusMenu.style.left = `${left}px`;
+    groupPlusMenu.style.top = `${top}px`;
   }
 
   function updateActionButtons() {
@@ -136,7 +158,6 @@ export function mountRigPreset(app, model) {
         const nextLayers = toggleGroupLayerVisibility(presetLayers(), layer.key);
         model.setPresetLayers(nextLayers);
         model.setVisibilityMode?.('group');
-        updateViewModeBadge();
         finishChange(before);
         renderGroupList();
       });
@@ -355,23 +376,7 @@ export function mountRigPreset(app, model) {
     }
   }
 
-  function updateViewModeBadge() {
-    const badge = $('#rig-view-mode-btn');
-    if (!badge) return;
-    const mode = model.getVisibilityMode?.() || 'individual';
-    badge.textContent = mode === 'group' ? '보기: 그룹' : '보기: 개별';
-    badge.title = '보기 방식 전환 (현재: ' + (mode === 'group' ? '그룹 보기' : '개별 보기') + ')';
-    badge.setAttribute('aria-pressed', String(mode === 'group'));
-  }
-
   function bindEvents() {
-    $('#rig-view-mode-btn')?.addEventListener('click', () => {
-      const before = model.snapshot();
-      const current = model.getVisibilityMode?.() || 'individual';
-      model.setVisibilityMode?.(current === 'group' ? 'individual' : 'group');
-      updateViewModeBadge();
-      finishChange(before);
-    });
     $('#rig-add-piece')?.addEventListener('click', addPhonePng);
     $('#rig-preset-open')?.addEventListener('click', openPreset);
     $('#rig-preset-save')?.addEventListener('click', savePreset);
@@ -387,7 +392,10 @@ export function mountRigPreset(app, model) {
       const willOpen = groupPlusMenu.hidden;
       groupPlusMenu.hidden = !willOpen;
       groupPlusBtn.setAttribute('aria-expanded', String(willOpen));
+      if (willOpen) positionGroupPlusMenu();
     });
+
+    window.addEventListener('resize', positionGroupPlusMenu);
 
     document.addEventListener('click', e => {
       if (groupPlusMenu && !groupPlusMenu.hidden) {
@@ -514,6 +522,7 @@ export function mountRigPreset(app, model) {
 
   return {
     currentPreset,
+    syncVisibilityModeToActiveTab,
     refresh() {
       renderWarning();
       renderGroupList();

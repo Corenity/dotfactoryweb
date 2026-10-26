@@ -456,11 +456,6 @@ export function mountRigBones(app, model) {
       const before = model.snapshot?.();
       piece.visible = piece.visible === false;
       model.setVisibilityMode?.('individual');
-      const badge = $('#rig-view-mode-btn');
-      if (badge) {
-        badge.textContent = '보기: 개별';
-        badge.setAttribute('aria-pressed', 'false');
-      }
       notify();
       refreshControls();
       render();

@@ -327,7 +327,10 @@ export function mountRig(app) {
   function setStep(step) {
     $('#rig').classList.toggle('rig-mode-bones', step === 'rig');
     $('#rig').classList.toggle('rig-mode-motion', step === 'motion');
-    if (step === 'rig') bonesView.show();
+    if (step === 'rig') {
+      presetView.syncVisibilityModeToActiveTab();
+      bonesView.show();
+    }
     else bonesView.hide();
     if (step === 'motion') motionView.show();
     else motionView.hide();

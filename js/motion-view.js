@@ -255,7 +255,6 @@ export function mountMotion(app, model) {
       button.setAttribute('aria-pressed', String(mode === 'group'));
     };
     update(viewModeButton);
-    update($('#rig-view-mode-btn'));
   }
 
   function switchTool(tool) {

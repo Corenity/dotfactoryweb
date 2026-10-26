@@ -618,9 +618,9 @@
 }
 
 .rig-group-plus-menu {
-  position: absolute;
+  position: fixed;
   z-index: 30;
-  bottom: calc(100% + 4px);
+  top: 0;
   left: 0;
   width: 110px;
   padding: 4px;
