@@ -304,7 +304,6 @@
         <button class="btn rig-bones-only" id="rig-bones-reset-rest" title="초기값으로">초기값으로</button>
         <button class="btn rig-bones-only" id="rig-open-project">전체 열기</button>
         <button class="btn rig-bones-only" id="rig-save-project">전체 저장</button>
-        <button class="btn rig-motion-action" id="motion-rig-open">뼈대 열기</button>
         <button class="btn rig-motion-action" id="motion-open">애니메이션 열기</button>
         <button class="btn rig-motion-action" id="motion-save">애니메이션 저장</button>
       </div>
@@ -486,8 +485,8 @@
       </div>
 
       <div class="rig-motion-only" id="rig-motion-panel" hidden>
-        <p class="hint motion-no-rig" id="motion-no-rig">뼈대 파일을 열어 주세요</p>
-        <div class="motion-loaded-content" id="motion-loaded-content" hidden>
+        <p class="hint motion-no-rig" id="motion-no-rig">뼈 + 에서 뼈 파일을 불러와 주세요</p>
+        <div class="motion-loaded-content motion-rig-empty" id="motion-loaded-content">
         <div class="row motion-pick-row">
           <label class="inline">움직임<select id="motion-select"></select></label>
           <button class="btn" id="motion-add">새 움직임</button>
@@ -513,9 +512,21 @@
             </nav>
             <div class="rig-side-panel" id="motion-panel-bones">
               <div class="rig-bone-tree" id="motion-bone-tree"></div>
+              <div class="motion-side-actions motion-plus-wrap" id="motion-bone-plus-wrap">
+                <button type="button" class="btn small" id="motion-bone-add" aria-haspopup="menu" aria-expanded="false" title="뼈 파일 불러오기">+</button>
+                <div class="rig-group-plus-menu" id="motion-bone-plus-menu" role="menu" hidden>
+                  <button type="button" class="btn small" id="motion-bone-import" role="menuitem">불러오기</button>
+                </div>
+              </div>
             </div>
             <div class="rig-side-panel" id="motion-panel-groups" hidden>
               <div class="rig-group-list" id="motion-group-list" role="list" aria-label="키잡기 그룹 목록"></div>
+              <div class="motion-side-actions motion-plus-wrap" id="motion-group-plus-wrap">
+                <button type="button" class="btn small" id="motion-group-add" aria-haspopup="menu" aria-expanded="false" title="그룹 파일 불러오기">+</button>
+                <div class="rig-group-plus-menu" id="motion-group-plus-menu" role="menu" hidden>
+                  <button type="button" class="btn small" id="motion-group-import" role="menuitem">불러오기</button>
+                </div>
+              </div>
             </div>
           </div>
           <div class="rig-col-stage">
@@ -526,7 +537,7 @@
               <span class="stage-pos" id="motion-bones-hint">두 손가락 이동</span>
               <button type="button" class="btn small rig-view-mode-badge" id="motion-view-mode-btn" title="보기 방식: 개별 ↔ 그룹">보기: 개별</button>
             </div>
-            <p class="hint rig-bones-empty-hint" id="motion-empty">불러온 뼈대에 붙은 그림이 없습니다.</p>
+            <p class="hint rig-bones-empty-hint" id="motion-empty">그룹 + 에서 그룹 파일을 불러와 주세요</p>
             <div class="row rig-stage-zoom-controls">
               <button class="btn small" id="motion-zoom-out" aria-label="움직임 미리보기 작게 보기">−</button>
               <span class="hint" id="motion-zoom-text">4배</span>

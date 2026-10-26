@@ -6,9 +6,9 @@ import { RigHistory, cloneRigState } from './core/rig-history.js';
 import {
   workingRigToRoleState, roleRigToWorkingState, workingMotionToRoleState, roleMotionToWorkingState,
 } from './core/role-flow.js';
-import { toSkeleton, parseSkeleton, replaceSkeletonInRig } from './core/skeleton.js';
+import { toSkeleton, parseSkeleton, replaceSkeletonInRig, skeletonImportState } from './core/skeleton.js';
 import { mountRigBones } from './rig-bones-view.js';
-import { mountRigPreset } from './rig-preset-view.js';
+import { mountRigPreset, importPresetFile } from './rig-preset-view.js';
 import { mountMotion } from './motion-view.js';
 import { projectFromGodotTscn, projectFromGodotZip } from './core/godot-export.js';
 import { normalizeRigLayerState, migrateLegacyLayersToDepth } from './core/preset-layers.js';
@@ -68,6 +68,26 @@ export function replaceRigProjectKeepingAnimations(current, incoming, selectedBo
     selectedBone: result.selectedBone,
     droppedKeyCount: result.droppedKeyCount,
   };
+}
+
+// 뼈대 탭과 키잡기 사본이 같이 쓰는 뼈 「불러오기」 — 대상 상태만 다르게 넘깁니다.
+export async function importSkeletonFile(app, target) {
+  try {
+    const [file] = await pickFiles({ accept: '.json,application/json,text/plain' });
+    if (!file) return;
+    const skeleton = parseSkeleton(JSON.parse(await file.text()));
+    app.warnCanvas?.(skeleton.canvas, '뼈대 파일');
+    const before = target.snapshot();
+    const { state, result } = skeletonImportState(target.getState(), skeleton, {
+      selectedBone: target.getSelectedBone?.(),
+      skeletonName: baseName(file.name),
+    });
+    target.setState(state);
+    target.finish(before, result.selectedBone || result.bones[0]?.name || null);
+    app.toast(`뼈 파일을 불러왔습니다 (그림 ${result.removedPieceCount}개 삭제, 키 ${result.droppedKeyCount}개 삭제)`);
+  } catch (error) {
+    app.toast(error.message || '뼈 파일을 열 수 없습니다');
+  }
 }
 
 export function emptyMotionRigState() {
@@ -150,6 +170,13 @@ export function mountRig(app) {
       updateUndoRedo();
       app.changed();
     }
+  }
+
+  function finishMotionImport(before, selectedBone = null) {
+    if (selectedBone) motionView?.selectBone?.(selectedBone);
+    motionView?.refresh();
+    motionView?.shown?.();
+    recordMotionChange(before);
   }
 
   function applySnapshot(snap) {
@@ -322,32 +349,22 @@ export function mountRig(app) {
       if (event.key === 'Enter') addFromModal();
     });
 
-    importBtn?.addEventListener('click', async () => {
+    importBtn?.addEventListener('click', () => {
       closeMenu();
-      try {
-        const [file] = await pickFiles({ accept: '.json,application/json,text/plain' });
-        if (!file) return;
-        const skeleton = parseSkeleton(JSON.parse(await file.text()));
-        app.warnCanvas?.(skeleton.canvas, '뼈대 파일');
-        const before = snapshot();
-        const result = replaceSkeletonInRig({
-          skeleton,
-          pieces,
-          animations,
-          presetLayers,
-          selectedBone: bonesView?.getSelectedBone?.(),
-        });
-        bones = result.bones;
-        pieces = result.pieces;
-        presetLayers = result.presetLayers;
-        restPose = result.restPose;
-        animations = result.animations;
-        skeletonName = baseName(file.name);
-        finishChange(before, result.selectedBone || result.bones[0]?.name || null);
-        app.toast(`뼈 파일을 불러왔습니다 (그림 ${result.removedPieceCount}개 삭제, 키 ${result.droppedKeyCount}개 삭제)`);
-      } catch (error) {
-        app.toast(error.message || '뼈 파일을 열 수 없습니다');
-      }
+      importSkeletonFile(app, {
+        getState: () => ({ pieces, animations, presetLayers, skeletonName }),
+        setState: next => {
+          bones = next.bones;
+          pieces = next.pieces;
+          presetLayers = next.presetLayers;
+          restPose = next.restPose;
+          animations = next.animations;
+          skeletonName = next.skeletonName;
+        },
+        snapshot: () => snapshot(),
+        getSelectedBone: () => bonesView?.getSelectedBone?.(),
+        finish: finishChange,
+      });
     });
 
     saveBtn?.addEventListener('click', async () => {
@@ -427,6 +444,19 @@ export function mountRig(app) {
     getItem: () => motionRig.baseTitle,
     snapshot: () => motionSnapshot(),
     commit: before => recordMotionChange(before),
+    importSkeleton: () => importSkeletonFile(app, {
+      getState: () => motionRig,
+      setState: next => { motionRig = next; },
+      snapshot: () => motionSnapshot(),
+      getSelectedBone: () => motionView?.getSelectedBone?.(),
+      finish: finishMotionImport,
+    }),
+    importPreset: () => importPresetFile(app, {
+      getState: () => motionRig,
+      setState: next => { motionRig = next; },
+      snapshot: () => motionSnapshot(),
+      finish: before => finishMotionImport(before),
+    }),
   });
   mountBonePanel();
 
@@ -544,19 +574,6 @@ export function mountRig(app) {
     // 되돌리기 / 다시하기 단추
     undoBtn?.addEventListener('click', undo);
     redoBtn?.addEventListener('click', redo);
-
-    $('#motion-rig-open')?.addEventListener('click', async () => {
-      try {
-        const [file] = await pickFiles({ accept: '.json,application/json,text/plain' });
-        if (!file) return;
-        const proj = parseProject(JSON.parse(await file.text()));
-        const replacement = await loadMotionProjectData(proj, null, { keepAnimations: true, recordHistory: true });
-        const dropped = replacement?.droppedKeyCount || 0;
-        app.toast(dropped > 0 ? `뼈대를 열고 없는 뼈의 키 ${dropped}개를 지웠습니다` : '키잡기 뼈대를 열었습니다');
-      } catch (error) {
-        app.toast(error.message || '뼈대 파일을 열 수 없습니다');
-      }
-    });
 
     // 프로젝트 저장
     $('#rig-save-project')?.addEventListener('click', async () => {

@@ -210,3 +210,29 @@ export function replaceSkeletonInRig({
     removedGroupCount: sourceLayers.length - nextLayers.length,
   };
 }
+
+/**
+ * 뼈대 탭과 키잡기 사본이 같이 쓰는 뼈 「불러오기」의 다음 상태를 만듭니다.
+ * 넘긴 상태는 바꾸지 않으며, 없어진 뼈의 그림·빈 그룹·움직임 키는 replaceSkeletonInRig 규칙대로 지웁니다.
+ */
+export function skeletonImportState(state, skeleton, { selectedBone = null, skeletonName = state.skeletonName } = {}) {
+  const result = replaceSkeletonInRig({
+    skeleton,
+    pieces: state.pieces,
+    animations: state.animations,
+    presetLayers: state.presetLayers,
+    selectedBone,
+  });
+  return {
+    result,
+    state: {
+      ...state,
+      bones: result.bones,
+      pieces: result.pieces,
+      presetLayers: result.presetLayers,
+      restPose: result.restPose,
+      animations: result.animations,
+      skeletonName,
+    },
+  };
+}

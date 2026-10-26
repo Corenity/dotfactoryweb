@@ -292,6 +292,37 @@ export function mountMotion(app, model) {
     render();
   }
 
+  // 왼쪽 뼈·그룹 칸의 + 메뉴 — 키잡기에는 「불러오기」 하나만 둡니다.
+  function bindPlusMenu(wrap, button, menu, item, run) {
+    if (!button || !menu) return;
+    const close = () => {
+      menu.hidden = true;
+      button.setAttribute('aria-expanded', 'false');
+    };
+    const place = () => {
+      if (menu.hidden) return;
+      const rect = button.getBoundingClientRect();
+      menu.style.left = `${Math.max(4, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 4))}px`;
+      menu.style.top = `${Math.max(4, rect.top - menu.offsetHeight - 4)}px`;
+    };
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      const willOpen = menu.hidden;
+      menu.hidden = !willOpen;
+      button.setAttribute('aria-expanded', String(willOpen));
+      place();
+    });
+    menu.addEventListener('click', event => event.stopPropagation());
+    document.addEventListener('click', event => {
+      if (!wrap?.contains(event.target)) close();
+    });
+    window.addEventListener('resize', place);
+    item?.addEventListener('click', () => {
+      close();
+      run();
+    });
+  }
+
   function syncTreeSelection() {
     const posed = poseAt(bones(), previewMotion(), currentTime);
     if (!posed.some(bone => bone.name === selected)) {
@@ -345,11 +376,13 @@ export function mountMotion(app, model) {
   function refresh() {
     const ready = Boolean(model.hasRig?.());
     if (noRig) noRig.hidden = ready;
-    if (loadedContent) loadedContent.hidden = !ready;
+    loadedContent?.classList.toggle('motion-rig-empty', !ready);
     if ($('#motion-open')) $('#motion-open').disabled = !ready;
     if ($('#motion-save')) $('#motion-save').disabled = !ready;
     if (!ready) {
       stop();
+      renderBoneTree();
+      renderGroupList();
       return;
     }
     refreshMotionPick();
@@ -481,6 +514,8 @@ export function mountMotion(app, model) {
   function bindEvents() {
     tabBones?.addEventListener('click', () => switchSidebar('bones'));
     tabGroups?.addEventListener('click', () => switchSidebar('groups'));
+    bindPlusMenu($('#motion-bone-plus-wrap'), $('#motion-bone-add'), $('#motion-bone-plus-menu'), $('#motion-bone-import'), () => model.importSkeleton?.());
+    bindPlusMenu($('#motion-group-plus-wrap'), $('#motion-group-add'), $('#motion-group-plus-menu'), $('#motion-group-import'), () => model.importPreset?.());
     select.addEventListener('change', () => { stop(); currentName = select.value; currentTime = 0; refresh(); });
     $('#motion-add').addEventListener('click', () => {
       stop();

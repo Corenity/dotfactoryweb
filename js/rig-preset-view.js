@@ -319,31 +319,23 @@ export function mountRigPreset(app, model) {
     }
   }
 
-  async function openPreset() {
-    try {
-      const [file] = await pickFiles({ accept: '.json,application/json,text/plain' });
-      if (!file) return;
-      const preset = parsePreset(JSON.parse(await file.text()));
-      const [width, height] = model.getSize();
-      if (pieces().length && (preset.canvas[0] !== width || preset.canvas[1] !== height)) {
-        throw new Error(`프리셋 크기(${preset.canvas[0]}×${preset.canvas[1]})가 현재 판 크기(${width}×${height})와 다릅니다`);
-      }
-      const added = addPresetToRigLayers(presetLayers(), pieces(), preset);
-      for (const piece of added.added) piece.image = await readDataUrl(piece.png);
-      const before = model.snapshot();
-      model.setSize(preset.canvas);
-      model.setPieces(added.pieces);
-      model.setPresetLayers(added.layers);
-      model.setSelectedPresetLayerKey(added.layer.key);
-      model.setPresetMeta({ id: preset.id, name: preset.name, kind: preset.kind });
-      selectedGroupKey = added.layer.key;
-      finishChange(before);
-      renderGroupList();
-      const check = checkRigPresetBones(preset, bones());
-      app.toast(check.compatible ? `프리셋 「${preset.name}」을 열었습니다` : `프리셋을 보존해 열었습니다. 없는 뼈: ${check.missingBones.join(', ')}`);
-    } catch (error) {
-      app.toast(error.message || '프리셋 파일을 열 수 없습니다');
-    }
+  function openPreset() {
+    return importPresetFile(app, {
+      getState: () => ({ canvas: model.getSize(), pieces: pieces(), presetLayers: presetLayers(), bones: bones() }),
+      setState: next => {
+        model.setSize(next.canvas);
+        model.setPieces(next.pieces);
+        model.setPresetLayers(next.presetLayers);
+        model.setPresetMeta(next.presetMeta);
+      },
+      snapshot: () => model.snapshot(),
+      finish: (before, layerKey) => {
+        model.setSelectedPresetLayerKey(layerKey);
+        selectedGroupKey = layerKey;
+        finishChange(before);
+        renderGroupList();
+      },
+    });
   }
 
   function bindEvents() {
@@ -496,4 +488,42 @@ export function mountRigPreset(app, model) {
       if (groupEditPop && !groupEditPop.hidden) renderGroupEditView();
     },
   };
+}
+
+/** preset-1을 대상 상태에 새 그룹으로 얹은 다음 상태를 만듭니다. 넘긴 상태는 바꾸지 않습니다. */
+export function presetImportState(state, preset) {
+  const [width, height] = state.canvas;
+  if (state.pieces.length && (preset.canvas[0] !== width || preset.canvas[1] !== height)) {
+    throw new Error(`프리셋 크기(${preset.canvas[0]}×${preset.canvas[1]})가 현재 판 크기(${width}×${height})와 다릅니다`);
+  }
+  const added = addPresetToRigLayers(state.presetLayers, state.pieces, preset);
+  return {
+    added: added.added,
+    layerKey: added.layer.key,
+    state: {
+      ...state,
+      canvas: [...preset.canvas],
+      pieces: added.pieces,
+      presetLayers: added.layers,
+      presetMeta: { id: preset.id, name: preset.name, kind: preset.kind },
+    },
+  };
+}
+
+// 뼈대 탭과 키잡기 사본이 같이 쓰는 그룹 「불러오기」 — 대상 상태만 다르게 넘깁니다.
+export async function importPresetFile(app, target) {
+  try {
+    const [file] = await pickFiles({ accept: '.json,application/json,text/plain' });
+    if (!file) return;
+    const preset = parsePreset(JSON.parse(await file.text()));
+    const next = presetImportState(target.getState(), preset);
+    for (const piece of next.added) piece.image = await readDataUrl(piece.png);
+    const before = target.snapshot();
+    target.setState(next.state);
+    target.finish(before, next.layerKey);
+    const check = checkRigPresetBones(preset, next.state.bones);
+    app.toast(check.compatible ? `프리셋 「${preset.name}」을 열었습니다` : `프리셋을 보존해 열었습니다. 없는 뼈: ${check.missingBones.join(', ')}`);
+  } catch (error) {
+    app.toast(error.message || '프리셋 파일을 열 수 없습니다');
+  }
 }
