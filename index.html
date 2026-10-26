@@ -304,6 +304,7 @@
         <button class="btn rig-bones-only" id="rig-bones-reset-rest" title="초기값으로">초기값으로</button>
         <button class="btn rig-bones-only" id="rig-open-project">전체 열기</button>
         <button class="btn rig-bones-only" id="rig-save-project">전체 저장</button>
+        <button class="btn rig-motion-action" id="motion-rig-open">뼈대 열기</button>
         <button class="btn rig-motion-action" id="motion-open">애니메이션 열기</button>
         <button class="btn rig-motion-action" id="motion-save">애니메이션 저장</button>
       </div>
@@ -369,6 +370,50 @@
 
         <!-- 메인 3단 레이아웃: 좌 뼈/그룹 | 중 스크린 | 우 P, R, 링크 -->
         <div class="rig-main-layout" id="rig-bones-main-layout">
+          <div class="rig-col-bones" id="rig-shared-sidebar">
+            <nav class="rig-view-menu" aria-label="뼈와 그룹 메뉴">
+              <button type="button" id="rig-tab-bones" data-rig-view="bones" aria-pressed="true">뼈</button>
+              <button type="button" id="rig-tab-groups" data-rig-view="groups" aria-pressed="false">그룹</button>
+            </nav>
+            <div class="rig-side-panel" id="rig-panel-bones" data-rig-panel="bones">
+              <div class="rig-bone-tree" id="rig-bone-tree"></div>
+              <div class="rig-group-panel-actions rig-bone-actions">
+                <div class="row rig-group-btn-row rig-bone-btn-row">
+                  <div class="rig-group-plus-wrap rig-bone-plus-wrap">
+                    <button type="button" class="btn small" id="rig-bone-add" aria-haspopup="menu" aria-expanded="false" title="뼈 또는 이미지 추가, 뼈 불러오기">+</button>
+                    <div class="rig-group-plus-menu rig-bone-plus-menu" id="rig-bone-plus-menu" role="menu" hidden>
+                      <button type="button" class="btn small" id="rig-bone-create" role="menuitem">뼈 추가</button>
+                      <button type="button" class="btn small" id="rig-bone-image" role="menuitem">이미지 추가</button>
+                      <button type="button" class="btn small" id="rig-bone-import" role="menuitem">불러오기</button>
+                    </div>
+                  </div>
+                  <button type="button" class="btn small danger" id="rig-bone-delete" title="고른 뼈나 그림 지우기" aria-label="고른 뼈나 그림 지우기">🗑</button>
+                </div>
+                <div class="row rig-group-btn-row rig-bone-btn-row">
+                  <button type="button" class="btn small rig-bone-save-btn" id="rig-bone-save" title="현재 뼈 저장">저장</button>
+                </div>
+              </div>
+            </div>
+            <div class="rig-side-panel" id="rig-panel-groups" data-rig-panel="groups" hidden>
+              <div class="rig-group-list" id="rig-group-list" role="list" aria-label="그룹 목록"></div>
+              <div class="rig-group-panel-actions">
+                <div class="row rig-group-btn-row">
+                  <div class="rig-group-plus-wrap">
+                    <button type="button" class="btn small" id="rig-group-plus-btn" aria-haspopup="menu" aria-expanded="false" title="그룹 추가 또는 불러오기">+</button>
+                    <div class="rig-group-plus-menu" id="rig-group-plus-menu" role="menu" hidden>
+                      <button type="button" class="btn small" id="rig-group-add-btn" role="menuitem">추가하기</button>
+                      <button type="button" class="btn small" id="rig-group-import-btn" role="menuitem">불러오기</button>
+                    </div>
+                  </div>
+                  <button type="button" class="btn small danger" id="rig-group-delete-btn" title="고른 그룹 풀기" disabled>삭제</button>
+                </div>
+                <div class="row rig-group-btn-row">
+                  <button type="button" class="btn small" id="rig-group-save-btn" title="고른 그룹 저장" disabled>저장</button>
+                  <button type="button" class="btn small" id="rig-group-edit-btn" title="고른 그룹 편집" disabled>편집</button>
+                </div>
+              </div>
+            </div>
+          </div>
           <!-- 중앙 스크린 (좌우 잘림) -->
           <div class="rig-col-stage">
             <div class="stage rig-screen-stage" id="rig-bones-stage">
@@ -441,6 +486,8 @@
       </div>
 
       <div class="rig-motion-only" id="rig-motion-panel" hidden>
+        <p class="hint motion-no-rig" id="motion-no-rig">뼈대 파일을 열어 주세요</p>
+        <div class="motion-loaded-content" id="motion-loaded-content" hidden>
         <div class="row motion-pick-row">
           <label class="inline">움직임<select id="motion-select"></select></label>
           <button class="btn" id="motion-add">새 움직임</button>
@@ -459,53 +506,16 @@
         </div>
         <div class="motion-timeline" id="motion-timeline" aria-label="움직임 시간 줄"></div>
         <div class="rig-main-layout motion-main-layout" id="motion-main-layout">
-          <!-- 좌측 뼈 / 그룹 칸 (뼈대와 키잡기 공유) -->
-          <div class="rig-col-bones motion-col-bones" id="rig-shared-sidebar">
+          <div class="rig-col-bones motion-col-bones" id="motion-rig-sidebar">
             <nav class="rig-view-menu" aria-label="뼈와 그룹 메뉴">
-              <button type="button" id="rig-tab-bones" data-rig-view="bones" aria-pressed="true">뼈</button>
-              <button type="button" id="rig-tab-groups" data-rig-view="groups" aria-pressed="false">그룹</button>
+              <button type="button" id="motion-tab-bones" aria-pressed="true">뼈</button>
+              <button type="button" id="motion-tab-groups" aria-pressed="false">그룹</button>
             </nav>
-
-            <!-- 뼈 패널 -->
-            <div class="rig-side-panel" id="rig-panel-bones" data-rig-panel="bones">
-              <div class="rig-bone-tree" id="rig-bone-tree"></div>
-              <div class="rig-group-panel-actions rig-bone-actions">
-                <div class="row rig-group-btn-row rig-bone-btn-row">
-                  <div class="rig-group-plus-wrap rig-bone-plus-wrap">
-                    <button type="button" class="btn small" id="rig-bone-add" aria-haspopup="menu" aria-expanded="false" title="뼈 또는 이미지 추가, 뼈 불러오기">+</button>
-                    <div class="rig-group-plus-menu rig-bone-plus-menu" id="rig-bone-plus-menu" role="menu" hidden>
-                      <button type="button" class="btn small" id="rig-bone-create" role="menuitem">뼈 추가</button>
-                      <button type="button" class="btn small" id="rig-bone-image" role="menuitem">이미지 추가</button>
-                      <button type="button" class="btn small" id="rig-bone-import" role="menuitem">불러오기</button>
-                    </div>
-                  </div>
-                  <button type="button" class="btn small danger" id="rig-bone-delete" title="고른 뼈나 그림 지우기" aria-label="고른 뼈나 그림 지우기">🗑</button>
-                </div>
-                <div class="row rig-group-btn-row rig-bone-btn-row">
-                  <button type="button" class="btn small rig-bone-save-btn" id="rig-bone-save" title="현재 뼈 저장">저장</button>
-                </div>
-              </div>
+            <div class="rig-side-panel" id="motion-panel-bones">
+              <div class="rig-bone-tree" id="motion-bone-tree"></div>
             </div>
-
-            <!-- 그룹 패널 -->
-            <div class="rig-side-panel" id="rig-panel-groups" data-rig-panel="groups" hidden>
-              <div class="rig-group-list" id="rig-group-list" role="list" aria-label="그룹 목록"></div>
-              <div class="rig-group-panel-actions">
-                <div class="row rig-group-btn-row">
-                  <div class="rig-group-plus-wrap">
-                    <button type="button" class="btn small" id="rig-group-plus-btn" aria-haspopup="menu" aria-expanded="false" title="그룹 추가 또는 불러오기">+</button>
-                    <div class="rig-group-plus-menu" id="rig-group-plus-menu" role="menu" hidden>
-                      <button type="button" class="btn small" id="rig-group-add-btn" role="menuitem">추가하기</button>
-                      <button type="button" class="btn small" id="rig-group-import-btn" role="menuitem">불러오기</button>
-                    </div>
-                  </div>
-                  <button type="button" class="btn small danger" id="rig-group-delete-btn" title="고른 그룹 풀기" disabled>삭제</button>
-                </div>
-                <div class="row rig-group-btn-row">
-                  <button type="button" class="btn small" id="rig-group-save-btn" title="고른 그룹 저장" disabled>저장</button>
-                  <button type="button" class="btn small" id="rig-group-edit-btn" title="고른 그룹 편집" disabled>편집</button>
-                </div>
-              </div>
+            <div class="rig-side-panel" id="motion-panel-groups" hidden>
+              <div class="rig-group-list" id="motion-group-list" role="list" aria-label="키잡기 그룹 목록"></div>
             </div>
           </div>
           <div class="rig-col-stage">
@@ -516,7 +526,7 @@
               <span class="stage-pos" id="motion-bones-hint">두 손가락 이동</span>
               <button type="button" class="btn small rig-view-mode-badge" id="motion-view-mode-btn" title="보기 방식: 개별 ↔ 그룹">보기: 개별</button>
             </div>
-            <p class="hint rig-bones-empty-hint" id="motion-empty">뼈대의 + 「이미지 추가」에서 프리셋 그림을 붙여 주세요.</p>
+            <p class="hint rig-bones-empty-hint" id="motion-empty">불러온 뼈대에 붙은 그림이 없습니다.</p>
             <div class="row rig-stage-zoom-controls">
               <button class="btn small" id="motion-zoom-out" aria-label="움직임 미리보기 작게 보기">−</button>
               <span class="hint" id="motion-zoom-text">4배</span>
@@ -555,6 +565,7 @@
             <button class="btn" id="motion-copy-key">앞 칸 키 복사</button>
             <button class="btn" id="motion-drop-key">키 지우기</button>
           </div>
+        </div>
         </div>
       </div>
 

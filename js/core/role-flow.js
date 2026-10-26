@@ -15,6 +15,12 @@ function cloneJson(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+export function motionRoleFromAutosave(saved) {
+  if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return null;
+  if (Object.prototype.hasOwnProperty.call(saved, 'motion')) return cloneJson(saved.motion);
+  return saved.rig ? cloneJson(saved.rig) : null;
+}
+
 function canonicalJson(value) {
   if (Array.isArray(value)) return value.map(canonicalJson);
   if (value && typeof value === 'object') {
@@ -135,8 +141,9 @@ function verifyLegacyAutosave(source, value, rigResult, presetState) {
   if (source.rig) {
     requireMatch(rigResult?.report?.verified === true, '뼈 애니메이션 작업 검증이 끝나지 않았습니다');
     requireMatch(value.slice.basePng === parseProject(source.rig).basePng, '원본 그림이 달라졌습니다');
+    requireMatch(sameJson(value.motion, value.rig), '옛 키잡기 사본이 달라졌습니다');
   } else {
-    requireMatch(value.slice == null && value.rig == null, '없던 뼈 애니메이션 작업이 생겼습니다');
+    requireMatch(value.slice == null && value.rig == null && value.motion == null, '없던 뼈 애니메이션 작업이 생겼습니다');
   }
   requireMatch(sameJson(value.character.barePreset, presetState.barePreset), '맨몸 프리셋이 달라졌습니다');
   requireMatch(sameJson(value.character.loadedPresets, presetState.loadedPresets), '현재·겹친 프리셋이 달라졌습니다');
@@ -170,6 +177,7 @@ export function migrateLegacyAutosave(saved) {
     assemble: cloneJson(saved.assemble),
     slice: rigResult ? cloneJson(rigResult.value.slice) : null,
     rig: rigResult ? cloneJson(rigResult.value.rig) : null,
+    motion: rigResult ? cloneJson(rigResult.value.rig) : null,
     character: {
       barePreset: cloneJson(presetState.barePreset),
       loadedPresets: cloneJson(presetState.loadedPresets),
@@ -221,6 +229,22 @@ export function workingRigToRoleState({
   };
 }
 
+export function workingMotionToRoleState(state) {
+  if (!state?.bones?.length) return null;
+  const role = workingRigToRoleState({
+    canvas: state.canvas,
+    item: state.baseTitle,
+    skeletonName: state.skeletonName,
+    bones: state.bones,
+    restPose: state.restPose,
+    attachedPieces: state.pieces,
+    animations: state.animations,
+    presetLayers: state.presetLayers,
+  });
+  role.visibilityMode = state.visibilityMode === 'group' ? 'group' : 'individual';
+  return role;
+}
+
 /** version 2 역할 상태를 화면 작업으로 복사합니다. 없는 부착 뼈도 원문 그대로 둡니다. */
 export function roleRigToWorkingState(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('뼈대 자동 보관 자료가 올바르지 않습니다');
@@ -234,6 +258,23 @@ export function roleRigToWorkingState(value) {
     restPose: cloneJson(value.restPose || null),
     animations: cloneJson(value.animations || {}),
     presetLayers: cloneJson(value.presetLayers || []),
+  };
+}
+
+export function roleMotionToWorkingState(value) {
+  if (value == null) return null;
+  const working = roleRigToWorkingState(value);
+  return {
+    canvas: working.canvas,
+    baseTitle: working.item,
+    skeletonName: String(value.skeletonName || CURRENT_PROFILE.skeletonName),
+    presetMeta: { id: 'preset', name: working.item, kind: working.slot },
+    presetLayers: working.presetLayers,
+    pieces: working.pieces,
+    bones: working.bones,
+    animations: working.animations,
+    restPose: working.restPose,
+    visibilityMode: value.visibilityMode === 'group' ? 'group' : 'individual',
   };
 }
 

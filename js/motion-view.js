@@ -3,7 +3,7 @@ import { defaultAnimations, boneLabel, boneAngleToDisplay, displayAngleToBone, a
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
 import { addMotion, changeMotionLength, changeMotionStep, copyPreviousKey, deleteKey, frameTimes, hasKey, poseAt, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
 import { encodeGif } from './core/gif.js';
-import { sortRigPiecesByLayers } from './core/preset-layers.js';
+import { sortRigPiecesByLayers, toggleGroupLayerVisibility } from './core/preset-layers.js';
 import { drawPixels, saveFile, saveJson, pickFiles, mountDesktopCanvasPan, zoomAtAnchor } from './io.js';
 import { toAnimation, parseAnimation, checkSkeletonCompatibility, adaptAnimationToBones, mergeAnimations } from './core/animation.js';
 import { scrollTreeItemIntoView } from './rig-bones-view.js';
@@ -18,6 +18,14 @@ export function mountMotion(app, model) {
   const onionCanvas = $('#motion-onion-canvas');
   const bonesCanvas = $('#motion-bones-canvas');
   const empty = $('#motion-empty');
+  const noRig = $('#motion-no-rig');
+  const loadedContent = $('#motion-loaded-content');
+  const boneTree = $('#motion-bone-tree');
+  const groupList = $('#motion-group-list');
+  const tabBones = $('#motion-tab-bones');
+  const tabGroups = $('#motion-tab-groups');
+  const panelBones = $('#motion-panel-bones');
+  const panelGroups = $('#motion-panel-groups');
   const timeline = $('#motion-timeline');
   const select = $('#motion-select');
   const nameInput = $('#motion-name');
@@ -99,6 +107,7 @@ export function mountMotion(app, model) {
   }
 
   function fit() {
+    if (!model.hasRig?.()) return;
     const [width, height] = model.getSize();
     const stageWidth = stage.clientWidth || 200, stageHeight = stage.clientHeight || 256;
     cell = Math.max(1, Math.round(stageHeight / height));
@@ -143,6 +152,7 @@ export function mountMotion(app, model) {
   }
 
   function render() {
+    if (!model.hasRig?.()) return;
     const active = previewMotion();
     const hasMotion = Boolean(motion());
     const posed = poseAt(bones(), active, currentTime);
@@ -201,23 +211,94 @@ export function mountMotion(app, model) {
 
 
 
+  function depthOf(bone, byName) {
+    let depth = 0, current = bone;
+    while (current?.parent && depth < bones().length) {
+      depth++;
+      current = byName.get(current.parent);
+    }
+    return depth;
+  }
+
+  function renderBoneTree() {
+    if (!boneTree) return;
+    const prevScrollTop = boneTree.scrollTop;
+    boneTree.textContent = '';
+    const byName = new Map(bones().map(bone => [bone.name, bone]));
+    let activeItem = null;
+    for (const bone of bones()) {
+      const button = document.createElement('button');
+      button.className = 'btn';
+      button.style.paddingLeft = `${6 + depthOf(bone, byName) * 10}px`;
+      button.textContent = `${bone.parent ? '↳ ' : ''}${bone.name}`;
+      button.title = boneLabel(bone.name);
+      const isSelected = bone.name === selected;
+      button.setAttribute('aria-pressed', String(isSelected));
+      if (isSelected) activeItem = button;
+      button.addEventListener('click', () => {
+        selected = bone.name;
+        renderBoneTree();
+        refreshKeyControls();
+        render();
+      });
+      boneTree.append(button);
+    }
+    scrollTreeItemIntoView(boneTree, activeItem, prevScrollTop);
+  }
+
+  function renderGroupList() {
+    if (!groupList) return;
+    groupList.textContent = '';
+    const layers = model.getPresetLayers?.() || [];
+    if (!layers.length) {
+      groupList.innerHTML = '<p class="hint">등록된 그룹이 없습니다.</p>';
+      return;
+    }
+    for (const layer of layers) {
+      const card = document.createElement('div');
+      card.className = 'rig-group-card';
+      const name = document.createElement('span');
+      name.className = 'rig-group-name';
+      name.textContent = layer.name;
+      const visible = layer.visible !== false;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'btn icon rig-group-vis-btn';
+      button.textContent = visible ? '👁' : '—';
+      button.setAttribute('aria-pressed', String(visible));
+      button.setAttribute('aria-label', `${layer.name} ${visible ? '숨기기' : '보이기'}`);
+      button.addEventListener('click', () => {
+        const before = model.snapshot?.();
+        model.setPresetLayers?.(toggleGroupLayerVisibility(layers, layer.key));
+        model.setVisibilityMode?.('group');
+        model.commit?.(before);
+        refresh();
+      });
+      card.append(name, button);
+      groupList.append(card);
+    }
+  }
+
+  function switchSidebar(tab) {
+    const groups = tab === 'groups';
+    tabBones?.setAttribute('aria-pressed', String(!groups));
+    tabGroups?.setAttribute('aria-pressed', String(groups));
+    if (panelBones) panelBones.hidden = groups;
+    if (panelGroups) panelGroups.hidden = !groups;
+    model.setVisibilityMode?.(groups ? 'group' : 'individual');
+    app.changed();
+    renderGroupList();
+    updateViewModeBadge();
+    render();
+  }
+
   function syncTreeSelection() {
     const posed = poseAt(bones(), previewMotion(), currentTime);
     if (!posed.some(bone => bone.name === selected)) {
       selected = posed[0]?.name || '';
-      if (!panel.hidden) model.selectBone?.(selected);
     }
     if (panel.hidden) return;
-    const tree = $('#rig-bone-tree');
-    if (!tree) return;
-    const prevScrollTop = tree.scrollTop;
-    let activeItem = null;
-    for (const btn of tree.querySelectorAll('button')) {
-      const isSelected = btn.title === boneLabel(selected);
-      btn.setAttribute('aria-pressed', String(isSelected));
-      if (isSelected) activeItem = btn;
-    }
-    scrollTreeItemIntoView(tree, activeItem, prevScrollTop);
+    renderBoneTree();
   }
 
   function refreshKeyControls() {
@@ -262,11 +343,21 @@ export function mountMotion(app, model) {
   }
 
   function refresh() {
+    const ready = Boolean(model.hasRig?.());
+    if (noRig) noRig.hidden = ready;
+    if (loadedContent) loadedContent.hidden = !ready;
+    if ($('#motion-open')) $('#motion-open').disabled = !ready;
+    if ($('#motion-save')) $('#motion-save').disabled = !ready;
+    if (!ready) {
+      stop();
+      return;
+    }
     refreshMotionPick();
     refreshTimeline();
     syncTreeSelection();
     refreshKeyControls();
     updateViewModeBadge();
+    renderGroupList();
     render();
   }
 
@@ -388,6 +479,8 @@ export function mountMotion(app, model) {
   }
 
   function bindEvents() {
+    tabBones?.addEventListener('click', () => switchSidebar('bones'));
+    tabGroups?.addEventListener('click', () => switchSidebar('groups'));
     select.addEventListener('change', () => { stop(); currentName = select.value; currentTime = 0; refresh(); });
     $('#motion-add').addEventListener('click', () => {
       stop();
@@ -582,7 +675,7 @@ export function mountMotion(app, model) {
   switchTool(activeTool);
 
   return {
-    show() { panel.hidden = false; switchTool(activeTool); refresh(); fit(); },
+    show() { panel.hidden = false; switchTool(activeTool); refresh(); if (model.hasRig?.()) fit(); },
     hide() { stop(); panel.hidden = true; },
     refresh() { refresh(); },
     selectBone(name) {
@@ -590,6 +683,7 @@ export function mountMotion(app, model) {
       syncTreeSelection();
       if (!panel.hidden) refresh();
     },
+    getSelectedBone() { return selected; },
     shown() { if (!panel.hidden) fit(); },
   };
 }

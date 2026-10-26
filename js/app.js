@@ -13,6 +13,7 @@ import {
   ROLE_STATE_VERSION,
   migrateLegacyAutosave,
   migrateRig1ToRoleState,
+  motionRoleFromAutosave,
 } from './core/role-flow.js';
 
 const $ = sel => document.querySelector(sel);
@@ -82,6 +83,7 @@ const app = {
   getPieces() { return views.rig?.getPieces?.() || []; },
   getRigPreset() { return views.rig?.getPreset?.() || null; },
   getRigBasis() { return views.rig?.getBasis?.() || null; },
+  getMotionBasis() { return views.rig?.getMotionBasis?.() || null; },
   getPresetStack() { return views.character?.getPresetStack?.() || null; },
   warnCanvas(canvas, label) {
     const warning = profileCanvasWarning(canvas, label);
@@ -103,6 +105,7 @@ const app = {
       assemble: views.assemble.snapshot(),
       slice: views.slice.snapshot(),
       rig: views.rig.roleSnapshot(),
+      motion: views.rig.motionRoleSnapshot(),
       character: characterState,
       legacyExtra,
     });
@@ -116,8 +119,7 @@ const views = {
   rig: mountRig(app),
   assemble: mountAssemble(app),
   character: mountCharacter(app, {
-    getRigBasis: () => views.rig?.getBasis?.() || null,
-    getProject: () => views.rig?.snapshot?.() || null,
+    getRigBasis: () => views.rig?.getMotionBasis?.() || null,
   }),
 };
 mountProfileView(app);
@@ -138,11 +140,13 @@ loadSaved().then(async saved => {
     toast('옛 자동 보관 자료를 안전하게 나누어 불러왔습니다');
   }
   if (saved.version !== ROLE_STATE_VERSION) throw new Error('이 자동 보관 자료의 판을 읽을 수 없습니다');
+  const savedMotion = motionRoleFromAutosave(saved);
   characterState = saved.character || characterState;
   legacyExtra = saved.legacyExtra || {};
   if (saved.paint) await views.paint.restore(saved.paint);
   if (saved.slice) await views.slice.restore(saved.slice);
   if (saved.rig) await views.rig.restoreRole(saved.rig);
+  await views.rig.restoreMotionRole(savedMotion);
   if (saved.assemble) await views.assemble.restore(saved.assemble);
   await views.character?.restore(characterState);
 }).catch(error => {

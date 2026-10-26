@@ -3,7 +3,9 @@ import { toProject, parseProject, cloneDefaultBones, defaultAnimations, normaliz
 import { KEY, toHex } from './core/paint.js';
 import { pickFiles, readDataUrl, saveJson, baseName } from './io.js';
 import { RigHistory, cloneRigState } from './core/rig-history.js';
-import { workingRigToRoleState, roleRigToWorkingState } from './core/role-flow.js';
+import {
+  workingRigToRoleState, roleRigToWorkingState, workingMotionToRoleState, roleMotionToWorkingState,
+} from './core/role-flow.js';
 import { toSkeleton, parseSkeleton, replaceSkeletonInRig } from './core/skeleton.js';
 import { mountRigBones } from './rig-bones-view.js';
 import { mountRigPreset } from './rig-preset-view.js';
@@ -68,6 +70,21 @@ export function replaceRigProjectKeepingAnimations(current, incoming, selectedBo
   };
 }
 
+export function emptyMotionRigState() {
+  return cloneRigState({
+    canvas: CURRENT_PROFILE.canvas,
+    baseTitle: '캐릭터',
+    skeletonName: CURRENT_PROFILE.skeletonName,
+    presetMeta: { id: 'preset', name: '새 프리셋', kind: 'bare' },
+    presetLayers: [],
+    pieces: [],
+    bones: [],
+    animations: defaultAnimations(),
+    restPose: null,
+    visibilityMode: 'individual',
+  });
+}
+
 export function mountRig(app) {
   let [canvasWidth, canvasHeight] = CURRENT_PROFILE.canvas;
   let pieces = [];
@@ -83,12 +100,15 @@ export function mountRig(app) {
   let visibilityMode = 'individual';
   let openLegacyOptions = null;
   let lastReplacement = null;
+  let motionRig = emptyMotionRigState();
+  let currentStep = 'rig';
 
   const undoBtn = $('#rig-undo');
   const redoBtn = $('#rig-redo');
   const importReport = $('#rig-import-report');
 
   const history = new RigHistory();
+  const motionHistory = new RigHistory();
 
   function snapshot() {
     return cloneRigState({
@@ -106,14 +126,27 @@ export function mountRig(app) {
     });
   }
 
+  function motionSnapshot() {
+    return cloneRigState(motionRig);
+  }
+
   function updateUndoRedo() {
-    if (undoBtn) undoBtn.disabled = !history.canUndo;
-    if (redoBtn) redoBtn.disabled = !history.canRedo;
+    const activeHistory = currentStep === 'motion' ? motionHistory : history;
+    if (undoBtn) undoBtn.disabled = !activeHistory.canUndo;
+    if (redoBtn) redoBtn.disabled = !activeHistory.canRedo;
   }
 
   function recordChange(before) {
     if (!before) return;
     if (history.push(before, snapshot())) {
+      updateUndoRedo();
+      app.changed();
+    }
+  }
+
+  function recordMotionChange(before) {
+    if (!before) return;
+    if (motionHistory.push(before, motionSnapshot())) {
       updateUndoRedo();
       app.changed();
     }
@@ -136,17 +169,34 @@ export function mountRig(app) {
     visibilityMode = copy.visibilityMode || 'individual';
     bonesView?.refresh();
     presetView?.refresh();
+    updateUndoRedo();
+    app.changed();
+  }
+
+  function applyMotionSnapshot(snap) {
+    if (!snap) return;
+    motionRig = cloneRigState(snap);
     motionView?.refresh();
     updateUndoRedo();
     app.changed();
   }
 
   function undo() {
+    if (currentStep === 'motion') {
+      const prev = motionHistory.undo(motionSnapshot());
+      if (prev) applyMotionSnapshot(prev);
+      return;
+    }
     const prev = history.undo(snapshot());
     if (prev) applySnapshot(prev);
   }
 
   function redo() {
+    if (currentStep === 'motion') {
+      const next = motionHistory.redo(motionSnapshot());
+      if (next) applyMotionSnapshot(next);
+      return;
+    }
     const next = history.redo(snapshot());
     if (next) applySnapshot(next);
   }
@@ -337,7 +387,6 @@ export function mountRig(app) {
     commit: before => recordChange(before),
     getSkeletonName: () => skeletonName,
     setSkeletonName: value => { skeletonName = String(value || CURRENT_PROFILE.skeletonName); },
-    selectedBoneChanged: name => motionView?.selectBone?.(name),
   });
   presetView = mountRigPreset(app, {
     getBones: () => bones,
@@ -360,24 +409,24 @@ export function mountRig(app) {
     refreshViews: () => {
       bonesView?.refresh();
       presetView?.refresh();
-      motionView?.refresh();
     },
   });
   motionView = mountMotion(app, {
-    getBones: () => bones,
-    getRestPose: () => restPose,
-    getPieces: () => pieces,
-    getPresetLayers: () => presetLayers,
-    getVisibilityMode: () => visibilityMode,
-    setVisibilityMode: value => { visibilityMode = value === 'group' ? 'group' : 'individual'; },
-    getAnimations: () => animations,
-    setAnimations: value => { animations = normalizeAnimations(value, bones); },
-    getSize: () => [canvasWidth, canvasHeight],
+    hasRig: () => motionRig.bones.length > 0,
+    getBones: () => motionRig.bones,
+    getRestPose: () => motionRig.restPose,
+    getPieces: () => motionRig.pieces,
+    getPresetLayers: () => motionRig.presetLayers,
+    setPresetLayers: value => { motionRig.presetLayers = value; },
+    getVisibilityMode: () => motionRig.visibilityMode,
+    setVisibilityMode: value => { motionRig.visibilityMode = value === 'group' ? 'group' : 'individual'; },
+    getAnimations: () => motionRig.animations,
+    setAnimations: value => { motionRig.animations = normalizeAnimations(value, motionRig.bones); },
+    getSize: () => motionRig.canvas,
     getBackdrop: () => toHex(KEY),
-    getItem: () => currentItem,
-    snapshot: () => snapshot(),
-    commit: before => recordChange(before),
-    selectBone: name => bonesView?.selectBone?.(name),
+    getItem: () => motionRig.baseTitle,
+    snapshot: () => motionSnapshot(),
+    commit: before => recordMotionChange(before),
   });
   mountBonePanel();
 
@@ -421,13 +470,55 @@ export function mountRig(app) {
 
     bonesView?.refresh();
     presetView?.refresh();
-    motionView?.refresh();
     if (recordHistory) recordChange(before);
     else {
       history.clear();
       updateUndoRedo();
     }
     lastReplacement = replacement;
+    return replacement;
+  }
+
+  async function loadMotionProjectData(proj, role = null, { keepAnimations = true, recordHistory = false } = {}) {
+    const before = recordHistory ? motionSnapshot() : null;
+    app.warnCanvas?.(proj.canvas, '키잡기 뼈대');
+    const loadedPieces = [];
+    for (const piece of proj.pieces) {
+      loadedPieces.push({ ...piece, image: await readDataUrl(piece.png) });
+    }
+    const layerState = normalizeRigLayerState(proj.presetLayers || role?.presetLayers, loadedPieces);
+    const migrated = migrateLegacyLayersToDepth(layerState.layers, layerState.pieces);
+    const incoming = { ...proj, pieces: migrated.pieces, presetLayers: migrated.layers };
+    const replacement = keepAnimations
+      ? replaceRigProjectKeepingAnimations(
+        { animations: motionRig.animations },
+        incoming,
+        motionView?.getSelectedBone?.(),
+      )
+      : null;
+    const loaded = replacement?.project || incoming;
+    const draft = role?.presetDraft || role?.presetDrafts?.[0];
+    motionRig = cloneRigState({
+      canvas: loaded.canvas,
+      baseTitle: loaded.item,
+      skeletonName: String(role?.skeletonName || CURRENT_PROFILE.skeletonName),
+      presetMeta: draft
+        ? { id: draft.id || 'preset', name: draft.name || loaded.item, kind: draft.kind || loaded.slot }
+        : { id: 'preset', name: loaded.item, kind: loaded.slot },
+      presetLayers: loaded.presetLayers,
+      pieces: loaded.pieces,
+      bones: loaded.bones,
+      animations: loaded.animations,
+      restPose: loaded.restPose,
+      visibilityMode: role?.visibilityMode === 'group' ? 'group' : 'individual',
+    });
+    motionView?.selectBone?.(replacement?.selectedBone || motionRig.bones[0]?.name);
+    motionView?.refresh();
+    if (recordHistory) recordMotionChange(before);
+    else {
+      motionHistory.clear();
+      updateUndoRedo();
+    }
     return replacement;
   }
 
@@ -453,6 +544,19 @@ export function mountRig(app) {
     // 되돌리기 / 다시하기 단추
     undoBtn?.addEventListener('click', undo);
     redoBtn?.addEventListener('click', redo);
+
+    $('#motion-rig-open')?.addEventListener('click', async () => {
+      try {
+        const [file] = await pickFiles({ accept: '.json,application/json,text/plain' });
+        if (!file) return;
+        const proj = parseProject(JSON.parse(await file.text()));
+        const replacement = await loadMotionProjectData(proj, null, { keepAnimations: true, recordHistory: true });
+        const dropped = replacement?.droppedKeyCount || 0;
+        app.toast(dropped > 0 ? `뼈대를 열고 없는 뼈의 키 ${dropped}개를 지웠습니다` : '키잡기 뼈대를 열었습니다');
+      } catch (error) {
+        app.toast(error.message || '뼈대 파일을 열 수 없습니다');
+      }
+    });
 
     // 프로젝트 저장
     $('#rig-save-project')?.addEventListener('click', async () => {
@@ -483,7 +587,7 @@ export function mountRig(app) {
           proj = parseProject(JSON.parse(await file.text()));
           let replacement;
           if (proj.basePng) {
-            openLegacyOptions = { keepAnimations: true, recordHistory: true };
+            openLegacyOptions = { keepAnimations: false, recordHistory: true };
             try {
               await app.loadLegacyRig(proj);
             } finally {
@@ -491,14 +595,13 @@ export function mountRig(app) {
             }
             replacement = lastReplacement;
           } else {
-            replacement = await loadProjectData(proj, null, { keepAnimations: true, recordHistory: true });
+            replacement = await loadProjectData(proj, null, { keepAnimations: false, recordHistory: true });
           }
           if (importReport) {
             importReport.textContent = '';
             importReport.hidden = true;
           }
-          const dropped = replacement?.droppedKeyCount || 0;
-          app.toast(dropped > 0 ? `전체 작업을 열고 없는 뼈의 키 ${dropped}개를 지웠습니다` : '전체 작업을 열고 현재 움직임 키를 지켰습니다');
+          app.toast('뼈대 전체 작업을 열었습니다');
           app.changed();
           return;
         } else {
@@ -549,21 +652,19 @@ export function mountRig(app) {
   }
 
   function setStep(step) {
+    currentStep = step;
     $('#rig').classList.toggle('rig-mode-bones', step === 'rig');
     $('#rig').classList.toggle('rig-mode-motion', step === 'motion');
-    const sidebar = $('#rig-shared-sidebar');
-    const targetLayout = step === 'motion' ? $('#motion-main-layout') : $('#rig-bones-main-layout');
-    if (sidebar && targetLayout && sidebar.parentElement !== targetLayout) targetLayout.prepend(sidebar);
     if (step === 'rig') {
       presetView.syncVisibilityModeToActiveTab();
       bonesView.show();
     }
     else bonesView.hide();
     if (step === 'motion') {
-      motionView.selectBone?.(bonesView.getSelectedBone());
       motionView.show();
     }
     else motionView.hide();
+    updateUndoRedo();
   }
 
   function initUI() {
@@ -586,6 +687,12 @@ export function mountRig(app) {
       bones,
       restPose,
     }),
+    getMotionBasis: () => motionRig.bones.length ? ({
+      canvas: [...motionRig.canvas],
+      skeletonName: motionRig.skeletonName,
+      bones: motionRig.bones,
+      restPose: motionRig.restPose,
+    }) : null,
     getPieces: () => pieces,
     getPreset: () => currentPreset(),
     snapshot() {
@@ -594,10 +701,13 @@ export function mountRig(app) {
     roleSnapshot() {
       const role = workingRigToRoleState({
         canvas: [canvasWidth, canvasHeight], item: currentItem, slot: currentSlot, skeletonName,
-        bones, restPose, attachedPieces: pieces, animations, preset: currentPreset(), presetLayers,
+        bones, restPose, attachedPieces: pieces, animations: {}, preset: currentPreset(), presetLayers,
       });
       role.visibilityMode = visibilityMode;
       return role;
+    },
+    motionRoleSnapshot() {
+      return workingMotionToRoleState(motionRig);
     },
     async restoreRole(saved, options = openLegacyOptions || {}) {
       return await loadProjectData(roleRigToWorkingState(saved), saved, options);
@@ -610,6 +720,28 @@ export function mountRig(app) {
       } catch (err) {
         // 복원 실패 시 조용히 무시
       }
+    },
+    async restoreMotionRole(saved) {
+      if (!saved) {
+        motionRig = emptyMotionRigState();
+        motionHistory.clear();
+        motionView?.refresh();
+        updateUndoRedo();
+        return;
+      }
+      const state = roleMotionToWorkingState(saved);
+      const proj = toProject({
+        canvas: state.canvas,
+        slot: state.presetMeta.kind,
+        item: state.baseTitle,
+        basePng: null,
+        pieces: state.pieces,
+        bones: state.bones,
+        animations: state.animations,
+        restPose: state.restPose,
+        presetLayers: state.presetLayers,
+      });
+      await loadMotionProjectData(proj, saved, { keepAnimations: false, recordHistory: false });
     },
   };
 }

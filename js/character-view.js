@@ -127,8 +127,7 @@ export function mountCharacter(app, model = {}) {
   });
 
   function getBasis() {
-    const fromModel = model.getRigBasis?.();
-    if (fromModel) return fromModel;
+    if (model.getRigBasis) return model.getRigBasis();
     const proj = model.getProject?.();
     if (proj) return { canvas: proj.canvas, skeletonName: proj.skeletonName, bones: proj.bones, restPose: proj.restPose };
     return { canvas: currentCanvas(), skeletonName: CURRENT_PROFILE.skeletonName, bones: DEFAULT_BONES, restPose: null };
@@ -137,6 +136,10 @@ export function mountCharacter(app, model = {}) {
   function updateBasisUI() {
     if (!basisEl) return;
     const basis = getBasis();
+    if (!basis) {
+      basisEl.textContent = '기준 뼈대: 키잡기에서 뼈대 파일을 열어 주세요';
+      return;
+    }
     const name = basis?.skeletonName || CURRENT_PROFILE.skeletonName;
     const isDefault = name === CURRENT_PROFILE.skeletonName && (!basis.bones || basis.bones.length === DEFAULT_BONES.length);
     basisEl.textContent = `기준 뼈대: ${isDefault ? `기본 ${DEFAULT_BONES.length}개 뼈` : name}`;
@@ -165,6 +168,13 @@ export function mountCharacter(app, model = {}) {
   function render() {
     if (!ctx) return;
     const basis = getBasis();
+    if (!basis) {
+      const [width, height] = currentCanvas();
+      canvas.width = width * zoomScale;
+      canvas.height = height * zoomScale;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
     const [width, height] = Array.isArray(basis.canvas) ? basis.canvas : currentCanvas();
     const bones = (basis.bones && basis.bones.length > 0) ? basis.bones : DEFAULT_BONES;
     const options = characterMotionOptions(state);
@@ -253,6 +263,10 @@ export function mountCharacter(app, model = {}) {
 
   function play() {
     const basis = getBasis();
+    if (!basis) {
+      app.toast?.('키잡기에서 뼈대 파일을 먼저 열어 주세요');
+      return;
+    }
     const inspect = inspectCharacter(state, basis);
     if (!inspect.compatible) {
       app.toast?.('호환되지 않는 항목이 있어 재생할 수 없습니다');
@@ -278,12 +292,13 @@ export function mountCharacter(app, model = {}) {
     const inspect = inspectCharacter(state, basis);
 
     // 에러 및 경고 표시
-    if (!inspect.compatible) {
+    if (!basis || !inspect.compatible) {
       pause();
       if (errorEl) {
         errorEl.hidden = false;
         const reasons = [];
-        if (inspect.missingBones.length) reasons.push(`현재 뼈대에 없는 뼈: ${inspect.missingBones.join(', ')}`);
+        if (!basis) reasons.push('키잡기에서 뼈대 파일을 열어 주세요');
+        else if (inspect.missingBones.length) reasons.push(`현재 뼈대에 없는 뼈: ${inspect.missingBones.join(', ')}`);
         if (inspect.duplicateMotionNames.length) reasons.push(`겹친 움직임 이름: ${inspect.duplicateMotionNames.join(', ')}`);
         errorEl.textContent = reasons.join(' · ');
       }
@@ -538,6 +553,7 @@ export function mountCharacter(app, model = {}) {
       }
 
       const basis = getBasis();
+      if (!basis) throw new Error('키잡기에서 뼈대 파일을 먼저 열어 주세요');
       const input = characterBundleInput(state, basis);
       const bundle = makeBundle({
         skeleton: input.skeleton,
@@ -565,6 +581,7 @@ export function mountCharacter(app, model = {}) {
   saveGodotBtn?.addEventListener('click', async () => {
     try {
       const basis = getBasis();
+      if (!basis) throw new Error('키잡기에서 뼈대 파일을 먼저 열어 주세요');
       const proj = characterGodotProject(state, basis);
       const made = makeGodotExport(proj);
       const result = await saveFile('dotfactory-godot.zip', new Blob([made.bytes], { type: 'application/zip' }));

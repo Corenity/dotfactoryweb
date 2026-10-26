@@ -5,6 +5,9 @@
 #rig.rig-mode-motion .rig-motion-action { display: inline-flex; align-items: center; }
 .rig-motion-only { display: grid; gap: 8px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 .rig-motion-only[hidden] { display: none; }
+.motion-loaded-content { display: grid; gap: 8px; min-width: 0; }
+.motion-loaded-content[hidden] { display: none; }
+.motion-no-rig { margin: 32px 0; text-align: center; font-size: 16px; }
 #rig.rig-mode-motion .rig-group-panel-actions,
 #rig.rig-mode-motion .rig-piece-tree-row { display: none; }
 
@@ -64,6 +67,7 @@
 
 .motion-main-layout { grid-template-rows: auto auto; }
 .motion-main-layout .rig-bone-tree { min-height: 0; }
+.motion-main-layout .rig-side-panel { min-height: 0; }
 .motion-main-layout .rig-stage-zoom-controls { display: grid; grid-template-columns: 44px minmax(28px, 1fr) 44px 44px; }
 .motion-key-row { display: grid; gap: 4px; }
 .motion-key-row > .hint { min-height: 18px; margin: 0; }
