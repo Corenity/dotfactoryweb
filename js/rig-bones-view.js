@@ -1,5 +1,5 @@
 // 뼈대 단계 화면 — 뼈 나무, 위치·각도, 조각 연결·층과 미리보기를 다룹니다.
-import { boneLabel, normalizeBones, applyRestPose, resetBonesToDefaults, DEFAULT_BONES, addBone, removeBone, isValidBoneName, editRigBone } from './core/rig.js';
+import { boneLabel, normalizeBones, applyRestPose, resetBonesToDefaults, DEFAULT_BONES, removeBone, editRigBone } from './core/rig.js';
 import { CURRENT_PROFILE, currentCanvas } from './core/profile.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal, worldDeltaToBone } from './core/rig-render.js';
 import { sortRigPiecesByLayers } from './core/preset-layers.js';
@@ -61,8 +61,6 @@ export function mountRigBones(app, model) {
   const rotMinus15 = $('#rig-rot-minus15');
   const rotPlus15 = $('#rig-rot-plus15');
   const zoomText = $('#rig-bones-zoom-text');
-  const newNameInput = $('#rig-bone-new-name');
-  const addBtn = $('#rig-bone-add');
   const deleteBtn = $('#rig-bone-delete');
   const saveSkeletonBtn = $('#rig-bones-save');
   const openSkeletonBtn = $('#rig-bones-open');
@@ -633,42 +631,6 @@ export function mountRigBones(app, model) {
       model.commit?.(before);
     });
 
-    if (addBtn && newNameInput) {
-      addBtn.addEventListener('click', () => {
-        const name = (newNameInput.value || '').trim();
-        if (!name) {
-          app.toast('뼈 이름을 넣어 주세요');
-          return;
-        }
-        if (!isValidBoneName(name)) {
-          app.toast('뼈 이름은 영문, 숫자, _ 만 쓸 수 있습니다');
-          return;
-        }
-        if (bones().some(b => b.name === name)) {
-          app.toast(`뼈 이름 「${name}」이 이미 있습니다`);
-          return;
-        }
-        const before = model.snapshot?.();
-        const parent = selectedBone() ? selectedBone().name : null;
-        try {
-          const nextBones = addBone(bones(), { name, parent });
-          model.setBones(nextBones);
-          selected = name;
-          newNameInput.value = '';
-          notify();
-          refreshControls();
-          render();
-          model.commit?.(before);
-          app.toast(`뼈 「${name}」을 더했습니다`);
-        } catch (err) {
-          app.toast(err.message);
-        }
-      });
-      newNameInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter') addBtn.click();
-      });
-    }
-
     if (deleteBtn) {
       deleteBtn.addEventListener('click', () => {
         const piece = selectedPiece();
@@ -794,6 +756,13 @@ export function mountRigBones(app, model) {
     hide() { panel.hidden = true; },
     refresh() { refreshControls(); render(); },
     getSelectedBone() { return selected; },
+    selectBone(name) {
+      selected = bones().some(bone => bone.name === name) ? name : (bones()[0]?.name || null);
+      selectedPieceIndex = null;
+      activePieceMenu = null;
+      refreshControls();
+      render();
+    },
     shown() { if (!panel.hidden) fit(); },
     switchTool,
   };

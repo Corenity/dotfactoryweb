@@ -173,3 +173,40 @@ export function applySkeletonToRig({
     droppedKeyCount,
   };
 }
+
+/**
+ * 왼쪽 뼈 패널에서 skeleton-1을 통째로 교체할 때 작업 자료를 함께 정리합니다.
+ * 같은 이름의 뼈에 붙은 그림만 보존하고, 그림이 하나도 남지 않은 그룹은 제거합니다.
+ */
+export function replaceSkeletonInRig({
+  skeleton,
+  pieces = [],
+  animations = null,
+  presetLayers = [],
+  selectedBone = null,
+} = {}) {
+  const applied = applySkeletonToRig({
+    skeleton,
+    pieces,
+    animations,
+    selectedBone,
+    preserveMissingPieces: true,
+  });
+  const boneNames = new Set(applied.bones.map(bone => bone.name));
+  const sourcePieces = Array.isArray(applied.pieces) ? applied.pieces : [];
+  const nextPieces = sourcePieces.filter(piece => piece && boneNames.has(piece.bone));
+  const remainingGroupKeys = new Set(nextPieces.map(piece => piece.presetLayerKey).filter(Boolean));
+  const sourceLayers = Array.isArray(presetLayers) ? presetLayers : [];
+  const nextLayers = sourceLayers
+    .filter(layer => layer && remainingGroupKeys.has(layer.key))
+    .map(layer => ({ ...layer }));
+
+  return {
+    ...applied,
+    pieces: nextPieces,
+    presetLayers: nextLayers,
+    movedPiecesCount: 0,
+    removedPieceCount: sourcePieces.length - nextPieces.length,
+    removedGroupCount: sourceLayers.length - nextLayers.length,
+  };
+}

@@ -1,9 +1,10 @@
 // 뼈대·키잡기 화면 — 뼈, 붙인 그림, 움직임과 옛 작업 파일 호환을 다룹니다.
-import { toProject, parseProject, cloneDefaultBones, defaultAnimations, normalizeAnimations } from './core/rig.js';
+import { toProject, parseProject, cloneDefaultBones, defaultAnimations, normalizeAnimations, addBone, isValidBoneName } from './core/rig.js';
 import { KEY, toHex } from './core/paint.js';
-import { pickFiles, readDataUrl, saveJson } from './io.js';
+import { pickFiles, readDataUrl, saveJson, baseName } from './io.js';
 import { RigHistory, cloneRigState } from './core/rig-history.js';
 import { workingRigToRoleState, roleRigToWorkingState } from './core/role-flow.js';
+import { toSkeleton, parseSkeleton, replaceSkeletonInRig } from './core/skeleton.js';
 import { mountRigBones } from './rig-bones-view.js';
 import { mountRigPreset } from './rig-preset-view.js';
 import { mountMotion } from './motion-view.js';
@@ -12,6 +13,27 @@ import { normalizeRigLayerState, migrateLegacyLayersToDepth } from './core/prese
 import { CURRENT_PROFILE } from './core/profile.js';
 
 const $ = sel => document.querySelector(sel);
+
+export function validateBoneAddition(bones, name, parent = null) {
+  const cleanName = String(name || '').trim();
+  if (!cleanName) return '뼈 이름을 넣어 주세요';
+  if (!isValidBoneName(cleanName)) return '뼈 이름은 영문, 숫자, _ 만 쓸 수 있습니다';
+  if ((bones || []).some(bone => bone.name === cleanName)) return `뼈 이름 「${cleanName}」이 이미 있습니다`;
+  if (parent && !(bones || []).some(bone => bone.name === parent)) return `부모 뼈 「${parent}」를 찾을 수 없습니다`;
+  return '';
+}
+
+export function boneParentChoices(bones, selectedBone = null) {
+  const safeBones = Array.isArray(bones) ? bones : [];
+  const selected = safeBones.some(bone => bone.name === selectedBone) ? selectedBone : '';
+  return {
+    selected,
+    choices: [
+      { value: '', label: '부모 없음' },
+      ...safeBones.map(bone => ({ value: bone.name, label: bone.name })),
+    ],
+  };
+}
 
 export function mountRig(app) {
   let [canvasWidth, canvasHeight] = CURRENT_PROFILE.canvas;
@@ -94,6 +116,152 @@ export function mountRig(app) {
     if (next) applySnapshot(next);
   }
 
+  function mountBonePanel() {
+    const plusWrap = $('.rig-bone-plus-wrap');
+    const plusBtn = $('#rig-bone-add');
+    const plusMenu = $('#rig-bone-plus-menu');
+    const createBtn = $('#rig-bone-create');
+    const importBtn = $('#rig-bone-import');
+    const saveBtn = $('#rig-bone-save');
+    const addPop = $('#rig-bone-add-pop');
+    const closeBtn = $('#rig-bone-add-close');
+    const cancelBtn = $('#rig-bone-add-cancel');
+    const confirmBtn = $('#rig-bone-add-confirm');
+    const nameInput = $('#rig-bone-add-name');
+    const parentSelect = $('#rig-bone-add-parent');
+    const errorText = $('#rig-bone-add-error');
+
+    function closeMenu() {
+      if (plusMenu) plusMenu.hidden = true;
+      plusBtn?.setAttribute('aria-expanded', 'false');
+    }
+
+    function positionMenu() {
+      if (!plusBtn || !plusMenu || plusMenu.hidden) return;
+      const buttonRect = plusBtn.getBoundingClientRect();
+      const left = Math.max(4, Math.min(buttonRect.left, window.innerWidth - plusMenu.offsetWidth - 4));
+      const top = Math.max(4, buttonRect.top - plusMenu.offsetHeight - 4);
+      plusMenu.style.left = `${left}px`;
+      plusMenu.style.top = `${top}px`;
+    }
+
+    function showError(message = '') {
+      if (!errorText) return;
+      errorText.textContent = message;
+      errorText.hidden = !message;
+    }
+
+    function fillParentChoices() {
+      if (!parentSelect) return;
+      const state = boneParentChoices(bones, bonesView?.getSelectedBone?.());
+      parentSelect.innerHTML = '';
+      for (const choice of state.choices) {
+        const option = document.createElement('option');
+        option.value = choice.value;
+        option.textContent = choice.label;
+        parentSelect.append(option);
+      }
+      parentSelect.value = state.selected;
+    }
+
+    function openAddModal() {
+      closeMenu();
+      fillParentChoices();
+      if (nameInput) nameInput.value = '';
+      showError();
+      if (addPop) addPop.hidden = false;
+      nameInput?.focus();
+    }
+
+    function closeAddModal() {
+      if (addPop) addPop.hidden = true;
+      showError();
+    }
+
+    function finishChange(before, selectedBone) {
+      bonesView?.selectBone?.(selectedBone);
+      presetView?.refresh();
+      motionView?.refresh();
+      recordChange(before);
+    }
+
+    plusBtn?.addEventListener('click', event => {
+      event.stopPropagation();
+      const willOpen = Boolean(plusMenu?.hidden);
+      if (plusMenu) plusMenu.hidden = !willOpen;
+      plusBtn.setAttribute('aria-expanded', String(willOpen));
+      if (willOpen) positionMenu();
+    });
+    plusMenu?.addEventListener('click', event => event.stopPropagation());
+    document.addEventListener('click', event => {
+      if (!plusWrap?.contains(event.target)) closeMenu();
+    });
+    window.addEventListener('resize', positionMenu);
+
+    createBtn?.addEventListener('click', openAddModal);
+    closeBtn?.addEventListener('click', closeAddModal);
+    cancelBtn?.addEventListener('click', closeAddModal);
+
+    function addFromModal() {
+      const name = String(nameInput?.value || '').trim();
+      const parent = parentSelect?.value || null;
+      const message = validateBoneAddition(bones, name, parent);
+      if (message) {
+        showError(message);
+        return;
+      }
+      const before = snapshot();
+      try {
+        bones = addBone(bones, { name, parent });
+        closeAddModal();
+        finishChange(before, name);
+        app.toast(`뼈 「${name}」을 더했습니다`);
+      } catch (error) {
+        showError(error.message || '뼈를 추가할 수 없습니다');
+      }
+    }
+
+    confirmBtn?.addEventListener('click', addFromModal);
+    nameInput?.addEventListener('keydown', event => {
+      if (event.key === 'Enter') addFromModal();
+    });
+
+    importBtn?.addEventListener('click', async () => {
+      closeMenu();
+      try {
+        const [file] = await pickFiles({ accept: '.json,application/json,text/plain' });
+        if (!file) return;
+        const skeleton = parseSkeleton(JSON.parse(await file.text()));
+        app.warnCanvas?.(skeleton.canvas, '뼈대 파일');
+        const before = snapshot();
+        const result = replaceSkeletonInRig({
+          skeleton,
+          pieces,
+          animations,
+          presetLayers,
+          selectedBone: bonesView?.getSelectedBone?.(),
+        });
+        bones = result.bones;
+        pieces = result.pieces;
+        presetLayers = result.presetLayers;
+        restPose = result.restPose;
+        animations = result.animations;
+        skeletonName = baseName(file.name);
+        finishChange(before, result.selectedBone || result.bones[0]?.name || null);
+        app.toast(`뼈 파일을 불러왔습니다 (그림 ${result.removedPieceCount}개 삭제, 키 ${result.droppedKeyCount}개 삭제)`);
+      } catch (error) {
+        app.toast(error.message || '뼈 파일을 열 수 없습니다');
+      }
+    });
+
+    saveBtn?.addEventListener('click', async () => {
+      const fileName = `${skeletonName || CURRENT_PROFILE.skeletonName}.json`;
+      const skeleton = toSkeleton({ canvas: [canvasWidth, canvasHeight], bones });
+      const result = await saveJson(fileName, skeleton);
+      if (result !== 'cancelled') app.toast(`「${fileName}」으로 저장했습니다`);
+    });
+  }
+
   let bonesView = null, presetView = null, motionView = null;
   bonesView = mountRigBones(app, {
     getBones: () => bones,
@@ -161,6 +329,7 @@ export function mountRig(app) {
     snapshot: () => snapshot(),
     commit: before => recordChange(before),
   });
+  mountBonePanel();
 
   // 작업 열기와 자동 복원의 단일 통합 함수
   async function loadProjectData(proj, role = null) {

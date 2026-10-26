@@ -258,35 +258,6 @@
   opacity: 0.45;
 }
 
-.rig-bone-actions {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding-top: 4px;
-  border-top: 1px solid var(--line);
-}
-.rig-bone-actions input {
-  min-height: 44px;
-  width: 100%;
-  padding: 0 6px;
-  font-size: 13px;
-  border-radius: 6px;
-  box-sizing: border-box;
-}
-.rig-bone-btn-row {
-  display: flex;
-  gap: 4px;
-  width: 100%;
-}
-.rig-bone-btn-row .btn {
-  flex: 1;
-  min-height: 44px;
-  padding: 0;
-  font-size: 16px;
-  border-radius: 6px;
-}
-
 .rig-col-stage {
   flex: 1 1 0;
   min-width: 0;
@@ -607,6 +578,8 @@
   border-top: 1px solid var(--line);
 }
 
+.rig-bone-actions input { min-height: 44px; }
+
 .rig-group-btn-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -615,12 +588,14 @@
 }
 
 .rig-group-btn-row .btn {
-  min-height: 36px;
-  height: 36px;
+  min-height: 44px;
+  height: 44px;
   padding: 0 2px;
   font-size: 12px;
   width: 100%;
 }
+
+.rig-bone-save-btn { grid-column: 1 / -1; }
 
 .rig-group-plus-wrap {
   position: relative;
@@ -655,8 +630,8 @@
 .rig-group-plus-menu .btn {
   width: 100%;
   text-align: center;
-  min-height: 36px;
-  height: 36px;
+  min-height: 44px;
+  height: 44px;
   font-size: 12px;
   padding: 0 4px;
 }
@@ -679,6 +654,45 @@
 
 .rig-group-modal[hidden] {
   display: none !important;
+}
+
+.rig-bone-add-modal {
+  inset: 50% auto auto 50%;
+  width: min(360px, calc(100vw - 20px));
+  max-height: calc(100vh - 20px);
+  transform: translate(-50%, -50%);
+  box-sizing: border-box;
+}
+
+.rig-bone-add-field {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.rig-bone-add-field input,
+.rig-bone-add-field select {
+  min-height: 44px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 6px;
+  padding: 0 8px;
+}
+
+.rig-bone-add-error { margin: 0; color: var(--danger, #ff7b7b); font-size: 12px; }
+.rig-bone-add-error[hidden] { display: none !important; }
+
+.rig-bone-add-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.rig-bone-add-actions .btn,
+.rig-bone-add-close {
+  min-height: 44px;
+  min-width: 44px;
 }
 
 .rig-group-section-title {
