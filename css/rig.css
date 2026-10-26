@@ -460,23 +460,6 @@
   border-radius: 6px;
 }
 
-#rig-bar-img .btn {
-  min-height: 44px;
-  padding: 0 8px;
-  border-radius: 6px;
-  font-size: 13px;
-}
-#rig-bar-img #rig-add-piece {
-  flex: 1 1 0;
-}
-#rig-bar-img .rig-selected-bone-label {
-  font-size: 11px;
-  color: var(--accent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 80px;
-}
 .rig-depth-bar label {
   display: flex;
   align-items: center;

@@ -35,6 +35,14 @@ export function boneParentChoices(bones, selectedBone = null) {
   };
 }
 
+export function resolveRigImageMenuState(bones, selectedBone = null) {
+  const bone = (bones || []).find(item => item.name === selectedBone);
+  return {
+    label: bone ? `${bone.name}에 이미지 추가` : '이미지 추가',
+    disabled: !bone,
+  };
+}
+
 export function rigProjectWithoutAnimations(project) {
   return { ...project, animations: {} };
 }
@@ -148,6 +156,7 @@ export function mountRig(app) {
     const plusBtn = $('#rig-bone-add');
     const plusMenu = $('#rig-bone-plus-menu');
     const createBtn = $('#rig-bone-create');
+    const imageBtn = $('#rig-bone-image');
     const importBtn = $('#rig-bone-import');
     const saveBtn = $('#rig-bone-save');
     const addPop = $('#rig-bone-add-pop');
@@ -215,6 +224,11 @@ export function mountRig(app) {
     plusBtn?.addEventListener('click', event => {
       event.stopPropagation();
       const willOpen = Boolean(plusMenu?.hidden);
+      const imageState = resolveRigImageMenuState(bones, bonesView?.getSelectedBone?.());
+      if (imageBtn) {
+        imageBtn.textContent = imageState.label;
+        imageBtn.disabled = imageState.disabled;
+      }
       if (plusMenu) plusMenu.hidden = !willOpen;
       plusBtn.setAttribute('aria-expanded', String(willOpen));
       if (willOpen) positionMenu();
@@ -226,6 +240,10 @@ export function mountRig(app) {
     window.addEventListener('resize', positionMenu);
 
     createBtn?.addEventListener('click', openAddModal);
+    imageBtn?.addEventListener('click', () => {
+      closeMenu();
+      if (!imageBtn.disabled) presetView?.addPhonePng?.();
+    });
     closeBtn?.addEventListener('close', closeAddModal);
     closeBtn?.addEventListener('click', closeAddModal);
     cancelBtn?.addEventListener('click', closeAddModal);

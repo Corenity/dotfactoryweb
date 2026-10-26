@@ -347,8 +347,6 @@ export function mountRigPreset(app, model) {
   }
 
   function bindEvents() {
-    $('#rig-add-piece')?.addEventListener('click', addPhonePng);
-
     // 왼쪽 메뉴 탭 전환
     tabBones?.addEventListener('click', () => switchLeftTab('bones'));
     tabGroups?.addEventListener('click', () => switchLeftTab('groups'));
@@ -489,6 +487,7 @@ export function mountRigPreset(app, model) {
   bindEvents();
 
   return {
+    addPhonePng,
     currentPreset,
     syncVisibilityModeToActiveTab,
     refresh() {

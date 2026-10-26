@@ -23,22 +23,18 @@ export function scrollTreeItemIntoView(tree, item, prevScrollTop = tree?.scrollT
 export function resolveRigSelectionMenuState({ piece = null, activeTool = 'P', activePieceMenu = null, leftTab = 'bones', tab } = {}) {
   const isGroupTab = (tab ?? leftTab) === 'groups';
   const hasPiece = Boolean(piece);
-  const nextTool = hasPiece && activeTool === 'I' ? 'P' : activeTool;
   const nextPieceMenu = hasPiece ? activePieceMenu : null;
   const depthOpen = hasPiece && nextPieceMenu === 'depth';
   return {
-    activeTool: nextTool,
+    activeTool,
     activePieceMenu: nextPieceMenu,
     boneToolsHidden: isGroupTab,
     pieceToolsHidden: isGroupTab || !hasPiece,
-    toolImgHidden: hasPiece,
     linkHidden: isGroupTab || hasPiece,
-    toolPosPressed: nextTool === 'P',
-    toolRotPressed: nextTool === 'R',
-    toolImgPressed: !hasPiece && nextTool === 'I',
-    barPosHidden: isGroupTab || nextTool !== 'P' || depthOpen,
-    barRotHidden: isGroupTab || nextTool !== 'R' || depthOpen,
-    barImgHidden: isGroupTab || hasPiece || nextTool !== 'I' || depthOpen,
+    toolPosPressed: activeTool === 'P',
+    toolRotPressed: activeTool === 'R',
+    barPosHidden: isGroupTab || activeTool !== 'P' || depthOpen,
+    barRotHidden: isGroupTab || activeTool !== 'R' || depthOpen,
     barDepthHidden: isGroupTab || !depthOpen,
     pieceVisibleLabel: hasPiece ? (piece.visible === false ? '보이기' : '숨김') : '숨김',
     pieceDepthValue: hasPiece ? String(piece.zIndex ?? 0) : '0',
@@ -64,11 +60,9 @@ export function mountRigBones(app, model) {
 
   const toolPosBtn = $('#rig-tool-pos');
   const toolRotBtn = $('#rig-tool-rot');
-  const toolImgBtn = $('#rig-tool-img');
   const boneLinkBtn = $('#rig-bone-link');
   const barPos = $('#rig-bar-pos');
   const barRot = $('#rig-bar-rot');
-  const barImg = $('#rig-bar-img');
   const barDepth = $('#rig-bar-depth');
   const boneTools = $('#rig-bone-tools');
   const pieceTools = $('#rig-piece-tools');
@@ -224,7 +218,6 @@ export function mountRigBones(app, model) {
         pieceButton.addEventListener('click', () => {
           selected = bone.name;
           selectedPieceIndex = index;
-          if (activeTool === 'I') activeTool = 'P';
           activePieceMenu = null;
           refreshControls();
           render();
@@ -243,14 +236,11 @@ export function mountRigBones(app, model) {
     activePieceMenu = menu.activePieceMenu;
     if (boneTools) boneTools.hidden = menu.boneToolsHidden;
     if (pieceTools) pieceTools.hidden = menu.pieceToolsHidden;
-    if (toolImgBtn) toolImgBtn.hidden = menu.toolImgHidden;
     if (boneLinkBtn) boneLinkBtn.hidden = menu.linkHidden;
     if (toolPosBtn) toolPosBtn.setAttribute('aria-pressed', String(menu.toolPosPressed));
     if (toolRotBtn) toolRotBtn.setAttribute('aria-pressed', String(menu.toolRotPressed));
-    if (toolImgBtn) toolImgBtn.setAttribute('aria-pressed', String(menu.toolImgPressed));
     if (barPos) barPos.hidden = menu.barPosHidden;
     if (barRot) barRot.hidden = menu.barRotHidden;
-    if (barImg) barImg.hidden = menu.barImgHidden;
     if (barDepth) barDepth.hidden = menu.barDepthHidden;
     if (pieceVisibleBtn && piece) pieceVisibleBtn.textContent = menu.pieceVisibleLabel;
     if (pieceDepthInput && piece) pieceDepthInput.value = menu.pieceDepthValue;
@@ -267,7 +257,7 @@ export function mountRigBones(app, model) {
   }
 
   function switchTool(tool) {
-    activeTool = selectedPiece() && tool === 'I' ? 'P' : tool;
+    activeTool = tool;
     activePieceMenu = null;
     updateSelectionMenus();
   }
@@ -289,12 +279,6 @@ export function mountRigBones(app, model) {
       if (yInput) yInput.value = String(bone.pos[1]);
       if (angleInput) angleInput.value = String(bone.angle);
       if (rotSlider) rotSlider.value = String(bone.angle);
-    }
-    const badge = $('#rig-selected-bone-badge');
-    if (badge) {
-      badge.textContent = piece
-        ? `선택: ${piece.name || piece.piece} (${boneLabel(bone.name)})`
-        : `선택: ${boneLabel(bone.name)}`;
     }
     if (parentSelect) {
       parentSelect.innerHTML = '<option value="">없음 (Skeleton2D)</option>';
@@ -468,7 +452,6 @@ export function mountRigBones(app, model) {
 
     toolPosBtn?.addEventListener('click', () => switchTool('P'));
     toolRotBtn?.addEventListener('click', () => switchTool('R'));
-    toolImgBtn?.addEventListener('click', () => switchTool('I'));
     boneLinkBtn?.addEventListener('click', () => { boneLinkEnabled = !boneLinkEnabled; updateSelectionMenus(); });
     tabGroups?.addEventListener('click', updateSelectionMenus);
     $('#rig-tab-bones')?.addEventListener('click', updateSelectionMenus);

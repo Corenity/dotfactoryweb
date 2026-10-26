@@ -367,7 +367,7 @@
           </div>
         </div>
 
-        <!-- 메인 3단 레이아웃: 좌 뼈/그룹 | 중 스크린 | 우 P, R, I -->
+        <!-- 메인 3단 레이아웃: 좌 뼈/그룹 | 중 스크린 | 우 P, R, 링크 -->
         <div class="rig-main-layout" id="rig-bones-main-layout">
           <!-- 중앙 스크린 (좌우 잘림) -->
           <div class="rig-col-stage">
@@ -375,7 +375,7 @@
               <canvas id="rig-bones-canvas" class="pixels"></canvas>
               <span class="stage-pos" id="rig-bones-hint">두 손가락 이동</span>
             </div>
-            <p class="hint rig-bones-empty-hint" id="rig-bones-empty">「그림 넣기」로 그림을 붙여 주세요.</p>
+            <p class="hint rig-bones-empty-hint" id="rig-bones-empty">왼쪽 +의 「이미지 추가」로 그림을 붙여 주세요.</p>
             <div class="row rig-stage-zoom-controls">
               <button class="btn small" id="rig-bones-zoom-out" aria-label="작게">−</button>
               <span class="hint" id="rig-bones-zoom-text">4배</span>
@@ -388,7 +388,6 @@
           <div class="rig-col-tools" id="rig-bone-tools">
             <button type="button" class="btn rig-tool-btn" id="rig-tool-pos" aria-pressed="true" title="위치 이동 (P)">P</button>
             <button type="button" class="btn rig-tool-btn" id="rig-tool-rot" aria-pressed="false" title="각도 회전 (R)">R</button>
-            <button type="button" class="btn rig-tool-btn" id="rig-tool-img" aria-pressed="false" title="이미지 (I)">I</button>
             <button type="button" class="btn rig-tool-btn rig-link-btn" id="rig-bone-link" aria-pressed="true" aria-label="그림과 자식 뼈 함께 움직이기: 켜짐" title="링크 켜짐: 그림과 자식 뼈가 함께 움직입니다">
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M10.6 13.4a4 4 0 0 0 5.7 0l2.1-2.1a4 4 0 0 0-5.7-5.7l-1.2 1.2m1.9 3.8a4 4 0 0 0-5.7 0l-2.1 2.1a4 4 0 0 0 5.7 5.7l1.2-1.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
             </button>
@@ -418,11 +417,6 @@
               <input type="range" id="rig-rot-slider" min="-180" max="180" step="1" value="0">
               <button class="btn small" id="rig-rot-plus15" title="+15°">+15°</button>
               <label class="rig-angle-label"><input id="rig-bone-angle" type="number" step="1">°</label>
-            </div>
-
-            <div class="rig-bottom-bar" id="rig-bar-img" hidden>
-              <button class="btn primary" id="rig-add-piece">이미지 추가</button>
-              <span class="hint rig-selected-bone-label" id="rig-selected-bone-badge">선택: Torso</span>
             </div>
 
             <div class="rig-bottom-bar rig-depth-bar" id="rig-bar-depth" hidden>
@@ -478,9 +472,10 @@
               <div class="rig-group-panel-actions rig-bone-actions">
                 <div class="row rig-group-btn-row rig-bone-btn-row">
                   <div class="rig-group-plus-wrap rig-bone-plus-wrap">
-                    <button type="button" class="btn small" id="rig-bone-add" aria-haspopup="menu" aria-expanded="false" title="뼈 추가 또는 불러오기">+</button>
+                    <button type="button" class="btn small" id="rig-bone-add" aria-haspopup="menu" aria-expanded="false" title="뼈 또는 이미지 추가, 뼈 불러오기">+</button>
                     <div class="rig-group-plus-menu rig-bone-plus-menu" id="rig-bone-plus-menu" role="menu" hidden>
-                      <button type="button" class="btn small" id="rig-bone-create" role="menuitem">추가하기</button>
+                      <button type="button" class="btn small" id="rig-bone-create" role="menuitem">뼈 추가</button>
+                      <button type="button" class="btn small" id="rig-bone-image" role="menuitem">이미지 추가</button>
                       <button type="button" class="btn small" id="rig-bone-import" role="menuitem">불러오기</button>
                     </div>
                   </div>
@@ -521,7 +516,7 @@
               <span class="stage-pos" id="motion-bones-hint">두 손가락 이동</span>
               <button type="button" class="btn small rig-view-mode-badge" id="motion-view-mode-btn" title="보기 방식: 개별 ↔ 그룹">보기: 개별</button>
             </div>
-            <p class="hint rig-bones-empty-hint" id="motion-empty">뼈대의 「그림 넣기」에서 프리셋 그림을 붙여 주세요.</p>
+            <p class="hint rig-bones-empty-hint" id="motion-empty">뼈대의 + 「이미지 추가」에서 프리셋 그림을 붙여 주세요.</p>
             <div class="row rig-stage-zoom-controls">
               <button class="btn small" id="motion-zoom-out" aria-label="움직임 미리보기 작게 보기">−</button>
               <span class="hint" id="motion-zoom-text">4배</span>
