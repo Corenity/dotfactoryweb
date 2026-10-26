@@ -1,6 +1,6 @@
 // 오프라인에서도 열리게 화면 파일을 휴대폰에 담아 둡니다. VERSION 은 손으로 올리지 않습니다 —
 // 공개판 복사(tools/publish.mjs)가 화면 파일 내용으로 정한 값으로 바꿔 넣습니다.
-const VERSION = 'dotfactory-web-cd810e0e7a58';
+const VERSION = 'dotfactory-web-ad3b89613962';
 const FILES = [
   './', 'index.html', 'manifest.webmanifest', 'icon.svg',
   'profiles/index.json', 'profiles/project-c.json',

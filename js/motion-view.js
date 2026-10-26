@@ -26,6 +26,7 @@ export function mountMotion(app, model) {
   const tabGroups = $('#motion-tab-groups');
   const panelBones = $('#motion-panel-bones');
   const panelGroups = $('#motion-panel-groups');
+  const groupDeleteButton = $('#motion-group-delete');
   const timeline = $('#motion-timeline');
   const select = $('#motion-select');
   const nameInput = $('#motion-name');
@@ -68,6 +69,7 @@ export function mountMotion(app, model) {
   let panning = null;
   let activeTool = 'P';
   let rotDragBefore = null;
+  let selectedGroupKey = null;
   mountDesktopCanvasPan(stage, {
     readPan: () => ({ x: panX, y: panY }),
     writePan: (x, y) => { panX = Math.round(x); panY = Math.round(y); render(); },
@@ -250,13 +252,17 @@ export function mountMotion(app, model) {
     if (!groupList) return;
     groupList.textContent = '';
     const layers = model.getPresetLayers?.() || [];
+    if (selectedGroupKey && !layers.some(layer => layer.key === selectedGroupKey)) selectedGroupKey = null;
+    if (groupDeleteButton) groupDeleteButton.disabled = !selectedGroupKey;
     if (!layers.length) {
       groupList.innerHTML = '<p class="hint">등록된 그룹이 없습니다.</p>';
       return;
     }
     for (const layer of layers) {
       const card = document.createElement('div');
-      card.className = 'rig-group-card';
+      card.className = 'rig-group-card' + (layer.key === selectedGroupKey ? ' selected' : '');
+      card.setAttribute('role', 'button');
+      card.setAttribute('tabindex', '0');
       const name = document.createElement('span');
       name.className = 'rig-group-name';
       name.textContent = layer.name;
@@ -267,12 +273,17 @@ export function mountMotion(app, model) {
       button.textContent = visible ? '👁' : '—';
       button.setAttribute('aria-pressed', String(visible));
       button.setAttribute('aria-label', `${layer.name} ${visible ? '숨기기' : '보이기'}`);
-      button.addEventListener('click', () => {
+      button.addEventListener('click', event => {
+        event.stopPropagation();
         const before = model.snapshot?.();
         model.setPresetLayers?.(toggleGroupLayerVisibility(layers, layer.key));
         model.setVisibilityMode?.('group');
         model.commit?.(before);
         refresh();
+      });
+      card.addEventListener('click', () => {
+        selectedGroupKey = layer.key;
+        renderGroupList();
       });
       card.append(name, button);
       groupList.append(card);
@@ -516,6 +527,16 @@ export function mountMotion(app, model) {
     tabGroups?.addEventListener('click', () => switchSidebar('groups'));
     bindPlusMenu($('#motion-bone-plus-wrap'), $('#motion-bone-add'), $('#motion-bone-plus-menu'), $('#motion-bone-import'), () => model.importSkeleton?.());
     bindPlusMenu($('#motion-group-plus-wrap'), $('#motion-group-add'), $('#motion-group-plus-menu'), $('#motion-group-import'), () => model.importPreset?.());
+    groupDeleteButton?.addEventListener('click', () => {
+      const layer = (model.getPresetLayers?.() || []).find(item => item.key === selectedGroupKey);
+      if (!layer) return;
+      const before = model.snapshot?.();
+      model.removePresetGroup?.(layer.key);
+      selectedGroupKey = null;
+      model.commit?.(before);
+      app.toast('그룹 「' + layer.name + '」과 그림을 뺐습니다');
+      refresh();
+    });
     select.addEventListener('change', () => { stop(); currentName = select.value; currentTime = 0; refresh(); });
     $('#motion-add').addEventListener('click', () => {
       stop();

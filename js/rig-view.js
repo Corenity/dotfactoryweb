@@ -105,6 +105,14 @@ export function emptyMotionRigState() {
   });
 }
 
+export function removeMotionPresetGroup(state, layerKey) {
+  const next = cloneRigState(state);
+  if (!next.presetLayers.some(layer => layer.key === layerKey)) return next;
+  next.presetLayers = next.presetLayers.filter(layer => layer.key !== layerKey);
+  next.pieces = next.pieces.filter(piece => piece.presetLayerKey !== layerKey);
+  return next;
+}
+
 export function mountRig(app) {
   let [canvasWidth, canvasHeight] = CURRENT_PROFILE.canvas;
   let pieces = [];
@@ -435,6 +443,7 @@ export function mountRig(app) {
     getPieces: () => motionRig.pieces,
     getPresetLayers: () => motionRig.presetLayers,
     setPresetLayers: value => { motionRig.presetLayers = value; },
+    removePresetGroup: layerKey => { motionRig = removeMotionPresetGroup(motionRig, layerKey); },
     getVisibilityMode: () => motionRig.visibilityMode,
     setVisibilityMode: value => { motionRig.visibilityMode = value === 'group' ? 'group' : 'individual'; },
     getAnimations: () => motionRig.animations,

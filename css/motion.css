@@ -9,7 +9,7 @@
 .motion-rig-empty > :not(.motion-main-layout),
 .motion-rig-empty .motion-main-layout > :not(.motion-col-bones) { display: none; }
 .motion-rig-empty .motion-col-bones { height: auto; min-height: 240px; }
-.motion-side-actions { flex-shrink: 0; position: relative; padding-top: 4px; border-top: 1px solid var(--line); }
+.motion-side-actions { flex-shrink: 0; position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: 6px; padding-top: 4px; border-top: 1px solid var(--line); }
 .motion-side-actions > .btn { width: 100%; min-height: 44px; height: 44px; padding: 0 2px; font-size: 12px; }
 .motion-no-rig { margin: 32px 0; text-align: center; font-size: 16px; }
 #rig.rig-mode-motion .rig-group-panel-actions,
