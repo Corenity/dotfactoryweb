@@ -365,6 +365,7 @@ export function mountRig(app) {
   });
   motionView = mountMotion(app, {
     getBones: () => bones,
+    getRestPose: () => restPose,
     getPieces: () => pieces,
     getPresetLayers: () => presetLayers,
     getVisibilityMode: () => visibilityMode,

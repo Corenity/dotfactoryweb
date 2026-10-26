@@ -170,6 +170,7 @@ export function characterBundleInput(state, basis) {
       motions,
     }) : null,
     presets: activeCharacterPresets(state),
+    restPose: clone(basis?.restPose || null),
     canvas: basis?.canvas || currentCanvas(),
   };
 }
@@ -186,6 +187,8 @@ export function characterGodotProject(state, basis) {
     zIndex: drawIndex,
     visible: true,
     png: layer.image,
+    ...(layer.pos ? { pos: [...layer.pos] } : {}),
+    ...(layer.rot ? { rot: layer.rot } : {}),
   }));
   return toProject({
     canvas: basis?.canvas || currentCanvas(),

@@ -1,5 +1,5 @@
 // project-c character_rig.tscn 생성·읽기. DOM 없이 브라우저와 Node에서 함께 씁니다.
-import { normalizeBones, normalizeAnimations, defaultBoneFor, defaultZIndex } from './rig.js';
+import { normalizeBones, normalizeAnimations, defaultBoneFor, defaultZIndex, applyRestPose } from './rig.js';
 import { boneWorldTransforms } from './rig-render.js';
 
 const DEG = Math.PI / 180;
@@ -132,7 +132,8 @@ function spriteText(slot, piece, parent, position, zIndex, textureId = null, rot
 export function makeGodotTscn(project) {
   const bones = normalizeBones(project.bones), animations = normalizeAnimations(project.animations, bones);
   const paths = bonePaths(bones);
-  const restWorld = boneWorldTransforms(bones.map(bone => ({ ...bone, angle: 90 })));
+  const restBones = applyRestPose(bones, project.restPose).bones;
+  const restWorld = boneWorldTransforms(restBones.map(bone => ({ ...bone, angle: 90 })));
   const animationEntries = Object.entries(animations);
   const extraPieces = (project.pieces || []).filter(piece => piece.slot === 'extra');
   const extraExtResources = [];

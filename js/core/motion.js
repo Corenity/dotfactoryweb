@@ -138,11 +138,11 @@ export function copyPreviousKey(bones, motion, boneName, time) {
   return pose ? setKey(motion, boneName, time, pose) : motion;
 }
 
-export function renderMotionFrames(pieces, bones, motion, width = currentCanvas()[0], height = currentCanvas()[1], presetLayers = []) {
+export function renderMotionFrames(pieces, bones, motion, width = currentCanvas()[0], height = currentCanvas()[1], presetLayers = [], restBones = null) {
   const times = frameTimes(motion);
   return {
     times,
-    frames: times.map(time => composeRig(pieces, poseAt(bones, motion, time), width, height, bones, presetLayers)),
+    frames: times.map(time => composeRig(pieces, poseAt(bones, motion, time), width, height, restBones || bones, presetLayers)),
     delays: times.map(() => Math.max(10, Math.round(motion.step * 1000 / 10) * 10)),
   };
 }

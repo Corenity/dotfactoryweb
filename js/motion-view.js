@@ -1,5 +1,5 @@
 // 뼈 애니메이션 3단계 화면 — 시간 줄, 끊어지는 키, 양파 껍질, 재생과 GIF를 다룹니다.
-import { defaultAnimations, boneLabel, boneAngleToDisplay, displayAngleToBone } from './core/rig.js';
+import { defaultAnimations, boneLabel, boneAngleToDisplay, displayAngleToBone, applyRestPose } from './core/rig.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
 import { addMotion, changeMotionLength, changeMotionStep, copyPreviousKey, deleteKey, frameTimes, hasKey, poseAt, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
 import { encodeGif } from './core/gif.js';
@@ -150,13 +150,14 @@ export function mountMotion(app, model) {
     const layers = model.getPresetLayers?.() || [];
     const mode = model.getVisibilityMode?.() || 'individual';
     const visiblePieces = sortRigPiecesByLayers(pieces(), layers, { screen: true, visibilityMode: mode });
-    drawPixels(canvas, composeRig(visiblePieces, posed, width, height, bones(), layers), cell, model.getBackdrop());
+    const restBones = applyRestPose(bones(), model.getRestPose?.()).bones;
+    drawPixels(canvas, composeRig(visiblePieces, posed, width, height, restBones, layers), cell, model.getBackdrop());
     const transform = `translate(${panX}px, ${panY}px)`;
     canvas.style.transform = transform;
 
     const previous = Math.max(0, slotTime(currentTime) - active.step);
     onionCanvas.hidden = !hasMotion || !onion || currentTime < active.step - 1e-7;
-    if (!onionCanvas.hidden) drawPixels(onionCanvas, composeRig(visiblePieces, poseAt(bones(), active, previous), width, height, bones(), layers), cell, null);
+    if (!onionCanvas.hidden) drawPixels(onionCanvas, composeRig(visiblePieces, poseAt(bones(), active, previous), width, height, restBones, layers), cell, null);
     onionCanvas.style.transform = transform;
     drawBones(posed); bonesCanvas.style.transform = transform;
     zoomText.textContent = `${cell}배`;
@@ -518,7 +519,8 @@ export function mountMotion(app, model) {
       const active = motion();
       if (!active) return;
       const [width, height] = model.getSize();
-      const made = renderMotionFrames(pieces(), bones(), active, width, height, model.getPresetLayers?.() || []);
+      const restBones = applyRestPose(bones(), model.getRestPose?.()).bones;
+      const made = renderMotionFrames(pieces(), bones(), active, width, height, model.getPresetLayers?.() || [], restBones);
       const frames = made.frames;
       const bytes = encodeGif(frames, made.delays, { loop: active.loop });
       const safeName = currentName.replace(/[\\/:*?"<>|]/g, '_');

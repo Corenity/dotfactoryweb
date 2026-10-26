@@ -1,6 +1,6 @@
 // site/js/character-view.js — 캐릭터 단일 화면
 // 기준 뼈대 표시, 맨몸 프리셋 캐시 및 오버레이 순서 관리, 애니메이션 검증, 재생 및 두 ZIP 내보내기를 담당합니다.
-import { DEFAULT_BONES } from './core/rig.js';
+import { DEFAULT_BONES, applyRestPose } from './core/rig.js';
 import { poseAt } from './core/motion.js';
 import { toPreset, parsePreset } from './core/preset.js';
 import { parseAnimation } from './core/animation.js';
@@ -172,7 +172,8 @@ export function mountCharacter(app, model = {}) {
     const motion = chosen?.motion || null;
     const duration = motion?.length || 0.8;
 
-    const pose = motion ? poseAt(bones, motion, currentTime) : (basis.restPose || bones);
+    const pose = motion ? poseAt(bones, motion, currentTime) : bones;
+    const restBones = applyRestPose(bones, basis.restPose).bones;
     const flattened = flattenedCharacterLayers(state);
     ensureImages(flattened);
 
@@ -180,7 +181,7 @@ export function mountCharacter(app, model = {}) {
       width,
       height,
       bones: pose,
-      restBones: bones,
+      restBones,
     });
 
     // 초록 배경 (3, 192, 55, 255)
@@ -542,6 +543,7 @@ export function mountCharacter(app, model = {}) {
         skeleton: input.skeleton,
         animation: input.animation,
         presets: input.presets,
+        restPose: input.restPose,
         selected: {
           skeleton: isSkel,
           animation: isAnim,

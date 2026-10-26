@@ -1,6 +1,6 @@
 // rig-1과 project-c용 장면·프리셋·PNG를 한 무압축 ZIP으로 묶고 다시 읽습니다.
 import { SLOTS, isValidPieceName } from './slice.js';
-import { toProject, parseProject, DEFAULT_BONES } from './rig.js';
+import { toProject, parseProject, DEFAULT_BONES, applyRestPose } from './rig.js';
 import { makeGodotTscn, readGodotTscn, makeGodotSkeletonTscn, makeGodotAnimationLibrary } from './godot-tscn.js';
 import { createStoredZip, readStoredZip, textFromBytes } from './zip.js';
 import { normalizeSkeletonBones } from './skeleton.js';
@@ -166,6 +166,7 @@ export function makeBundle({
   skeleton = null,
   animation = null,
   presets = [],
+  restPose = null,
   selected = { skeleton: true, animation: true, presets: true },
   createdAt = null,
   generator = 'DotFactoryWeb',
@@ -220,7 +221,8 @@ export function makeBundle({
     targets.images_dir = 'res://character/images';
 
     const bones = normalizeSkeletonBones(skeleton?.bones || DEFAULT_BONES);
-    const restWorld = boneWorldTransforms(bones.map(b => ({ ...b, angle: 90 })));
+    const restBones = applyRestPose(bones, restPose).bones;
+    const restWorld = boneWorldTransforms(restBones.map(b => ({ ...b, angle: 90 })));
     const addedImages = new Set();
 
     for (const rawPreset of presets) {
