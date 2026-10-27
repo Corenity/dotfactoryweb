@@ -1,7 +1,7 @@
 // 뼈 애니메이션 3단계 화면 — 뼈별 키 줄, 끊어지는 키, 양파 껍질, 재생과 GIF를 다룹니다.
 import { defaultAnimations, boneAngleToDisplay, displayAngleToBone, applyRestPose } from './core/rig.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
-import { addMotion, changeMotionLength, changeMotionStep, deleteKey, frameTimes, poseAt, previousKeyTime, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
+import { addMotion, changeMotionLength, changeMotionStep, deleteKey, frameTimes, poseAt, previousKeyTime, reconcileMotionBar, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
 import { mountMotionTimeline } from './motion-timeline.js';
 import { encodeGif } from './core/gif.js';
 import { sortRigPiecesByLayers, toggleGroupLayerVisibility } from './core/preset-layers.js';
@@ -246,7 +246,7 @@ export function mountMotion(app, model) {
     scroller: $('#motion-keys'), grid: $('#motion-keys-grid'), corner: $('#motion-keys-corner'), boneAdd: $('#motion-bone-add'),
     pop: $('#motion-key-pop'), addKey: $('#motion-key-add'), posKey: $('#motion-key-pos'), rotKey: $('#motion-key-rot'), dropKey: $('#motion-key-drop'),
   }, {
-    read: () => ({ ready: Boolean(model.hasRig?.()), bones: bones(), motion: motion(), selected, time: slotTime(currentTime), bar }),
+    read: () => ({ ready: Boolean(model.hasRig?.()), bones: bones(), motion: motion(), selected, time: slotTime(currentTime), bar: bar?.tool || null }),
     seek: (name, time) => { stop(); if (name) selected = name; currentTime = time; refresh(); },
     selectBone: name => { selected = name; refresh(); },
     addKey: () => updateKey({}),
@@ -336,10 +336,22 @@ export function mountMotion(app, model) {
     update(viewModeButton);
   }
 
-  function openBar(tool) {
-    bar = tool;
+  function syncBar() {
+    const at = slotTime(currentTime);
+    bar = reconcileMotionBar(bar, { motionName: currentName, boneName: selected, time: at, motion: motion() });
+    const tool = bar?.tool || null;
     barPos.hidden = tool !== 'P';
     barRot.hidden = tool !== 'R';
+    if (tool === 'R') {
+      const displayAngle = boneAngleToDisplay(bar.angle);
+      angleInput.value = String(displayAngle);
+      if (rotSlider) rotSlider.value = String(displayAngle);
+    }
+  }
+
+  function openBar(tool) {
+    bar = tool ? { tool, motionName: currentName, boneName: selected, time: slotTime(currentTime) } : null;
+    syncBar();
   }
 
   function refresh() {
@@ -363,6 +375,7 @@ export function mountMotion(app, model) {
     }
     refreshMotionPick();
     syncTreeSelection();
+    syncBar();
     keys.render();
     refreshKeyControls();
     updateViewModeBadge();
@@ -584,6 +597,7 @@ export function mountMotion(app, model) {
     playButton.addEventListener('click', () => {
       if (playing) { stop(); return; }
       if (!motion()) return;
+      openBar(null);
       playing = true; currentTime = 0; startedAt = performance.now(); playButton.textContent = '■';
       animationFrame = requestAnimationFrame(playFrame);
     });
@@ -681,6 +695,7 @@ export function mountMotion(app, model) {
           const before = model.snapshot?.();
           const merge = mergeAnimations(model.getAnimations(), adaptedMotions);
           model.setAnimations(merge.motions);
+          openBar(null);
           const firstIncomingName = Object.keys(adaptedMotions)[0];
           if (firstIncomingName) currentName = firstIncomingName;
           currentTime = 0;

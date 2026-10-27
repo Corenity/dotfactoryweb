@@ -117,6 +117,20 @@ export function hasKey(motion, boneName, time) {
   return Boolean(track && track.times.some(value => Math.abs(value - time) <= EPSILON));
 }
 
+/** 열린 P/R 줄이 아직 현재 키를 다루는지 확인하고 그 키 값을 돌려줍니다. */
+export function reconcileMotionBar(bar, { motionName, boneName, time, motion } = {}) {
+  if (!bar || bar.motionName !== motionName || bar.boneName !== boneName
+    || Math.abs(Number(bar.time) - Number(time)) > EPSILON) return null;
+  const track = motion?.tracks?.[boneName];
+  const index = track?.times?.findIndex(value => Math.abs(value - time) <= EPSILON) ?? -1;
+  if (index < 0) return null;
+  return {
+    ...bar,
+    pos: [...track.positions[index]],
+    angle: track.rotations[index],
+  };
+}
+
 export function setKey(motion, boneName, time, pose) {
   const next = cloneMotion(motion);
   const track = next.tracks[boneName] || { times: [], positions: [], rotations: [] };
