@@ -137,7 +137,7 @@ export function mountCharacter(app, model = {}) {
     if (!basisEl) return;
     const basis = getBasis();
     if (!basis) {
-      basisEl.textContent = '기준 뼈대: 키잡기에서 뼈대 파일을 열어 주세요';
+      basisEl.textContent = '기준 뼈대: 키잡기 타임라인 왼쪽 위 「뼈 +」로 뼈 파일을 불러와 주세요';
       return;
     }
     const name = basis?.skeletonName || CURRENT_PROFILE.skeletonName;
@@ -297,7 +297,7 @@ export function mountCharacter(app, model = {}) {
       if (errorEl) {
         errorEl.hidden = false;
         const reasons = [];
-        if (!basis) reasons.push('키잡기에서 뼈대 파일을 열어 주세요');
+        if (!basis) reasons.push('키잡기 타임라인 왼쪽 위 「뼈 +」로 뼈 파일을 불러와 주세요');
         else if (inspect.missingBones.length) reasons.push(`현재 뼈대에 없는 뼈: ${inspect.missingBones.join(', ')}`);
         if (inspect.duplicateMotionNames.length) reasons.push(`겹친 움직임 이름: ${inspect.duplicateMotionNames.join(', ')}`);
         errorEl.textContent = reasons.join(' · ');

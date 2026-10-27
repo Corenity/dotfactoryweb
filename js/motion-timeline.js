@@ -110,7 +110,7 @@ export function mountMotionTimeline(els, hooks) {
       guide.className = 'motion-keys-empty';
       guide.textContent = !ready || !rows.length
         ? '「뼈 +」로 뼈 파일을 열면 여기에 뼈마다 키 줄이 생깁니다.'
-        : '움직임이 없습니다. 「새 움직임」으로 다시 시작할 수 있습니다.';
+        : '애니메이션이 없습니다. 「idle ▾」 목록의 「추가」로 다시 시작할 수 있습니다.';
       grid.append(document.createElement('span'), guide);
       close();
       return;

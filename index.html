@@ -304,8 +304,6 @@
         <button class="btn rig-bones-only" id="rig-bones-reset-rest" title="초기값으로">초기값으로</button>
         <button class="btn rig-bones-only" id="rig-open-project">전체 열기</button>
         <button class="btn rig-bones-only" id="rig-save-project">전체 저장</button>
-        <button class="btn rig-motion-action" id="motion-open">애니메이션 열기</button>
-        <button class="btn rig-motion-action" id="motion-save">애니메이션 저장</button>
       </div>
       <p class="hint rig-import-report" id="rig-import-report" role="status" hidden>TSCN이나 ZIP을 열면 가져온 결과를 여기에 적습니다.</p>
       <div class="rig-bones-only" id="rig-bones-panel" hidden>
@@ -486,12 +484,6 @@
 
       <div class="rig-motion-only" id="rig-motion-panel" hidden>
         <div class="motion-loaded-content motion-rig-empty" id="motion-loaded-content">
-        <div class="motion-management-row">
-          <button class="btn" id="motion-add">새 움직임</button>
-          <button class="btn" id="motion-drop">지우기</button>
-          <label>이름<input id="motion-name" type="text"></label>
-          <button class="btn primary" id="motion-save-gif">GIF 내려받기</button>
-        </div>
         <div class="rig-main-layout motion-main-layout" id="motion-main-layout">
           <div class="rig-col-bones motion-col-groups" id="motion-rig-sidebar">
             <div class="motion-group-title">그룹</div>
@@ -541,11 +533,32 @@
         </div>
         <div class="motion-transport-row">
           <button class="btn primary" id="motion-play" aria-label="재생">▶</button>
-          <label class="motion-select-field"><select id="motion-select" aria-label="움직임 고르기"></select></label>
+          <button class="btn motion-select-button" id="motion-select" type="button" aria-haspopup="dialog" aria-expanded="false"><span id="motion-select-label">애니메이션 없음</span><span id="motion-select-arrow" aria-hidden="true">▾</span></button>
           <label class="motion-compact-field"><span>길이</span><input id="motion-length" type="number" min="0.01" max="3600" step="0.01" aria-label="길이(초)"></label>
           <label class="motion-compact-field"><span>간격</span><input id="motion-step" type="number" min="0.01" max="3600" step="0.01" aria-label="키 간격(초)"></label>
           <label class="motion-loop" for="motion-loop"><input id="motion-loop" type="checkbox">반복</label>
           <button class="btn" id="motion-onion" aria-pressed="false">앞자세</button>
+        </div>
+        <div class="motion-list-pop" id="motion-list-pop" role="dialog" aria-label="애니메이션 목록" hidden>
+          <strong class="motion-list-title" id="motion-list-title">애니메이션 (0개)</strong>
+          <div class="motion-list-body">
+            <div class="motion-list" id="motion-list" role="listbox" aria-label="애니메이션 고르기"></div>
+            <div class="motion-list-actions">
+              <button type="button" class="btn danger" id="motion-drop">지우기</button>
+              <button type="button" class="btn" id="motion-rename-open">이름 바꾸기</button>
+              <button type="button" class="btn" id="motion-save">저장</button>
+              <button type="button" class="btn" id="motion-save-gif">GIF</button>
+            </div>
+          </div>
+          <div class="motion-rename-row" id="motion-rename-row" hidden>
+            <input id="motion-name" type="text" aria-label="새 애니메이션 이름" autocomplete="off">
+            <button type="button" class="btn primary" id="motion-rename-confirm">바꾸기</button>
+            <button type="button" class="btn" id="motion-rename-cancel">취소</button>
+          </div>
+          <div class="motion-list-bottom">
+            <button type="button" class="btn primary" id="motion-add">추가</button>
+            <button type="button" class="btn" id="motion-open">불러오기</button>
+          </div>
         </div>
         <div class="motion-keys" id="motion-keys" aria-label="뼈별 키 줄">
           <div class="motion-keys-grid" id="motion-keys-grid">

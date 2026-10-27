@@ -11,6 +11,15 @@ import { toAnimation, parseAnimation, checkSkeletonCompatibility, adaptAnimation
 const $ = selector => document.querySelector(selector);
 const rounded = value => Number(Number(value).toFixed(9));
 
+export function motionSelectionForBones(boneList, active, time, selected) {
+  if (!boneList.length) return { posed: [], selected: '' };
+  const posed = poseAt(boneList, active, time);
+  return {
+    posed,
+    selected: posed.some(bone => bone.name === selected) ? selected : (posed[0]?.name || ''),
+  };
+}
+
 export function mountMotion(app, model) {
   const panel = $('#rig-motion-panel');
   const stage = $('#motion-stage');
@@ -25,7 +34,13 @@ export function mountMotion(app, model) {
   const groupName = $('#motion-group-name');
   const coordinate = $('#motion-coordinate');
   const select = $('#motion-select');
+  const selectLabel = $('#motion-select-label');
+  const selectArrow = $('#motion-select-arrow');
+  const listPop = $('#motion-list-pop');
+  const listTitle = $('#motion-list-title');
+  const list = $('#motion-list');
   const nameInput = $('#motion-name');
+  const renameRow = $('#motion-rename-row');
   const lengthInput = $('#motion-length');
   const stepInput = $('#motion-step');
   const loopInput = $('#motion-loop');
@@ -38,9 +53,9 @@ export function mountMotion(app, model) {
   const barRot = $('#motion-bar-rot');
   const viewModeButton = $('#motion-view-mode-btn');
   const motionEditControls = [
-    select, nameInput, lengthInput, stepInput, loopInput, playButton, onionButton, angleInput, rotSlider,
+    lengthInput, stepInput, loopInput, playButton, onionButton, angleInput, rotSlider,
     $('#motion-bone-left'), $('#motion-bone-right'), $('#motion-bone-up'), $('#motion-bone-down'),
-    $('#motion-angle-minus'), $('#motion-angle-plus'), $('#motion-save-gif'), $('#motion-save'),
+    $('#motion-angle-minus'), $('#motion-angle-plus'),
   ].filter(Boolean);
 
   let currentName = 'walk';
@@ -169,17 +184,62 @@ export function mountMotion(app, model) {
     const resolved = motionState();
     const { names, motion: active } = resolved;
     currentName = resolved.name;
-    select.textContent = '';
-    for (const name of names) {
-      const option = document.createElement('option'); option.value = name; option.textContent = name; select.append(option);
+    selectLabel.textContent = currentName || '애니메이션 없음';
+    listTitle.textContent = `애니메이션 (${names.length}개)`;
+    list.textContent = '';
+    if (!names.length) {
+      list.innerHTML = '<p class="motion-list-empty">애니메이션이 없습니다.<br>아래 「추가」나 「불러오기」를 눌러 주세요.</p>';
+    } else {
+      for (const name of names) {
+        const item = document.createElement('button');
+        const value = animations()[name];
+        item.type = 'button';
+        item.className = 'motion-list-item';
+        item.setAttribute('role', 'option');
+        item.setAttribute('aria-selected', String(name === currentName));
+        item.innerHTML = `<span></span><small></small>`;
+        item.firstElementChild.textContent = name;
+        item.lastElementChild.textContent = `${Number(value.length).toFixed(2)}초${value.loop ? ' · 반복' : ''}`;
+        item.addEventListener('click', () => {
+          stop(); currentName = name; currentTime = 0; refresh(); closeMotionList();
+        });
+        list.append(item);
+      }
     }
-    select.value = currentName;
     nameInput.value = currentName;
     lengthInput.value = active ? String(active.length) : '';
     stepInput.value = active ? String(active.step) : '';
     loopInput.checked = active?.loop === true;
     for (const control of motionEditControls) control.disabled = !active;
-    $('#motion-drop').disabled = names.length <= 1;
+    for (const id of ['#motion-drop', '#motion-rename-open', '#motion-save', '#motion-save-gif']) $(id).disabled = !active;
+    if (!active) renameRow.hidden = true;
+  }
+
+  function placeMotionList() {
+    if (listPop.hidden) return;
+    const gap = 6;
+    const edge = 8;
+    const anchor = select.getBoundingClientRect();
+    const pop = listPop.getBoundingClientRect();
+    const left = Math.max(edge, Math.min(anchor.left, window.innerWidth - pop.width - edge));
+    const above = anchor.top - pop.height - gap;
+    const top = above >= edge ? above : Math.min(anchor.bottom + gap, window.innerHeight - pop.height - edge);
+    listPop.style.left = `${Math.round(left)}px`;
+    listPop.style.top = `${Math.round(Math.max(edge, top))}px`;
+  }
+
+  function closeMotionList() {
+    listPop.hidden = true;
+    renameRow.hidden = true;
+    select.setAttribute('aria-expanded', 'false');
+    selectArrow.textContent = '▾';
+  }
+
+  function openMotionList() {
+    listPop.hidden = false;
+    select.setAttribute('aria-expanded', 'true');
+    selectArrow.textContent = '▴';
+    placeMotionList();
   }
 
   const keys = mountMotionTimeline({
@@ -246,10 +306,7 @@ export function mountMotion(app, model) {
   }
 
   function syncTreeSelection() {
-    const posed = poseAt(bones(), previewMotion(), currentTime);
-    if (!posed.some(bone => bone.name === selected)) {
-      selected = posed[0]?.name || '';
-    }
+    selected = motionSelectionForBones(bones(), previewMotion(), currentTime, selected).selected;
   }
 
   function refreshKeyControls() {
@@ -292,7 +349,7 @@ export function mountMotion(app, model) {
     if (groupAddButton) groupAddButton.disabled = !ready;
     if ($('#motion-add')) $('#motion-add').disabled = !ready;
     if ($('#motion-open')) $('#motion-open').disabled = !ready;
-    if ($('#motion-save')) $('#motion-save').disabled = !ready;
+    select.disabled = !ready;
     if (!ready) {
       stop();
       refreshMotionPick();
@@ -300,7 +357,7 @@ export function mountMotion(app, model) {
       syncTreeSelection();
       refreshKeyControls();
       for (const control of motionEditControls) control.disabled = true;
-      $('#motion-drop').disabled = true;
+      for (const id of ['#motion-drop', '#motion-rename-open', '#motion-save', '#motion-save-gif']) $(id).disabled = true;
       renderGroupList();
       return;
     }
@@ -444,7 +501,13 @@ export function mountMotion(app, model) {
       app.toast('그룹 「' + layer.name + '」과 그림을 뺐습니다');
       refresh();
     });
-    select.addEventListener('change', () => { stop(); currentName = select.value; currentTime = 0; refresh(); });
+    select.addEventListener('click', () => {
+      if (listPop.hidden) openMotionList();
+      else closeMotionList();
+    });
+    document.addEventListener('pointerdown', event => {
+      if (!listPop.hidden && !listPop.contains(event.target) && !select.contains(event.target)) closeMotionList();
+    });
     $('#motion-add').addEventListener('click', () => {
       stop();
       const before = model.snapshot?.();
@@ -452,24 +515,42 @@ export function mountMotion(app, model) {
       model.setAnimations(added.animations);
       currentName = added.name; currentTime = 0; app.changed(); refresh();
       model.commit?.(before);
+      placeMotionList();
     });
     $('#motion-drop').addEventListener('click', () => {
-      if (Object.keys(animations()).length <= 1) return;
+      if (!motion()) return;
       stop();
       const before = model.snapshot?.();
       const next = { ...animations() }; delete next[currentName]; model.setAnimations(next);
-      currentName = Object.keys(next)[0]; currentTime = 0; app.changed(); refresh();
+      currentName = Object.keys(next)[0] || ''; currentTime = 0; app.changed(); refresh();
       model.commit?.(before);
+      placeMotionList();
     });
-    nameInput.addEventListener('change', () => {
+    $('#motion-rename-open').addEventListener('click', () => {
+      if (!motion()) return;
+      nameInput.value = currentName;
+      renameRow.hidden = false;
+      placeMotionList();
+      nameInput.focus();
+      nameInput.select();
+    });
+    const renameCurrent = () => {
       const nextName = nameInput.value.trim();
       if (!nextName || (nextName !== currentName && nextName in animations())) { app.toast('움직임 이름이 비었거나 겹칩니다'); refreshMotionPick(); return; }
-      if (nextName === currentName) return;
+      if (nextName === currentName) { renameRow.hidden = true; return; }
       const before = model.snapshot?.();
       const next = {};
       for (const [name, value] of Object.entries(animations())) next[name === currentName ? nextName : name] = value;
       model.setAnimations(next); currentName = nextName; app.changed(); refresh();
       model.commit?.(before);
+      renameRow.hidden = true;
+      placeMotionList();
+    };
+    $('#motion-rename-confirm').addEventListener('click', renameCurrent);
+    $('#motion-rename-cancel').addEventListener('click', () => { renameRow.hidden = true; placeMotionList(); });
+    nameInput.addEventListener('keydown', event => {
+      if (event.key === 'Enter') renameCurrent();
+      if (event.key === 'Escape') { renameRow.hidden = true; placeMotionList(); }
     });
     lengthInput.addEventListener('change', () => {
       stop();
@@ -571,16 +652,16 @@ export function mountMotion(app, model) {
     const saveAnimBtn = $('#motion-save');
     if (saveAnimBtn) {
       saveAnimBtn.addEventListener('click', async () => {
-        const activeMotions = model.getAnimations();
-        if (!Object.keys(activeMotions).length) return;
+        const active = motion();
+        if (!active) return;
         const boneNames = bones().map(b => b.name);
         const animObj = toAnimation({
           skeleton: 'character_skeleton',
           bones: boneNames,
-          motions: activeMotions,
+          motions: { [currentName]: active },
         });
-        const item = model.getItem?.() || currentName || '캐릭터';
-        const fileName = `${item}_애니.json`;
+        const safeName = currentName.replace(/[\\/:*?"<>|]/g, '_');
+        const fileName = `${safeName}_애니.json`;
         const result = await saveJson(fileName, animObj);
         if (result !== 'cancelled') {
           app.toast(`「${fileName}」으로 저장했습니다`);
@@ -605,6 +686,7 @@ export function mountMotion(app, model) {
           currentTime = 0;
           refresh();
           model.commit?.(before);
+          placeMotionList();
 
           let msg = `애니메이션 ${merge.totalIncomingCount}개를 불러왔습니다`;
           if (merge.overwrittenCount > 0) msg += ` (덮어씀 ${merge.overwrittenCount}개)`;
@@ -617,13 +699,14 @@ export function mountMotion(app, model) {
     }
 
     bindPointers();
+    window.addEventListener('resize', placeMotionList);
   }
 
   bindEvents();
 
   return {
     show() { panel.hidden = false; refresh(); if (model.hasRig?.()) fit(); },
-    hide() { stop(); keys.close(); panel.hidden = true; },
+    hide() { stop(); keys.close(); closeMotionList(); panel.hidden = true; },
     refresh() { refresh(); },
     selectBone(name) {
       selected = bones().some(bone => bone.name === name) ? name : (bones()[0]?.name || '');

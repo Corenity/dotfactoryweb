@@ -324,9 +324,9 @@ function normalizeTrack(value, motionName, boneName, length, step) {
   return safe;
 }
 
-/** 움직임 이름·설정·트랙을 검사합니다. 1·2단계 파일은 기본 walk 하나로 엽니다. */
+/** 움직임 이름·설정·트랙을 검사합니다. 움직임 값이 없는 1·2단계 파일만 기본 walk 하나로 엽니다. */
 export function normalizeAnimations(value, bones) {
-  if (value == null || (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0)) return defaultAnimations();
+  if (value == null) return defaultAnimations();
   if (typeof value !== 'object' || Array.isArray(value)) throw new Error('움직임 자료가 깨졌습니다');
   const boneNames = new Set(normalizeBones(bones).map(bone => bone.name));
   const result = {};
@@ -345,7 +345,6 @@ export function normalizeAnimations(value, bones) {
     }
     result[name] = { length, loop: motion.loop !== false, step, tracks };
   }
-  if (!Object.keys(result).length) return defaultAnimations();
   return result;
 }
 
