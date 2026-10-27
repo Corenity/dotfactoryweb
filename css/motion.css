@@ -6,35 +6,24 @@
 .rig-motion-only { display: grid; gap: 8px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 .rig-motion-only[hidden] { display: none; }
 .motion-loaded-content { display: grid; gap: 8px; min-width: 0; }
-.motion-rig-empty > :not(.motion-main-layout),
-.motion-rig-empty .motion-main-layout > :not(.motion-col-bones) { display: none; }
-.motion-rig-empty .motion-col-bones { height: auto; min-height: 240px; }
-.motion-side-actions { flex-shrink: 0; position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(44px, 1fr)); gap: 6px; padding-top: 4px; border-top: 1px solid var(--line); }
-.motion-side-actions > .btn { width: 100%; min-height: 44px; height: 44px; padding: 0 2px; font-size: 12px; }
+.motion-rig-empty .rig-col-tools,
+.motion-rig-empty .rig-control-slot,
+.motion-rig-empty > .motion-key-row { display: none; }
+.motion-side-actions { flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
+.motion-side-actions > .btn { width: 100%; min-width: 0; min-height: 36px; height: 36px; padding: 0; font-size: 12px; }
 .motion-no-rig { margin: 32px 0; text-align: center; font-size: 16px; }
 #rig.rig-mode-motion .rig-group-panel-actions,
 #rig.rig-mode-motion .rig-piece-tree-row { display: none; }
 
-.motion-pick-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; }
-.motion-pick-row label { min-width: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
-.motion-pick-row select { width: 100%; min-width: 0; min-height: 44px; }
-.motion-pick-row .btn { flex: 0 0 auto; min-height: 44px; padding: 0 8px; font-size: 13px; }
-
-.motion-settings {
+.motion-management-row {
   display: grid;
-  grid-template-columns: minmax(100px, 1.4fr) repeat(2, minmax(90px, 1fr)) minmax(80px, auto);
+  grid-template-columns: auto auto minmax(90px, 1fr) auto;
   gap: 6px;
   align-items: end;
 }
-
-.motion-settings label { display: grid; gap: 4px; min-width: 0; color: var(--muted); font-size: 12px; }
-.motion-settings input, .motion-settings select { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; font-size: 16px; }
-.motion-settings input[type="text"] { padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
-.motion-settings .motion-loop { display: flex; align-items: center; min-width: 44px; min-height: 44px; padding: 0 8px; gap: 8px; font-size: 16px; color: var(--text); cursor: pointer; }
-.motion-loop input { width: 24px; min-height: 24px; }
-
-.motion-play-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-.motion-play-row .btn { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 6px; font-size: 13px; }
+.motion-management-row > .btn { min-height: 44px; padding: 0 8px; font-size: 13px; }
+.motion-management-row label { display: grid; gap: 4px; min-width: 0; color: var(--muted); font-size: 12px; }
+.motion-management-row input { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font-size: 16px; }
 
 .motion-timeline {
   display: flex;
@@ -69,10 +58,36 @@
 .motion-overlay { pointer-events: none; }
 #motion-onion-canvas { opacity: 0.3; }
 
-.motion-main-layout { grid-template-rows: auto auto; }
-.motion-main-layout .rig-bone-tree { min-height: 0; }
-.motion-main-layout .rig-side-panel { min-height: 0; }
-.motion-main-layout .rig-stage-zoom-controls { display: grid; grid-template-columns: 44px minmax(28px, 1fr) 44px 44px; }
+.motion-main-layout { grid-template-columns: 46px minmax(0, 1fr) 46px; grid-template-rows: auto auto; }
+.motion-col-groups { width: 46px; padding: 2px; }
+.motion-group-title { flex: 0 0 auto; color: var(--muted); font-size: 10px; text-align: center; }
+.motion-col-groups .rig-group-list { overflow-x: hidden; }
+.motion-col-groups .rig-group-card { display: grid; grid-template-columns: minmax(0, 1fr) 18px; min-height: 36px; height: 36px; padding: 0; border: 0; gap: 1px; }
+.motion-col-groups .rig-group-name { width: auto; font-size: 8px; letter-spacing: -1px; text-align: center; text-overflow: clip; }
+#rig .motion-col-groups .rig-group-vis-btn { min-width: 18px; max-width: 18px; width: 18px; min-height: 28px; max-height: 28px; height: 28px; font-size: 11px; }
+.motion-col-groups .rig-group-vis-btn::before { content: ''; width: 12px; height: 8px; border: 1px solid currentColor; border-radius: 50%; background: radial-gradient(circle, currentColor 0 2px, transparent 2.5px); box-sizing: border-box; }
+.motion-col-groups .rig-group-vis-btn[aria-pressed="false"] { opacity: 0.35; }
+.motion-group-empty { margin: 6px 0; font-size: 10px; text-align: center; }
+#rig.rig-mode-motion #motion-stage { background: rgb(3, 192, 55); }
+.motion-coordinate { color: var(--text); font-variant-numeric: tabular-nums; }
+.motion-group-name { position: absolute; z-index: 1; left: 4px; top: 24px; max-width: calc(100% - 8px); overflow: hidden; padding: 2px 5px; border-radius: 4px; background: rgba(10, 132, 255, 0.85); color: #fff; font-size: 10px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
+.motion-group-name:empty { display: none; }
+.motion-main-layout .motion-stage-zoom { position: absolute; z-index: 1; right: 4px; bottom: 4px; display: grid; grid-template-columns: 30px 24px 30px 40px; gap: 2px; width: auto; padding: 2px; border-radius: 8px; background: rgba(17, 17, 20, 0.72); }
+.motion-main-layout .motion-stage-zoom .btn.small { min-width: 30px; min-height: 30px; height: 30px; padding: 0; font-size: 12px; }
+.motion-main-layout .motion-stage-zoom .hint { min-width: 24px; font-size: 10px; }
+.motion-main-layout .rig-view-mode-badge { min-width: 0; min-height: 30px; height: 30px; padding: 0 6px; background: rgba(0, 0, 0, 0.72); font-size: 10px; }
+
+.motion-transport-row { display: grid; grid-template-columns: 44px minmax(72px, 1fr) 72px 72px 66px 76px; gap: 4px; align-items: center; min-width: 0; }
+.motion-transport-row .btn,
+.motion-transport-row select,
+.motion-transport-row label { min-width: 0; min-height: 44px; height: 44px; box-sizing: border-box; }
+.motion-select-field select { width: 100%; padding: 0 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font-size: 14px; }
+.motion-compact-field { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 3px; padding: 0 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--muted); font-size: 9px; white-space: nowrap; }
+.motion-compact-field input { width: 100%; min-width: 0; padding: 0; border: 0; appearance: textfield; background: transparent; color: var(--text); font-size: 12px; text-align: right; }
+.motion-compact-field input::-webkit-inner-spin-button,
+.motion-compact-field input::-webkit-outer-spin-button { margin: 0; appearance: none; }
+.motion-loop { display: flex; align-items: center; justify-content: center; gap: 3px; padding: 0 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font-size: 12px; white-space: nowrap; cursor: pointer; }
+.motion-loop input { width: 18px; min-height: 18px; }
 .motion-key-row { display: grid; gap: 4px; }
 .motion-key-row > .hint { min-height: 18px; margin: 0; }
 .motion-key-buttons {
@@ -84,5 +99,12 @@
 .motion-key-buttons .btn { min-height: 44px; }
 
 @media (max-width: 560px) {
-  .motion-settings { grid-template-columns: 1fr 1fr; }
+  .motion-management-row { grid-template-columns: auto auto minmax(80px, 1fr) auto; }
+  .motion-management-row > .btn { padding: 0 5px; font-size: 12px; }
+  .motion-transport-row { grid-template-columns: 36px minmax(48px, 1fr) 62px 62px 52px 64px; gap: 3px; }
+  .motion-transport-row .btn,
+  .motion-transport-row select,
+  .motion-transport-row label { min-height: 36px; height: 36px; padding-left: 3px; padding-right: 3px; font-size: 11px; }
+  .motion-compact-field { gap: 2px; }
+  .motion-compact-field input { font-size: 10px; }
 }

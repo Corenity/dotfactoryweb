@@ -1,12 +1,11 @@
 // 뼈 애니메이션 3단계 화면 — 시간 줄, 끊어지는 키, 양파 껍질, 재생과 GIF를 다룹니다.
-import { defaultAnimations, boneLabel, boneAngleToDisplay, displayAngleToBone, applyRestPose } from './core/rig.js';
+import { defaultAnimations, boneAngleToDisplay, displayAngleToBone, applyRestPose } from './core/rig.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
 import { addMotion, changeMotionLength, changeMotionStep, copyPreviousKey, deleteKey, frameTimes, hasKey, poseAt, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
 import { encodeGif } from './core/gif.js';
 import { sortRigPiecesByLayers, toggleGroupLayerVisibility } from './core/preset-layers.js';
 import { drawPixels, saveFile, saveJson, pickFiles, mountDesktopCanvasPan, zoomAtAnchor } from './io.js';
 import { toAnimation, parseAnimation, checkSkeletonCompatibility, adaptAnimationToBones, mergeAnimations } from './core/animation.js';
-import { scrollTreeItemIntoView } from './rig-bones-view.js';
 
 const $ = selector => document.querySelector(selector);
 const rounded = value => Number(Number(value).toFixed(9));
@@ -20,13 +19,11 @@ export function mountMotion(app, model) {
   const empty = $('#motion-empty');
   const noRig = $('#motion-no-rig');
   const loadedContent = $('#motion-loaded-content');
-  const boneTree = $('#motion-bone-tree');
   const groupList = $('#motion-group-list');
-  const tabBones = $('#motion-tab-bones');
-  const tabGroups = $('#motion-tab-groups');
-  const panelBones = $('#motion-panel-bones');
-  const panelGroups = $('#motion-panel-groups');
+  const groupAddButton = $('#motion-group-add');
   const groupDeleteButton = $('#motion-group-delete');
+  const groupName = $('#motion-group-name');
+  const coordinate = $('#motion-coordinate');
   const timeline = $('#motion-timeline');
   const select = $('#motion-select');
   const nameInput = $('#motion-name');
@@ -105,7 +102,7 @@ export function mountMotion(app, model) {
   function stop() {
     playing = false;
     cancelAnimationFrame(animationFrame);
-    playButton.textContent = '▶ 재생';
+    playButton.textContent = '▶';
   }
 
   function fit() {
@@ -213,49 +210,16 @@ export function mountMotion(app, model) {
 
 
 
-  function depthOf(bone, byName) {
-    let depth = 0, current = bone;
-    while (current?.parent && depth < bones().length) {
-      depth++;
-      current = byName.get(current.parent);
-    }
-    return depth;
-  }
-
-  function renderBoneTree() {
-    if (!boneTree) return;
-    const prevScrollTop = boneTree.scrollTop;
-    boneTree.textContent = '';
-    const byName = new Map(bones().map(bone => [bone.name, bone]));
-    let activeItem = null;
-    for (const bone of bones()) {
-      const button = document.createElement('button');
-      button.className = 'btn';
-      button.style.paddingLeft = `${6 + depthOf(bone, byName) * 10}px`;
-      button.textContent = `${bone.parent ? '↳ ' : ''}${bone.name}`;
-      button.title = boneLabel(bone.name);
-      const isSelected = bone.name === selected;
-      button.setAttribute('aria-pressed', String(isSelected));
-      if (isSelected) activeItem = button;
-      button.addEventListener('click', () => {
-        selected = bone.name;
-        renderBoneTree();
-        refreshKeyControls();
-        render();
-      });
-      boneTree.append(button);
-    }
-    scrollTreeItemIntoView(boneTree, activeItem, prevScrollTop);
-  }
-
   function renderGroupList() {
     if (!groupList) return;
     groupList.textContent = '';
     const layers = model.getPresetLayers?.() || [];
     if (selectedGroupKey && !layers.some(layer => layer.key === selectedGroupKey)) selectedGroupKey = null;
-    if (groupDeleteButton) groupDeleteButton.disabled = !selectedGroupKey;
+    if (groupDeleteButton) groupDeleteButton.disabled = !model.hasRig?.() || !selectedGroupKey;
+    const selectedGroup = layers.find(layer => layer.key === selectedGroupKey);
+    if (groupName) groupName.textContent = selectedGroup ? `그룹 ${selectedGroup.name}` : '';
     if (!layers.length) {
-      groupList.innerHTML = '<p class="hint">등록된 그룹이 없습니다.</p>';
+      groupList.innerHTML = '<p class="hint motion-group-empty">없음</p>';
       return;
     }
     for (const layer of layers) {
@@ -265,12 +229,13 @@ export function mountMotion(app, model) {
       card.setAttribute('tabindex', '0');
       const name = document.createElement('span');
       name.className = 'rig-group-name';
-      name.textContent = layer.name;
+      name.textContent = `${Array.from(layer.name || '?')[0]}…`;
+      name.title = layer.name;
       const visible = layer.visible !== false;
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'btn icon rig-group-vis-btn';
-      button.textContent = visible ? '👁' : '—';
+      button.textContent = '';
       button.setAttribute('aria-pressed', String(visible));
       button.setAttribute('aria-label', `${layer.name} ${visible ? '숨기기' : '보이기'}`);
       button.addEventListener('click', event => {
@@ -290,57 +255,11 @@ export function mountMotion(app, model) {
     }
   }
 
-  function switchSidebar(tab) {
-    const groups = tab === 'groups';
-    tabBones?.setAttribute('aria-pressed', String(!groups));
-    tabGroups?.setAttribute('aria-pressed', String(groups));
-    if (panelBones) panelBones.hidden = groups;
-    if (panelGroups) panelGroups.hidden = !groups;
-    model.setVisibilityMode?.(groups ? 'group' : 'individual');
-    app.changed();
-    renderGroupList();
-    updateViewModeBadge();
-    render();
-  }
-
-  // 왼쪽 뼈·그룹 칸의 + 메뉴 — 키잡기에는 「불러오기」 하나만 둡니다.
-  function bindPlusMenu(wrap, button, menu, item, run) {
-    if (!button || !menu) return;
-    const close = () => {
-      menu.hidden = true;
-      button.setAttribute('aria-expanded', 'false');
-    };
-    const place = () => {
-      if (menu.hidden) return;
-      const rect = button.getBoundingClientRect();
-      menu.style.left = `${Math.max(4, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 4))}px`;
-      menu.style.top = `${Math.max(4, rect.top - menu.offsetHeight - 4)}px`;
-    };
-    button.addEventListener('click', event => {
-      event.stopPropagation();
-      const willOpen = menu.hidden;
-      menu.hidden = !willOpen;
-      button.setAttribute('aria-expanded', String(willOpen));
-      place();
-    });
-    menu.addEventListener('click', event => event.stopPropagation());
-    document.addEventListener('click', event => {
-      if (!wrap?.contains(event.target)) close();
-    });
-    window.addEventListener('resize', place);
-    item?.addEventListener('click', () => {
-      close();
-      run();
-    });
-  }
-
   function syncTreeSelection() {
     const posed = poseAt(bones(), previewMotion(), currentTime);
     if (!posed.some(bone => bone.name === selected)) {
       selected = posed[0]?.name || '';
     }
-    if (panel.hidden) return;
-    renderBoneTree();
   }
 
   function refreshKeyControls() {
@@ -348,6 +267,7 @@ export function mountMotion(app, model) {
     if (!active) {
       xInput.value = ''; yInput.value = ''; angleInput.value = '';
       if (rotSlider) rotSlider.value = '0';
+      if (coordinate) coordinate.textContent = '';
       status.textContent = '움직임이 없습니다. 「새 움직임」으로 다시 시작할 수 있습니다.';
       $('#motion-drop-key').disabled = true;
       $('#motion-copy-key').disabled = true;
@@ -355,10 +275,18 @@ export function mountMotion(app, model) {
     }
     const at = slotTime(currentTime);
     const bone = selectedBone(poseAt(bones(), active, currentTime));
-    if (!bone) return;
+    if (!bone) {
+      xInput.value = ''; yInput.value = ''; angleInput.value = '';
+      if (coordinate) coordinate.textContent = '';
+      status.textContent = '위쪽 「뼈 +」에서 뼈 파일을 불러와 주세요.';
+      $('#motion-drop-key').disabled = true;
+      $('#motion-copy-key').disabled = true;
+      return;
+    }
     const displayAngle = boneAngleToDisplay(bone.angle);
     xInput.value = String(bone.pos[0]); yInput.value = String(bone.pos[1]); angleInput.value = String(displayAngle);
     if (rotSlider) rotSlider.value = String(displayAngle);
+    if (coordinate) coordinate.textContent = `${bone.name} · ${Number(at.toFixed(3))}초 · X ${bone.pos[0]} · Y ${bone.pos[1]} · ${displayAngle}°`;
     const keyed = hasKey(active, bone.name, at);
     status.textContent = `${Number(at.toFixed(3))}초 · ${keyed ? '이 뼈의 키가 있습니다' : '뼈대 자세 또는 앞 키를 보여 줍니다'}`;
     $('#motion-drop-key').disabled = !keyed;
@@ -388,11 +316,18 @@ export function mountMotion(app, model) {
     const ready = Boolean(model.hasRig?.());
     if (noRig) noRig.hidden = ready;
     loadedContent?.classList.toggle('motion-rig-empty', !ready);
+    if (groupAddButton) groupAddButton.disabled = !ready;
+    if ($('#motion-add')) $('#motion-add').disabled = !ready;
     if ($('#motion-open')) $('#motion-open').disabled = !ready;
     if ($('#motion-save')) $('#motion-save').disabled = !ready;
     if (!ready) {
       stop();
-      renderBoneTree();
+      refreshMotionPick();
+      refreshTimeline();
+      syncTreeSelection();
+      refreshKeyControls();
+      for (const control of motionEditControls) control.disabled = true;
+      $('#motion-drop').disabled = true;
       renderGroupList();
       return;
     }
@@ -523,10 +458,8 @@ export function mountMotion(app, model) {
   }
 
   function bindEvents() {
-    tabBones?.addEventListener('click', () => switchSidebar('bones'));
-    tabGroups?.addEventListener('click', () => switchSidebar('groups'));
-    bindPlusMenu($('#motion-bone-plus-wrap'), $('#motion-bone-add'), $('#motion-bone-plus-menu'), $('#motion-bone-import'), () => model.importSkeleton?.());
-    bindPlusMenu($('#motion-group-plus-wrap'), $('#motion-group-add'), $('#motion-group-plus-menu'), $('#motion-group-import'), () => model.importPreset?.());
+    $('#motion-bone-add')?.addEventListener('click', () => model.importSkeleton?.());
+    groupAddButton?.addEventListener('click', () => model.importPreset?.());
     groupDeleteButton?.addEventListener('click', () => {
       const layer = (model.getPresetLayers?.() || []).find(item => item.key === selectedGroupKey);
       if (!layer) return;
@@ -596,7 +529,7 @@ export function mountMotion(app, model) {
     playButton.addEventListener('click', () => {
       if (playing) { stop(); return; }
       if (!motion()) return;
-      playing = true; currentTime = 0; startedAt = performance.now(); playButton.textContent = '■ 정지';
+      playing = true; currentTime = 0; startedAt = performance.now(); playButton.textContent = '■';
       animationFrame = requestAnimationFrame(playFrame);
     });
     onionButton.addEventListener('click', () => { onion = !onion; onionButton.setAttribute('aria-pressed', String(onion)); render(); });
