@@ -1,4 +1,4 @@
-/* 뼈 애니메이션 — 뼈대 화면과 같은 3열 작업판에 움직임 도구를 얹습니다. */
+/* 뼈 애니메이션 — 그룹 칸 · 그림판 아래에 P/R 줄 · 조작 줄 · 뼈별 키 줄을 둡니다. */
 
 #rig.rig-mode-motion .rig-slice-only,
 #rig.rig-mode-motion .rig-tools > .rig-bones-only { display: none; }
@@ -6,12 +6,9 @@
 .rig-motion-only { display: grid; gap: 8px; width: 100%; max-width: 100%; min-width: 0; box-sizing: border-box; }
 .rig-motion-only[hidden] { display: none; }
 .motion-loaded-content { display: grid; gap: 8px; min-width: 0; }
-.motion-rig-empty .rig-col-tools,
-.motion-rig-empty .rig-control-slot,
-.motion-rig-empty > .motion-key-row { display: none; }
+.motion-rig-empty .motion-edit-bars { display: none; }
 .motion-side-actions { flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
 .motion-side-actions > .btn { width: 100%; min-width: 0; min-height: 36px; height: 36px; padding: 0; font-size: 12px; }
-.motion-no-rig { margin: 32px 0; text-align: center; font-size: 16px; }
 #rig.rig-mode-motion .rig-group-panel-actions,
 #rig.rig-mode-motion .rig-piece-tree-row { display: none; }
 
@@ -25,41 +22,46 @@
 .motion-management-row label { display: grid; gap: 4px; min-width: 0; color: var(--muted); font-size: 12px; }
 .motion-management-row input { width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font-size: 16px; }
 
-.motion-timeline {
-  display: flex;
-  gap: 5px;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  overflow-x: auto;
-  padding: 4px 0 8px;
-  box-sizing: border-box;
-}
+/* 뼈별 키 줄: 뼈 이름 칸과 눈금은 붙박이이고 키 줄만 옆 · 위아래로 밉니다. */
+.motion-keys { max-height: 268px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: #1b1b20; overscroll-behavior: contain; }
+.motion-keys-grid { position: relative; display: grid; grid-template-columns: 56px var(--lanes, 1fr); grid-template-rows: 44px; grid-auto-rows: 30px; row-gap: 2px; width: max-content; min-width: 100%; }
+.motion-keys-corner { position: sticky; left: 0; top: 0; z-index: 5; display: flex; align-items: center; padding: 0 4px; background: #1b1b20; }
+.motion-keys-corner .btn { width: 100%; min-width: 0; min-height: 44px; height: 44px; padding: 0; font-size: 12.5px; }
+.motion-keys-ruler { position: sticky; top: 0; z-index: 4; height: 44px; background: #1b1b20; color: var(--muted); font-size: 10px; cursor: pointer; }
+.motion-keys-ruler > span { position: absolute; bottom: 6px; transform: translateX(-50%); white-space: nowrap; pointer-events: none; font-variant-numeric: tabular-nums; }
+.motion-head-mark { position: absolute; bottom: 0; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: #ff5b6e; pointer-events: none; }
+.motion-keys-name { position: sticky; left: 0; z-index: 3; width: 56px; height: 30px; overflow: hidden; padding: 0 2px 0 4px; border: 0; background: #1b1b20; color: var(--muted); font: inherit; font-size: 11px; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.motion-keys-name.on { color: #fff; font-weight: 600; }
+.motion-lane { position: relative; height: 30px; border-radius: 5px; background-color: var(--panel); background-image: repeating-linear-gradient(90deg, transparent 0 calc(var(--cell) - 1px), #2c2c34 calc(var(--cell) - 1px) var(--cell)); cursor: pointer; }
+.motion-lane.on { background-color: #262d44; box-shadow: inset 0 0 0 1px var(--accent); }
+.motion-key { position: absolute; z-index: 2; top: 0; height: 30px; padding: 0; border: 0; background: transparent; }
+.motion-key::before { content: ''; position: absolute; left: 50%; top: 50%; width: 11px; height: 11px; border-radius: 2px; background: #ffcc4d; transform: translate(-50%, -50%) rotate(45deg); }
+.motion-key.selected::before { background: #fff; outline: 3px solid #ffcc4d; }
+.motion-cell-pending { position: absolute; top: 2px; bottom: 2px; box-sizing: border-box; border: 2px dashed #fff; border-radius: 4px; pointer-events: none; }
+.motion-head { position: absolute; top: 44px; bottom: 0; z-index: 1; width: 2px; margin-left: -1px; background: #ff5b6e; pointer-events: none; }
+.motion-keys-empty { grid-column: 2; grid-row: span 6; display: flex; align-items: center; justify-content: center; margin: 4px 4px 4px 0; padding: 0 16px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 12.5px; text-align: center; }
 
-.motion-time {
-  flex: 0 0 58px;
-  min-width: 58px;
-  min-height: 44px;
-  position: relative;
-  white-space: nowrap;
-}
+/* 키 말풍선: 키는 P · R · 지우기, 빈 칸은 + 키 */
+.motion-key-pop { position: fixed; z-index: 30; top: 0; left: 0; display: flex; gap: 4px; padding: 4px; border: 1px solid #555; border-radius: 10px; background: #2a2a32; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6); }
+.motion-key-pop[hidden],
+.motion-key-pop .btn[hidden] { display: none; }
+.motion-key-pop::after { content: ''; position: absolute; left: var(--ax, 50%); bottom: -7px; border: 7px solid transparent; border-bottom: 0; border-top-color: #555; transform: translateX(-50%); }
+.motion-key-pop.below::after { top: -7px; bottom: auto; border: 7px solid transparent; border-top: 0; border-bottom-color: #555; }
+.motion-key-pop .btn { min-width: 44px; min-height: 40px; height: 40px; padding: 0 12px; font-size: 13px; }
+.motion-key-pop .btn[aria-pressed="true"] { border-color: var(--accent); background: #26304a; }
+.motion-key-pop .danger { color: #ff5b6e; }
 
-.motion-time.has-key::after {
-  content: '';
-  position: absolute;
-  left: 50%; bottom: 3px;
-  width: 6px; height: 6px;
-  margin-left: -3px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-
-.motion-time[aria-pressed="true"] { border-color: var(--accent); background: #26304a; color: var(--text); }
+/* 키를 고르고 P나 R을 눌렀을 때만 그림판 바로 밑에 나오는 줄 */
+.motion-edit-bars { display: contents; }
+.motion-edit-bar { flex-wrap: nowrap; gap: 6px; border-top: 2px solid #ffcc4d; background: #22201a; }
+.motion-edit-title { flex: 0 0 auto; color: #ffcc4d; font-size: 12px; white-space: nowrap; }
+.motion-edit-bar #motion-rot-slider { flex: 1 1 0; width: 0; min-width: 48px; }
+.motion-edit-bar .motion-bar-close { flex: 0 0 auto; margin-left: auto; min-width: 44px; min-height: 44px; padding: 0 8px; font-size: 12px; }
 .motion-overlay { pointer-events: none; }
 #motion-onion-canvas { opacity: 0.3; }
 
-.motion-main-layout { grid-template-columns: 46px minmax(0, 1fr) 46px; grid-template-rows: auto auto; }
-.motion-col-groups { width: 46px; padding: 2px; }
+.motion-main-layout { grid-template-columns: 46px minmax(0, 1fr); grid-template-rows: auto; }
+.motion-col-groups { grid-row: 1; width: 46px; padding: 2px; }
 .motion-group-title { flex: 0 0 auto; color: var(--muted); font-size: 10px; text-align: center; }
 .motion-col-groups .rig-group-list { overflow-x: hidden; }
 .motion-col-groups .rig-group-card { display: grid; grid-template-columns: minmax(0, 1fr) 18px; min-height: 36px; height: 36px; padding: 0; border: 0; gap: 1px; }
@@ -88,15 +90,6 @@
 .motion-compact-field input::-webkit-outer-spin-button { margin: 0; appearance: none; }
 .motion-loop { display: flex; align-items: center; justify-content: center; gap: 3px; padding: 0 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font-size: 12px; white-space: nowrap; cursor: pointer; }
 .motion-loop input { width: 18px; min-height: 18px; }
-.motion-key-row { display: grid; gap: 4px; }
-.motion-key-row > .hint { min-height: 18px; margin: 0; }
-.motion-key-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.motion-key-buttons .btn { min-height: 44px; }
 
 @media (max-width: 560px) {
   .motion-management-row { grid-template-columns: auto auto minmax(80px, 1fr) auto; }

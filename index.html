@@ -306,7 +306,6 @@
         <button class="btn rig-bones-only" id="rig-save-project">전체 저장</button>
         <button class="btn rig-motion-action" id="motion-open">애니메이션 열기</button>
         <button class="btn rig-motion-action" id="motion-save">애니메이션 저장</button>
-        <button class="btn rig-motion-action" id="motion-bone-add" title="뼈 파일 불러오기">뼈 +</button>
       </div>
       <p class="hint rig-import-report" id="rig-import-report" role="status" hidden>TSCN이나 ZIP을 열면 가져온 결과를 여기에 적습니다.</p>
       <div class="rig-bones-only" id="rig-bones-panel" hidden>
@@ -486,7 +485,6 @@
       </div>
 
       <div class="rig-motion-only" id="rig-motion-panel" hidden>
-        <p class="hint motion-no-rig" id="motion-no-rig">위쪽 「뼈 +」에서 뼈 파일을 불러와 주세요</p>
         <div class="motion-loaded-content motion-rig-empty" id="motion-loaded-content">
         <div class="motion-management-row">
           <button class="btn" id="motion-add">새 움직임</button>
@@ -520,29 +518,25 @@
             </div>
             <p class="hint rig-bones-empty-hint" id="motion-empty">그룹 + 에서 그룹 파일을 불러와 주세요</p>
           </div>
-          <div class="rig-col-tools">
-            <button type="button" class="btn rig-tool-btn" id="motion-tool-pos" aria-pressed="true" title="위치 이동 (P)">P</button>
-            <button type="button" class="btn rig-tool-btn" id="motion-tool-rot" aria-pressed="false" title="각도 회전 (R)">R</button>
+        </div>
+        <div class="motion-edit-bars">
+          <div class="rig-bottom-bar motion-edit-bar" id="motion-bar-pos" hidden>
+            <span class="motion-edit-title">P 위치</span>
+            <div class="arrows rig-arrows">
+              <button class="btn small" id="motion-bone-left" aria-label="왼쪽으로 한 칸">←</button>
+              <button class="btn small" id="motion-bone-right" aria-label="오른쪽으로 한 칸">→</button>
+              <button class="btn small" id="motion-bone-up" aria-label="위로 한 칸">↑</button>
+              <button class="btn small" id="motion-bone-down" aria-label="아래로 한 칸">↓</button>
+            </div>
+            <button class="btn small motion-bar-close" id="motion-bar-pos-close">닫기</button>
           </div>
-          <div class="rig-bottom-container rig-control-slot">
-            <div class="rig-bottom-bar" id="motion-bar-pos">
-              <div class="arrows rig-arrows">
-                <button class="btn small" id="motion-bone-left" aria-label="왼쪽으로 한 칸">←</button>
-                <button class="btn small" id="motion-bone-right" aria-label="오른쪽으로 한 칸">→</button>
-                <button class="btn small" id="motion-bone-up" aria-label="위로 한 칸">↑</button>
-                <button class="btn small" id="motion-bone-down" aria-label="아래로 한 칸">↓</button>
-              </div>
-              <div class="rig-coords">
-                <label>X<input id="motion-bone-x" type="number" step="1" inputmode="numeric"></label>
-                <label>Y<input id="motion-bone-y" type="number" step="1" inputmode="numeric"></label>
-              </div>
-            </div>
-            <div class="rig-bottom-bar" id="motion-bar-rot" hidden>
-              <button class="btn small" id="motion-angle-minus">−15°</button>
-              <input type="range" id="motion-rot-slider" min="-180" max="180" step="1" value="0" aria-label="고른 뼈 각도">
-              <button class="btn small" id="motion-angle-plus">+15°</button>
-              <label class="rig-angle-label"><input id="motion-bone-angle" type="number" step="1" inputmode="numeric">°</label>
-            </div>
+          <div class="rig-bottom-bar motion-edit-bar" id="motion-bar-rot" hidden>
+            <span class="motion-edit-title">R 회전</span>
+            <button class="btn small" id="motion-angle-minus">−15°</button>
+            <input type="range" id="motion-rot-slider" min="-180" max="180" step="1" value="0" aria-label="고른 뼈 각도">
+            <button class="btn small" id="motion-angle-plus">+15°</button>
+            <label class="rig-angle-label"><input id="motion-bone-angle" type="number" step="1" inputmode="numeric" aria-label="고른 뼈 각도(도)">°</label>
+            <button class="btn small motion-bar-close" id="motion-bar-rot-close">닫기</button>
           </div>
         </div>
         <div class="motion-transport-row">
@@ -553,13 +547,16 @@
           <label class="motion-loop" for="motion-loop"><input id="motion-loop" type="checkbox">반복</label>
           <button class="btn" id="motion-onion" aria-pressed="false">앞자세</button>
         </div>
-        <div class="motion-timeline" id="motion-timeline" aria-label="움직임 시간 줄"></div>
-        <div class="motion-key-row">
-          <p class="hint" id="motion-key-status"></p>
-          <div class="motion-key-buttons">
-            <button class="btn" id="motion-copy-key">앞 칸 키 복사</button>
-            <button class="btn" id="motion-drop-key">키 지우기</button>
+        <div class="motion-keys" id="motion-keys" aria-label="뼈별 키 줄">
+          <div class="motion-keys-grid" id="motion-keys-grid">
+            <div class="motion-keys-corner" id="motion-keys-corner"><button type="button" class="btn" id="motion-bone-add" title="뼈 파일 불러오기">뼈 +</button></div>
           </div>
+        </div>
+        <div class="motion-key-pop" id="motion-key-pop" role="dialog" aria-label="키 조작" hidden>
+          <button type="button" class="btn" id="motion-key-add">+ 키</button>
+          <button type="button" class="btn" id="motion-key-pos" aria-pressed="false">P</button>
+          <button type="button" class="btn" id="motion-key-rot" aria-pressed="false">R</button>
+          <button type="button" class="btn danger" id="motion-key-drop">지우기</button>
         </div>
         </div>
       </div>

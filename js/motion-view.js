@@ -1,7 +1,8 @@
-// 뼈 애니메이션 3단계 화면 — 시간 줄, 끊어지는 키, 양파 껍질, 재생과 GIF를 다룹니다.
+// 뼈 애니메이션 3단계 화면 — 뼈별 키 줄, 끊어지는 키, 양파 껍질, 재생과 GIF를 다룹니다.
 import { defaultAnimations, boneAngleToDisplay, displayAngleToBone, applyRestPose } from './core/rig.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
-import { addMotion, changeMotionLength, changeMotionStep, copyPreviousKey, deleteKey, frameTimes, hasKey, poseAt, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
+import { addMotion, changeMotionLength, changeMotionStep, deleteKey, frameTimes, poseAt, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
+import { mountMotionTimeline } from './motion-timeline.js';
 import { encodeGif } from './core/gif.js';
 import { sortRigPiecesByLayers, toggleGroupLayerVisibility } from './core/preset-layers.js';
 import { drawPixels, saveFile, saveJson, pickFiles, mountDesktopCanvasPan, zoomAtAnchor } from './io.js';
@@ -17,38 +18,29 @@ export function mountMotion(app, model) {
   const onionCanvas = $('#motion-onion-canvas');
   const bonesCanvas = $('#motion-bones-canvas');
   const empty = $('#motion-empty');
-  const noRig = $('#motion-no-rig');
   const loadedContent = $('#motion-loaded-content');
   const groupList = $('#motion-group-list');
   const groupAddButton = $('#motion-group-add');
   const groupDeleteButton = $('#motion-group-delete');
   const groupName = $('#motion-group-name');
   const coordinate = $('#motion-coordinate');
-  const timeline = $('#motion-timeline');
   const select = $('#motion-select');
   const nameInput = $('#motion-name');
   const lengthInput = $('#motion-length');
   const stepInput = $('#motion-step');
   const loopInput = $('#motion-loop');
-  const xInput = $('#motion-bone-x');
-  const yInput = $('#motion-bone-y');
   const angleInput = $('#motion-bone-angle');
   const rotSlider = $('#motion-rot-slider');
-  const status = $('#motion-key-status');
   const zoomText = $('#motion-zoom-text');
   const playButton = $('#motion-play');
   const onionButton = $('#motion-onion');
-  const toolPosButton = $('#motion-tool-pos');
-  const toolRotButton = $('#motion-tool-rot');
   const barPos = $('#motion-bar-pos');
   const barRot = $('#motion-bar-rot');
   const viewModeButton = $('#motion-view-mode-btn');
   const motionEditControls = [
-    select, nameInput, lengthInput, stepInput, loopInput, playButton, onionButton,
-    toolPosButton, toolRotButton, xInput, yInput, angleInput, rotSlider,
+    select, nameInput, lengthInput, stepInput, loopInput, playButton, onionButton, angleInput, rotSlider,
     $('#motion-bone-left'), $('#motion-bone-right'), $('#motion-bone-up'), $('#motion-bone-down'),
-    $('#motion-angle-minus'), $('#motion-angle-plus'), $('#motion-copy-key'), $('#motion-drop-key'),
-    $('#motion-save-gif'), $('#motion-save'),
+    $('#motion-angle-minus'), $('#motion-angle-plus'), $('#motion-save-gif'), $('#motion-save'),
   ].filter(Boolean);
 
   let currentName = 'walk';
@@ -64,7 +56,7 @@ export function mountMotion(app, model) {
   let dragging = null;
   let dragBefore = null;
   let panning = null;
-  let activeTool = 'P';
+  let bar = null;
   let rotDragBefore = null;
   let selectedGroupKey = null;
   mountDesktopCanvasPan(stage, {
@@ -190,25 +182,23 @@ export function mountMotion(app, model) {
     $('#motion-drop').disabled = names.length <= 1;
   }
 
-  function refreshTimeline() {
-    timeline.textContent = '';
-    const active = motion();
-    if (!active) return;
-    const at = slotTime(currentTime);
-    for (const time of frameTimes(active)) {
-      const button = document.createElement('button');
-      button.className = 'btn motion-time';
-      button.textContent = `${Number(time.toFixed(3))}초`;
-      button.setAttribute('aria-pressed', String(Math.abs(time - at) <= 1e-7));
-      if (Object.keys(active.tracks).some(name => hasKey(active, name, time))) button.classList.add('has-key');
-      button.addEventListener('click', () => { stop(); currentTime = time; refresh(); });
-      timeline.append(button);
-    }
-  }
-
-
-
-
+  const keys = mountMotionTimeline({
+    scroller: $('#motion-keys'), grid: $('#motion-keys-grid'), corner: $('#motion-keys-corner'), boneAdd: $('#motion-bone-add'),
+    pop: $('#motion-key-pop'), addKey: $('#motion-key-add'), posKey: $('#motion-key-pos'), rotKey: $('#motion-key-rot'), dropKey: $('#motion-key-drop'),
+  }, {
+    read: () => ({ ready: Boolean(model.hasRig?.()), bones: bones(), motion: motion(), selected, time: slotTime(currentTime), bar }),
+    seek: (name, time) => { stop(); if (name) selected = name; currentTime = time; refresh(); },
+    selectBone: name => { selected = name; refresh(); },
+    addKey: () => updateKey({}),
+    dropKey: () => {
+      const before = model.snapshot?.();
+      if (replaceMotion(deleteKey(motion(), selected, slotTime(currentTime)))) {
+        refresh();
+        model.commit?.(before);
+      }
+    },
+    openBar: tool => openBar(tool),
+  });
 
   function renderGroupList() {
     if (!groupList) return;
@@ -264,33 +254,18 @@ export function mountMotion(app, model) {
 
   function refreshKeyControls() {
     const active = motion();
-    if (!active) {
-      xInput.value = ''; yInput.value = ''; angleInput.value = '';
+    const bone = active && selectedBone(poseAt(bones(), active, currentTime));
+    if (!bone) {
+      angleInput.value = '';
       if (rotSlider) rotSlider.value = '0';
       if (coordinate) coordinate.textContent = '';
-      status.textContent = '움직임이 없습니다. 「새 움직임」으로 다시 시작할 수 있습니다.';
-      $('#motion-drop-key').disabled = true;
-      $('#motion-copy-key').disabled = true;
       return;
     }
     const at = slotTime(currentTime);
-    const bone = selectedBone(poseAt(bones(), active, currentTime));
-    if (!bone) {
-      xInput.value = ''; yInput.value = ''; angleInput.value = '';
-      if (coordinate) coordinate.textContent = '';
-      status.textContent = '위쪽 「뼈 +」에서 뼈 파일을 불러와 주세요.';
-      $('#motion-drop-key').disabled = true;
-      $('#motion-copy-key').disabled = true;
-      return;
-    }
     const displayAngle = boneAngleToDisplay(bone.angle);
-    xInput.value = String(bone.pos[0]); yInput.value = String(bone.pos[1]); angleInput.value = String(displayAngle);
+    angleInput.value = String(displayAngle);
     if (rotSlider) rotSlider.value = String(displayAngle);
     if (coordinate) coordinate.textContent = `${bone.name} · ${Number(at.toFixed(3))}초 · X ${bone.pos[0]} · Y ${bone.pos[1]} · ${displayAngle}°`;
-    const keyed = hasKey(active, bone.name, at);
-    status.textContent = `${Number(at.toFixed(3))}초 · ${keyed ? '이 뼈의 키가 있습니다' : '뼈대 자세 또는 앞 키를 보여 줍니다'}`;
-    $('#motion-drop-key').disabled = !keyed;
-    $('#motion-copy-key').disabled = at < active.step - 1e-7;
   }
 
   function updateViewModeBadge() {
@@ -304,17 +279,15 @@ export function mountMotion(app, model) {
     update(viewModeButton);
   }
 
-  function switchTool(tool) {
-    activeTool = tool;
-    toolPosButton.setAttribute('aria-pressed', String(tool === 'P'));
-    toolRotButton.setAttribute('aria-pressed', String(tool === 'R'));
+  function openBar(tool) {
+    bar = tool;
     barPos.hidden = tool !== 'P';
     barRot.hidden = tool !== 'R';
   }
 
   function refresh() {
     const ready = Boolean(model.hasRig?.());
-    if (noRig) noRig.hidden = ready;
+    if (!ready) openBar(null);
     loadedContent?.classList.toggle('motion-rig-empty', !ready);
     if (groupAddButton) groupAddButton.disabled = !ready;
     if ($('#motion-add')) $('#motion-add').disabled = !ready;
@@ -323,7 +296,7 @@ export function mountMotion(app, model) {
     if (!ready) {
       stop();
       refreshMotionPick();
-      refreshTimeline();
+      keys.render();
       syncTreeSelection();
       refreshKeyControls();
       for (const control of motionEditControls) control.disabled = true;
@@ -332,8 +305,8 @@ export function mountMotion(app, model) {
       return;
     }
     refreshMotionPick();
-    refreshTimeline();
     syncTreeSelection();
+    keys.render();
     refreshKeyControls();
     updateViewModeBadge();
     renderGroupList();
@@ -395,11 +368,12 @@ export function mountMotion(app, model) {
         if (hit) {
           stop(); selected = hit;
           if (!panel.hidden) model.selectBone?.(selected);
-          if (!motion()) { refresh(); return; }
+          if (!motion()) { refresh(); keys.reveal(selected); return; }
           const pose = selectedBone(poseAt(bones(), motion(), slotTime(currentTime)));
           dragBefore = model.snapshot?.();
           dragging = { x: event.clientX, y: event.clientY, pose: { ...pose, pos: [...pose.pos] }, changed: false };
           refresh();
+          keys.reveal(selected);
         }
       } else if (pointers.size === 2) {
         dragging = null;
@@ -431,7 +405,7 @@ export function mountMotion(app, model) {
       pointers.delete(event.pointerId);
       if (dragging?.changed) {
         app.changed();
-        refreshTimeline();
+        keys.render();
         if (dragBefore) model.commit?.(dragBefore);
       }
       if (pointers.size < 2) panning = null;
@@ -453,7 +427,7 @@ export function mountMotion(app, model) {
       currentTime = Math.max(0, active.length - 1e-7); stop(); refresh(); return;
     }
     currentTime = active.loop ? elapsed % active.length : Math.min(elapsed, Math.max(0, active.length - 1e-7));
-    refreshTimeline(); refreshKeyControls(); render();
+    keys.moveHead(true); refreshKeyControls(); render();
     animationFrame = requestAnimationFrame(playFrame);
   }
 
@@ -541,8 +515,9 @@ export function mountMotion(app, model) {
       const r = stage.getBoundingClientRect();
       zoomAt(cell + (e.deltaY < 0 ? 1 : -1), e.clientX - r.left, e.clientY - r.top);
     }, { passive: false });
-    toolPosButton.addEventListener('click', () => switchTool('P'));
-    toolRotButton.addEventListener('click', () => switchTool('R'));
+    $('#motion-bar-pos-close').addEventListener('click', () => openBar(null));
+    $('#motion-bar-rot-close').addEventListener('click', () => openBar(null));
+    window.addEventListener('resize', () => { if (!panel.hidden) keys.render(); });
     viewModeButton?.addEventListener('click', () => {
       const before = model.snapshot?.();
       const current = model.getVisibilityMode?.() || 'individual';
@@ -551,8 +526,6 @@ export function mountMotion(app, model) {
       render();
       model.commit?.(before);
     });
-    const updatePosition = () => updateKey({ pos: [Math.trunc(Number(xInput.value)), Math.trunc(Number(yInput.value))] });
-    xInput.addEventListener('change', updatePosition); yInput.addEventListener('change', updatePosition);
     angleInput.addEventListener('change', () => updateKey({ angle: displayAngleToBone(angleInput.value) }));
     if (rotSlider) {
       rotSlider.addEventListener('input', () => {
@@ -583,20 +556,6 @@ export function mountMotion(app, model) {
     $('#motion-bone-right').addEventListener('click', () => nudge(1, 0));
     $('#motion-angle-minus').addEventListener('click', () => nudgeAngle(-15));
     $('#motion-angle-plus').addEventListener('click', () => nudgeAngle(15));
-    $('#motion-drop-key').addEventListener('click', () => {
-      const before = model.snapshot?.();
-      if (replaceMotion(deleteKey(motion(), selected, slotTime(currentTime)))) {
-        refresh();
-        model.commit?.(before);
-      }
-    });
-    $('#motion-copy-key').addEventListener('click', () => {
-      const before = model.snapshot?.();
-      if (replaceMotion(copyPreviousKey(bones(), motion(), selected, slotTime(currentTime)))) {
-        refresh();
-        model.commit?.(before);
-      }
-    });
     $('#motion-save-gif').addEventListener('click', async () => {
       const active = motion();
       if (!active) return;
@@ -661,11 +620,10 @@ export function mountMotion(app, model) {
   }
 
   bindEvents();
-  switchTool(activeTool);
 
   return {
-    show() { panel.hidden = false; switchTool(activeTool); refresh(); if (model.hasRig?.()) fit(); },
-    hide() { stop(); panel.hidden = true; },
+    show() { panel.hidden = false; refresh(); if (model.hasRig?.()) fit(); },
+    hide() { stop(); keys.close(); panel.hidden = true; },
     refresh() { refresh(); },
     selectBone(name) {
       selected = bones().some(bone => bone.name === name) ? name : (bones()[0]?.name || '');
