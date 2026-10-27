@@ -70,6 +70,21 @@ export function frameTimes(motion) {
   return Array.from({ length: count }, (_, index) => Number((index * motion.step).toFixed(9)));
 }
 
+/** 모든 뼈의 키 가운데 현재 시간보다 가장 가까운 앞 키 시간을 찾습니다. */
+export function previousKeyTime(motion, time) {
+  const current = Number(time);
+  if (!motion || !Number.isFinite(current)) return null;
+  let previous = null;
+  for (const track of Object.values(motion.tracks || {})) {
+    for (const value of track.times || []) {
+      const candidate = Number(value);
+      if (!Number.isFinite(candidate) || candidate >= current - EPSILON) continue;
+      if (previous === null || candidate > previous) previous = candidate;
+    }
+  }
+  return previous;
+}
+
 function motionTime(motion, time) {
   const raw = Number.isFinite(Number(time)) ? Number(time) : 0;
   if (motion.loop) return ((raw % motion.length) + motion.length) % motion.length;

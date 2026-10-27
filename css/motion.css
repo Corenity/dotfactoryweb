@@ -47,6 +47,7 @@
 .motion-edit-bar #motion-rot-slider { flex: 1 1 0; width: 0; min-width: 48px; }
 .motion-edit-bar .motion-bar-close { flex: 0 0 auto; margin-left: auto; min-width: 44px; min-height: 44px; padding: 0 8px; font-size: 12px; }
 .motion-overlay { pointer-events: none; }
+#motion-onion[aria-pressed="true"] { border-color: var(--accent); background: #26304a; }
 #motion-onion-canvas { opacity: 0.3; }
 
 .motion-main-layout { grid-template-columns: 46px minmax(0, 1fr); grid-template-rows: auto; }

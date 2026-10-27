@@ -1,7 +1,7 @@
 // 뼈 애니메이션 3단계 화면 — 뼈별 키 줄, 끊어지는 키, 양파 껍질, 재생과 GIF를 다룹니다.
 import { defaultAnimations, boneAngleToDisplay, displayAngleToBone, applyRestPose } from './core/rig.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal } from './core/rig-render.js';
-import { addMotion, changeMotionLength, changeMotionStep, deleteKey, frameTimes, poseAt, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
+import { addMotion, changeMotionLength, changeMotionStep, deleteKey, frameTimes, poseAt, previousKeyTime, renderMotionFrames, resolveMotion, setKey } from './core/motion.js';
 import { mountMotionTimeline } from './motion-timeline.js';
 import { encodeGif } from './core/gif.js';
 import { sortRigPiecesByLayers, toggleGroupLayerVisibility } from './core/preset-layers.js';
@@ -171,8 +171,8 @@ export function mountMotion(app, model) {
     const transform = `translate(${panX}px, ${panY}px)`;
     canvas.style.transform = transform;
 
-    const previous = Math.max(0, slotTime(currentTime) - active.step);
-    onionCanvas.hidden = !hasMotion || !onion || currentTime < active.step - 1e-7;
+    const previous = previousKeyTime(active, currentTime);
+    onionCanvas.hidden = !hasMotion || !onion || previous === null;
     if (!onionCanvas.hidden) drawPixels(onionCanvas, composeRig(visiblePieces, poseAt(bones(), active, previous), width, height, restBones, layers), cell, null);
     onionCanvas.style.transform = transform;
     drawBones(posed); bonesCanvas.style.transform = transform;
