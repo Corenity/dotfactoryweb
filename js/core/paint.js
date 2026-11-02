@@ -130,6 +130,25 @@ export function rememberColor(list, hex, max = MY_COLORS_MAX) {
   return [h, ...list.filter(c => c !== h)].slice(0, max);
 }
 
+/** 다른 색에서 고른 대기 색상(pending)으로 실제로 칸을 바꿨을 때만 그 색을 내 색 맨 앞에 남기고 대기 색상을 비웁니다. */
+export function commitPickedColor(list, pending, color, changed = true, max = MY_COLORS_MAX) {
+  if (!changed || !pending || !color) return { list, pending };
+  let hex;
+  if (Array.isArray(color)) {
+    if (color.length < 4 || color[3] === 0) return { list, pending };
+    if (color.every((v, i) => v === KEY[i])) return { list, pending };
+    hex = toHex(color);
+  } else {
+    hex = String(color).toLowerCase();
+    if (!/^#[0-9a-f]{6}$/.test(hex)) return { list, pending };
+    const rgb = fromHex(hex);
+    if (rgb.every((v, i) => v === KEY[i])) return { list, pending };
+  }
+  const pendingHex = String(pending).toLowerCase();
+  if (hex !== pendingHex) return { list, pending };
+  return { list: rememberColor(list, hex, max), pending: null };
+}
+
 export function forgetColor(list, hex) {
   const h = String(hex).toLowerCase();
   return list.filter(c => c !== h);

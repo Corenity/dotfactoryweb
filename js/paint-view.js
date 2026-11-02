@@ -1,6 +1,6 @@
 // 다듬기 화면 — 한 손가락으로 칠하고, 두 손가락으로 옮기고, + · − 단추로 확대 · 축소합니다.
 // 대볼 그림 한 장은 합치기와 같이 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 내려받기 · 합치기에 더하기에는 넣지 않습니다.
-import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
+import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, commitPickedColor, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
 import { overlayGuide, guidePixelAt, guideOpacity, moveGuide, GUIDE_OPACITY } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName, desktopCanvasActive, mountDesktopCanvasPan } from './io.js';
 import { selectRect, insideRect, lift, fillPiece, place } from './core/select.js';
@@ -26,6 +26,7 @@ export function mountPaint(app) {
   let guide = null; // { image, name, opacity, dx, dy, kind?: 'regions' }
   let activeView = 'original';
   let mine = loadColors(); // 내 색: 다른 색에서 고른 색. 그림을 바꿔도 남습니다.
+  let pendingPick = null; // 다른 색에서 새로 고른 색. 실제로 칠했을 때 내 색에 남깁니다.
   let tool = 'pen', cell = 8, panX = 0, panY = 0;
   let strokeBefore = null, last = null;
   // 선택: marquee 는 네모를 긋는 중({ from, rect }), sel 은 떼어 낸 칸({ x, y, w, h, base, piece, before, drag }).
@@ -45,8 +46,19 @@ export function mountPaint(app) {
     return c.every((v, i) => v === KEY[i]) ? [0, 0, 0, 0] : c;
   }
   // 칠할 색을 바꾸고 도구 줄의 색 단추에도 같은 색을 칠합니다.
-  function setColor(hex) { $('#paint-color').value = hex; showColor(); }
+  // 내 색 · 그림 색 · 스포이드로 고른 색은 다른 색에서 새로 고른 색이 아니므로 기억한 색을 비웁니다.
+  function setColor(hex) { $('#paint-color').value = hex; pendingPick = null; showColor(); }
   function showColor() { colorBtn.style.background = $('#paint-color').value; $('#paint-selection-color-chip').style.background = $('#paint-color').value; }
+  // 다른 색에서 고른 색으로 실제로 칠했을 때만 그 색 하나를 내 색 맨 앞에 남깁니다.
+  function commitColor(rgba, didChange) {
+    const next = commitPickedColor(mine, pendingPick, rgba, didChange);
+    pendingPick = next.pending;
+    if (next.list !== mine) {
+      mine = next.list;
+      saveColors(mine);
+      renderMine();
+    }
+  }
   function closeColors() {
     colorPop.hidden = true;
     colorBtn.setAttribute('aria-expanded', 'false');
@@ -134,6 +146,7 @@ export function mountPaint(app) {
     sel.piece = piece;
     image = next;
     sel.before = clone(image);
+    commitColor(rgba, true);
     changed();
   }
 
@@ -329,7 +342,11 @@ export function mountPaint(app) {
       const px = activeView === 'compare' && guide ? guidePixelAt(guide.image, at[0], at[1], guide.dx, guide.dy) : getPixel(image, at[0], at[1]);
       if (px?.[3]) { setColor(toHex(px)); app.toast(`색을 골랐습니다 ${toHex(px)}`); setTool('pen'); }
     }
-    if (!sameImage(strokeBefore, image)) { history.push(strokeBefore); changed(); }
+    if (!sameImage(strokeBefore, image)) {
+      history.push(strokeBefore);
+      if (tool === 'pen' || tool === 'fill') commitColor(color(), true);
+      changed();
+    }
     strokeBefore = null;
     last = null;
   }
@@ -409,9 +426,10 @@ export function mountPaint(app) {
   document.addEventListener('pointerdown', e => {
     if (!colorPop.hidden && !colorPop.contains(e.target) && !colorBtn.contains(e.target) && !selectionColorBtn.contains(e.target)) closeColors();
   });
-  $('#paint-color').addEventListener('input', showColor);
-  // 다른 색 고르기를 마치면(change) 그 색을 내 색 맨 앞에 남깁니다. 고르는 도중(input)의 색은 남기지 않습니다.
-  $('#paint-color').addEventListener('change', () => { mine = rememberColor(mine, $('#paint-color').value); saveColors(mine); renderMine(); });
+  // 다른 색에서 고르는 동안(input · change)은 고른 색만 기억합니다. 아이폰은 끄는 동안 change 가 여러 번 옵니다.
+  function pickColor() { pendingPick = $('#paint-color').value; showColor(); }
+  $('#paint-color').addEventListener('input', pickColor);
+  $('#paint-color').addEventListener('change', pickColor);
   showColor();
   renderMine();
   $('#paint-selection-fill').addEventListener('click', () => editSelection(color()));
