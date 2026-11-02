@@ -1,6 +1,6 @@
 // 다듬기 화면 — 한 손가락으로 칠하고, 두 손가락으로 옮기고, + · − 단추로 확대 · 축소합니다.
 // 대볼 그림 한 장은 합치기와 같이 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 내려받기 · 합치기에 더하기에는 넣지 않습니다.
-import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, commitPickedColor, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
+import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, isPointInside, dropColorToMine, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
 import { overlayGuide, guidePixelAt, guideOpacity, moveGuide, GUIDE_OPACITY } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName, desktopCanvasActive, mountDesktopCanvasPan } from './io.js';
 import { selectRect, insideRect, lift, fillPiece, place } from './core/select.js';
@@ -26,7 +26,6 @@ export function mountPaint(app) {
   let guide = null; // { image, name, opacity, dx, dy, kind?: 'regions' }
   let activeView = 'original';
   let mine = loadColors(); // 내 색: 다른 색에서 고른 색. 그림을 바꿔도 남습니다.
-  let pendingPick = null; // 다른 색에서 새로 고른 색. 실제로 칠했을 때 내 색에 남깁니다.
   let tool = 'pen', cell = 8, panX = 0, panY = 0;
   let strokeBefore = null, last = null;
   // 선택: marquee 는 네모를 긋는 중({ from, rect }), sel 은 떼어 낸 칸({ x, y, w, h, base, piece, before, drag }).
@@ -46,18 +45,13 @@ export function mountPaint(app) {
     return c.every((v, i) => v === KEY[i]) ? [0, 0, 0, 0] : c;
   }
   // 칠할 색을 바꾸고 도구 줄의 색 단추에도 같은 색을 칠합니다.
-  // 내 색 · 그림 색 · 스포이드로 고른 색은 다른 색에서 새로 고른 색이 아니므로 기억한 색을 비웁니다.
-  function setColor(hex) { $('#paint-color').value = hex; pendingPick = null; showColor(); }
-  function showColor() { colorBtn.style.background = $('#paint-color').value; $('#paint-selection-color-chip').style.background = $('#paint-color').value; }
-  // 다른 색에서 고른 색으로 실제로 칠했을 때만 그 색 하나를 내 색 맨 앞에 남깁니다.
-  function commitColor(rgba, didChange) {
-    const next = commitPickedColor(mine, pendingPick, rgba, didChange);
-    pendingPick = next.pending;
-    if (next.list !== mine) {
-      mine = next.list;
-      saveColors(mine);
-      renderMine();
-    }
+  // 칠할 색이 바뀌어도 내 색은 그대로입니다. 내 색에는 다른 색 옆 색 조각을 끌어 놓을 때만 넣습니다.
+  function setColor(hex) { $('#paint-color').value = hex; showColor(); }
+  function showColor() {
+    const hex = $('#paint-color').value;
+    colorBtn.style.background = hex;
+    $('#paint-selection-color-chip').style.background = hex;
+    $('#paint-color-drag').style.background = hex;
   }
   function closeColors() {
     colorPop.hidden = true;
@@ -146,7 +140,6 @@ export function mountPaint(app) {
     sel.piece = piece;
     image = next;
     sel.before = clone(image);
-    commitColor(rgba, true);
     changed();
   }
 
@@ -344,7 +337,6 @@ export function mountPaint(app) {
     }
     if (!sameImage(strokeBefore, image)) {
       history.push(strokeBefore);
-      if (tool === 'pen' || tool === 'fill') commitColor(color(), true);
       changed();
     }
     strokeBefore = null;
@@ -426,10 +418,45 @@ export function mountPaint(app) {
   document.addEventListener('pointerdown', e => {
     if (!colorPop.hidden && !colorPop.contains(e.target) && !colorBtn.contains(e.target) && !selectionColorBtn.contains(e.target)) closeColors();
   });
-  // 다른 색에서 고르는 동안(input · change)은 고른 색만 기억합니다. 아이폰은 끄는 동안 change 가 여러 번 옵니다.
-  function pickColor() { pendingPick = $('#paint-color').value; showColor(); }
-  $('#paint-color').addEventListener('input', pickColor);
-  $('#paint-color').addEventListener('change', pickColor);
+  // 다른 색에서 고르는 동안(input · change)은 칠할 색만 바꿉니다. 아이폰은 끄는 동안 change 가 여러 번 옵니다.
+  $('#paint-color').addEventListener('input', showColor);
+  $('#paint-color').addEventListener('change', showColor);
+  // 다른 색 옆 색 조각을 끌어 내 색 줄에 놓으면 그 색 하나를 내 색 맨 앞에 넣습니다. 줄 밖에 놓으면 아무것도 하지 않습니다.
+  const dragChip = $('#paint-color-drag'), mineBox = $('#paint-mine');
+  let colorDrag = null; // { id, ghost }
+  function moveColorDrag(e) {
+    colorDrag.ghost.style.left = `${e.clientX}px`;
+    colorDrag.ghost.style.top = `${e.clientY}px`;
+    mineBox.classList.toggle('drop-target', isPointInside(e, mineBox.getBoundingClientRect()));
+  }
+  function endColorDrag(e, drop) {
+    if (!colorDrag || e.pointerId !== colorDrag.id) return;
+    colorDrag.ghost.remove();
+    colorDrag = null;
+    mineBox.classList.remove('drop-target');
+    if (!drop) return;
+    const next = dropColorToMine(mine, $('#paint-color').value, e, mineBox.getBoundingClientRect());
+    if (next === mine) return;
+    mine = next;
+    saveColors(mine);
+    renderMine();
+  }
+  dragChip.addEventListener('pointerdown', e => {
+    if (colorDrag) return;
+    e.preventDefault();
+    dragChip.setPointerCapture(e.pointerId);
+    const ghost = document.createElement('div');
+    ghost.className = 'color-drag-ghost';
+    ghost.style.background = $('#paint-color').value;
+    ghost.style.display = 'block';
+    document.body.append(ghost);
+    colorDrag = { id: e.pointerId, ghost };
+    moveColorDrag(e);
+  });
+  dragChip.addEventListener('pointermove', e => { if (colorDrag && e.pointerId === colorDrag.id) moveColorDrag(e); });
+  dragChip.addEventListener('pointerup', e => endColorDrag(e, true));
+  dragChip.addEventListener('pointercancel', e => endColorDrag(e, false));
+  dragChip.addEventListener('contextmenu', e => e.preventDefault());
   showColor();
   renderMine();
   $('#paint-selection-fill').addEventListener('click', () => editSelection(color()));

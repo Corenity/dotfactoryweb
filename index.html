@@ -106,7 +106,10 @@
           <div class="palette mine" id="paint-mine" aria-label="내가 고른 색"></div>
           <p class="pop-label">그림에 쓰인 색</p>
           <div class="palette" id="paint-palette" aria-label="그림에 쓰인 색"></div>
-          <label class="inline">다른 색<input type="color" id="paint-color" value="#000000"></label>
+          <div class="paint-other-color">
+            <label class="inline">다른 색<input type="color" id="paint-color" value="#000000"></label>
+            <button type="button" class="color-drag-chip" id="paint-color-drag" title="끌어서 내 색에 넣기" aria-label="끌어서 내 색에 넣기"></button>
+          </div>
         </div>
       </div>
       <div class="paint-workspace">

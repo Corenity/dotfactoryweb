@@ -23,11 +23,29 @@
 .color-pop[hidden] { display: none; }
 .palette { display: grid; grid-template-columns: repeat(auto-fill, 36px); gap: 6px; max-height: 40vh; overflow-y: auto; }
 .palette:empty::before { content: '그림을 열면 그림에 쓰인 색이 여기 나옵니다.'; grid-column: 1 / -1; color: var(--muted); font-size: 14px; }
+.palette.mine { min-height: 40px; padding: 2px; border-radius: 6px; transition: outline 0.15s, background-color 0.15s; }
 .palette.mine:empty::before { content: '다른 색에서 고른 색이 여기 남습니다.'; }
+.palette.mine.drop-target { outline: 2px dashed var(--accent, #5c9cff); outline-offset: 2px; background: rgba(92, 156, 255, 0.15); }
 .pop-label { margin: 0 0 -4px; font-size: 13px; color: var(--muted); }
 .pop-label span { margin-left: 6px; font-size: 12px; }
 /* 길게 누를 때 아이폰이 글자 고르기 · 메뉴를 띄우지 않게 합니다. */
 .swatch { width: 36px; height: 36px; border: 1px solid #0006; border-radius: 6px; padding: 0; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+
+.paint-other-color { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.color-drag-chip {
+  width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+  border: 2px solid var(--line); border-radius: 8px;
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+  background: #000000; box-shadow: 0 1px 4px #0006;
+}
+.color-drag-chip:active { cursor: grabbing; }
+
+.color-drag-ghost {
+  position: fixed; pointer-events: none; z-index: 10000;
+  width: 36px; height: 36px; border-radius: 8px;
+  border: 2px solid #fff; box-shadow: 0 4px 12px #0008;
+  transform: translate(-50%, -50%); display: none;
+}
 
 input[type="color"] {
   width: 52px; height: 36px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
