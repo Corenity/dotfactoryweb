@@ -104,6 +104,11 @@ export function mountCharacter(app, model = {}) {
   const zoomOutBtn = $('#character-zoom-out');
   const timeDisplay = $('#play-time-display');
   const canvas = $('#play-canvas');
+  if (canvas) {
+    const [canvasW, canvasH] = currentCanvas();
+    canvas.width = canvasW;
+    canvas.height = canvasH;
+  }
   const ctx = canvas?.getContext('2d', { willReadFrequently: true });
 
   const saveBundleBtn = $('#play-save-bundle');

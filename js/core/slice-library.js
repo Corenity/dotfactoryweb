@@ -1,5 +1,6 @@
 // 이미지 자르기 조각 보관함의 순수 자료 함수입니다. DOM이나 저장소를 직접 쓰지 않습니다.
 import { createStoredZip } from './zip.js';
+import { currentCanvas } from './profile.js';
 
 function positiveInteger(value, label) {
   const number = Number(value);
@@ -60,7 +61,7 @@ export function clearSlicePieces(pieces) {
   return pieces.length > 0 ? [] : pieces;
 }
 
-export function copyRigPiecesToSliceLibrary(pieces, canvas = [72, 64]) {
+export function copyRigPiecesToSliceLibrary(pieces, canvas = currentCanvas()) {
   if (!Array.isArray(pieces)) throw new Error('옛 조각 목록이 올바르지 않습니다');
   if (!Array.isArray(canvas) || canvas.length !== 2) throw new Error('옛 조각 그림판 크기가 올바르지 않습니다');
   const width = positiveInteger(canvas[0], '옛 조각 그림판 너비');

@@ -176,7 +176,7 @@
   width: 288px;
   height: 256px;
   max-width: 100%;
-  aspect-ratio: 72 / 64;
+  aspect-ratio: auto;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   background: #03c037;

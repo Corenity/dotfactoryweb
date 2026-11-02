@@ -3,6 +3,8 @@ import { readImageFile, toCanvas, drawPixels, pickFiles, savePng, baseName, moun
 import { backdropToggle } from './backdrop.js';
 import { dropKey } from './core/paint.js';
 import { scaleNearest } from './core/scale.js';
+import { CURRENT_PROFILE } from './core/profile.js';
+import { DEFAULTS } from './core/restore.js';
 
 const $ = sel => document.querySelector(sel);
 
@@ -10,6 +12,16 @@ export function mountShrink(app) {
   let source = null, sourceName = '', result = null, resultMode = '', resultFactor = 0, busy = false, mode = 'shrink';
   let panX = 0, panY = 0;
   const canvas = $('#shrink-out'), stage = canvas.parentElement;
+
+  const [defaultCanvasW, defaultCanvasH] = CURRENT_PROFILE.canvas;
+  const shrinkW = $('#shrink-w');
+  const shrinkH = $('#shrink-h');
+  const shrinkCx = $('#shrink-cx');
+  const shrinkFy = $('#shrink-fy');
+  if (shrinkW) shrinkW.value = defaultCanvasW;
+  if (shrinkH) shrinkH.value = defaultCanvasH;
+  if (shrinkCx) shrinkCx.value = DEFAULTS.centerX;
+  if (shrinkFy) shrinkFy.value = DEFAULTS.footY;
   // 결과의 배경은 늘 투명 칸으로 받고, 초록은 보여 줄 때와 내려받을 때만 깝니다.
   const bg = backdropToggle($('#shrink-clear'), () => result && drawOut());
   mountDesktopCanvasPan(stage, {
@@ -75,11 +87,12 @@ export function mountShrink(app) {
       }
       return;
     }
+    const [canvasW, canvasH] = CURRENT_PROFILE.canvas;
     const options = {
-      targetHeight: Number($('#shrink-height').value) || 56,
+      targetHeight: Number($('#shrink-height').value) || DEFAULTS.targetHeight,
       transparent: true,
-      canvasW: Number($('#shrink-w').value) || 72,
-      canvasH: Number($('#shrink-h').value) || 64,
+      canvasW: Number($('#shrink-w').value) || canvasW,
+      canvasH: Number($('#shrink-h').value) || canvasH,
       centerX: Number($('#shrink-cx').value),
       footY: Number($('#shrink-fy').value),
     };

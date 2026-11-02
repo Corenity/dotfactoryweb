@@ -715,8 +715,8 @@ export function mountSlice(app) {
     async restore(saved) {
       if (!saved || typeof saved !== 'object') return;
       const canvas = Array.isArray(saved.canvas) ? saved.canvas : CURRENT_PROFILE.canvas;
-      width = Number(canvas[0]) || 72;
-      height = Number(canvas[1]) || 64;
+      width = Number(canvas[0]) || CURRENT_PROFILE.canvas[0];
+      height = Number(canvas[1]) || CURRENT_PROFILE.canvas[1];
       baseTitle = String(saved.item || '그림');
       baseImage = saved.basePng ? await readDataUrl(saved.basePng) : null;
       pieces = [];
