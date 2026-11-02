@@ -26,7 +26,7 @@
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: rgb(3, 192, 55);
+  background: var(--key-green);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -90,7 +90,7 @@
   width: 72px;
   height: 64px;
   image-rendering: pixelated;
-  background: rgb(3, 192, 55);
+  background: var(--key-green);
   border: 1px solid var(--line);
   border-radius: 4px;
 }
@@ -419,7 +419,7 @@
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgb(3, 192, 55);
+  background: var(--key-green);
   display: flex;
   flex-direction: column;
 }

@@ -60,7 +60,7 @@
 .motion-col-groups .rig-group-vis-btn::before { content: ''; width: 12px; height: 8px; border: 1px solid currentColor; border-radius: 50%; background: radial-gradient(circle, currentColor 0 2px, transparent 2.5px); box-sizing: border-box; }
 .motion-col-groups .rig-group-vis-btn[aria-pressed="false"] { opacity: 0.35; }
 .motion-group-empty { margin: 6px 0; font-size: 10px; text-align: center; }
-#rig.rig-mode-motion #motion-stage { background: rgb(3, 192, 55); }
+#rig.rig-mode-motion #motion-stage { background: var(--key-green); }
 .motion-coordinate { color: var(--text); font-variant-numeric: tabular-nums; }
 .motion-group-name { position: absolute; z-index: 1; left: 4px; top: 24px; max-width: calc(100% - 8px); overflow: hidden; padding: 2px 5px; border-radius: 4px; background: rgba(10, 132, 255, 0.85); color: #fff; font-size: 10px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; pointer-events: none; }
 .motion-group-name:empty { display: none; }

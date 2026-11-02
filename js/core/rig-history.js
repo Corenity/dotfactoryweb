@@ -1,6 +1,7 @@
 // 뼈대 화면 되돌리기 / 다시하기 상태 관리 순수 모듈입니다.
 // DOM을 쓰지 않아 Node 시험에서도 그대로 검증할 수 있습니다.
 import { CURRENT_PROFILE, currentCanvas } from './profile.js';
+import { UNDO_LIMIT } from './paint.js';
 
 function cloneImage(img) {
   if (!img) return null;
@@ -94,7 +95,7 @@ export function sameRigState(a, b) {
 }
 
 export class RigHistory {
-  constructor(limit = 100) {
+  constructor(limit = UNDO_LIMIT) {
     this.limit = limit;
     this.undoStack = [];
     this.redoStack = [];

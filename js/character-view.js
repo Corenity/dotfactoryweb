@@ -1,6 +1,7 @@
 // site/js/character-view.js — 캐릭터 단일 화면
 // 기준 뼈대 표시, 맨몸 프리셋 캐시 및 오버레이 순서 관리, 애니메이션 검증, 재생 및 두 ZIP 내보내기를 담당합니다.
 import { DEFAULT_BONES, applyRestPose } from './core/rig.js';
+import { KEY } from './core/paint.js';
 import { poseAt } from './core/motion.js';
 import { toPreset, parsePreset } from './core/preset.js';
 import { parseAnimation } from './core/animation.js';
@@ -202,10 +203,7 @@ export function mountCharacter(app, model = {}) {
     // 초록 배경 (3, 192, 55, 255)
     const frameBuf = new Uint8ClampedArray(width * height * 4);
     for (let i = 0; i < frameBuf.length; i += 4) {
-      frameBuf[i] = 3;
-      frameBuf[i + 1] = 192;
-      frameBuf[i + 2] = 55;
-      frameBuf[i + 3] = 255;
+      frameBuf.set(KEY, i);
     }
 
     const cdata = composed.data;

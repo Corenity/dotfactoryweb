@@ -9,6 +9,8 @@ import { sha256Hex } from './hash.js';
 import { toPreset } from './preset.js';
 import { CURRENT_PROFILE, currentCanvas } from './profile.js';
 
+export const BUNDLE_SCHEMA = 'dotfactory-bundle-1';
+
 const RIG_FILE = 'dotfactory-rig.json';
 const TSCN_FILE = 'character/character_rig.tscn';
 const PRESET_FILE = 'character/presets/dotfactory-web.tres';
@@ -281,7 +283,7 @@ export function makeBundle({
   }
 
   const pkg = {
-    schema: 'dotfactory-bundle-1',
+    schema: BUNDLE_SCHEMA,
     created_at: createdAt || new Date().toISOString(),
     generator,
     canvas: canvas || currentCanvas(),

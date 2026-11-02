@@ -541,7 +541,7 @@ export function mountSlice(app) {
   $('#slice-add-region')?.addEventListener('click', () => {
     const nextColor = REGION_PALETTE.find(c => !regionState.regions.includes(c));
     if (!nextColor) {
-      return app.toast('더 이상 추가할 수 있는 색 영역이 없습니다 (최대 12개)');
+      return app.toast(`더 이상 추가할 수 있는 색 영역이 없습니다 (최대 ${REGION_PALETTE.length}개)`);
     }
     const before = historySnapshot();
     addRegion(regionState, nextColor);

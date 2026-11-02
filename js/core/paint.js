@@ -69,6 +69,7 @@ export function clearColor(img, rgba) {
 
 /** PC 도트 공장이 배경으로 까는 초록입니다. 세 화면 모두 이 초록을 배경으로 깔아 보여 줍니다. */
 export const KEY = [3, 192, 55, 255];
+export const UNDO_LIMIT = 100;
 
 /**
  * 불러온 그림의 배경 칸을 투명으로 바꾼 새 그림입니다. 화면 안의 그림은 늘 배경이 투명입니다.
@@ -187,7 +188,7 @@ export function shiftPixels(img, dx, dy) {
 
 /** 되돌리기 · 다시하기. 한 번의 붓질(손가락을 뗄 때까지)을 한 단계로 담습니다. */
 export class History {
-  constructor(limit = 100) { this.limit = limit; this.undoStack = []; this.redoStack = []; }
+  constructor(limit = UNDO_LIMIT) { this.limit = limit; this.undoStack = []; this.redoStack = []; }
   /** 바꾸기 전 그림을 담습니다. */
   push(before) {
     this.undoStack.push(clone(before));

@@ -6,6 +6,7 @@
   --text: #ececf1;
   --muted: #9b9ba6;
   --accent: #5b8cff;
+  --key-green: rgb(3, 192, 55);
   font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   font-size: 16px;
 }

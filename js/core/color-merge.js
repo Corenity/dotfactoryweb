@@ -1,9 +1,9 @@
 // Oklab 인지 색 공간 기반 유사 색상 묶기 모듈
 // 인간 시각 특성에 맞추어 도트 그림의 유사한 색상들을 최빈색(가장 많이 쓰인 색)으로 통일합니다.
 
-import { clone, edgeBackground } from './paint.js';
+import { clone, edgeBackground, KEY } from './paint.js';
 
-export const KEY = [3, 192, 55, 255];
+export { KEY };
 
 /** sRGB 채널값(0~255)을 선형 sRGB(0~1)로 변환합니다. */
 export function srgbToLinear(c) {
