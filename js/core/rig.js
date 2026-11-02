@@ -442,7 +442,7 @@ export function editRigBone({ bones, pieces = [], restPose = null } = {}, boneNa
     const parts = rigidParts(local, bone.angle - 90);
     return {
       ...bone,
-      pos: parts.pos.map(tidyRigNumber),
+      pos: parts.pos.map(Math.round),
       angle: tidyRigNumber(parts.angle + 90),
     };
   });
