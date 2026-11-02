@@ -222,7 +222,7 @@ export function makeBundle({
 
     const bones = normalizeSkeletonBones(skeleton?.bones || DEFAULT_BONES);
     const restBones = applyRestPose(bones, restPose).bones;
-    const restWorld = boneWorldTransforms(restBones.map(b => ({ ...b, angle: 90 })));
+    const restWorld = boneWorldTransforms(restBones);
     const addedImages = new Set();
 
     for (const rawPreset of presets) {
@@ -246,7 +246,7 @@ export function makeBundle({
         const bytes = pngBytes(rawDataUrl, pieceId);
         const hash = sha256Hex(bytes).slice(0, 16);
         const pivot = restWorld.get(layer.bone) || { x: 0, y: 0 };
-        const offset = [-Math.round(pivot.x), -Math.round(pivot.y)];
+        const offset = [-pivot.x, -pivot.y];
         const pos = layer.pos ? [layer.pos[0], layer.pos[1]] : [0, 0];
         const rot = layer.rot || 0;
 

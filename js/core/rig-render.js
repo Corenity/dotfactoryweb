@@ -5,7 +5,7 @@ import { currentCanvas } from './profile.js';
 
 const DEG = Math.PI / 180;
 const identity = () => [1, 0, 0, 1, 0, 0];
-const translate = (x, y) => [1, 0, 0, 1, x, y];
+export const translate = (x, y) => [1, 0, 0, 1, x, y];
 const rotate = degrees => {
   const r = degrees * DEG, c = Math.cos(r), s = Math.sin(r);
   return [c, s, -s, c, 0, 0];
@@ -105,10 +105,10 @@ export function pieceTransform(posed, rest, boneName, pos = [0, 0], rot = 0) {
   const safePos = pos || [0, 0];
   const safeRot = rot || 0;
   if (safePos[0] === 0 && safePos[1] === 0 && safeRot === 0) {
-    return multiply(posedMatrix, invert(restMatrix));
+    return multiply(posedMatrix, translate(-restMatrix[4], -restMatrix[5]));
   }
   const pieceLocal = multiply(translate(safePos[0], safePos[1]), rotate(safeRot));
-  return multiply(posedMatrix, multiply(pieceLocal, invert(restMatrix)));
+  return multiply(posedMatrix, multiply(pieceLocal, translate(-restMatrix[4], -restMatrix[5])));
 }
 
 /** 뼈에 붙은 조각을 프리셋 레이어, 층 순서로 그려 미리보기 한 장으로 만듭니다. */

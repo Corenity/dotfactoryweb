@@ -10,6 +10,7 @@ import {
 } from './core/preset-layers.js';
 import { dropKey } from './core/paint.js';
 import { pickFiles, readImageFile, readDataUrl, toPngDataUrl, saveJson, baseName } from './io.js';
+import { boneWorldTransforms } from './core/rig-render.js';
 
 const $ = selector => document.querySelector(selector);
 
@@ -310,6 +311,7 @@ export function mountRigPreset(app, model) {
       pieces().push({
         slot: 'extra', item: model.getPresetMeta().name, piece: pieceName, name,
         bone, zIndex: nextRigZIndex(pieces()), visible: true,
+        pos: [0, 0], rot: Math.round(-(boneWorldTransforms(bones()).get(bone)?.angle || 0)),
         png: toPngDataUrl(image), image, presetLayerKey: null,
       });
       finishChange(before);

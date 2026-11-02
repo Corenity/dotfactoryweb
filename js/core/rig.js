@@ -1,6 +1,6 @@
 // 뼈 애니메이션 작업 파일 — 조각 목록 · 뼈대 트리 · 동작 키프레임을 저장하고 복원합니다.
 // 화면(DOM)을 쓰지 않는 순수 모듈로 Node 시험이 그대로 돌립니다.
-import { boneWorldTransforms, invert, multiply, pieceTransform, transformPoint } from './rig-render.js';
+import { boneWorldTransforms, invert, multiply, pieceTransform, transformPoint, translate } from './rig-render.js';
 import { CURRENT_PROFILE, currentCanvas } from './profile.js';
 
 export const SCHEMA = 'dotfactory-web/rig-1';
@@ -455,7 +455,7 @@ export function editRigBone({ bones, pieces = [], restPose = null } = {}, boneNa
     const desired = linked
       ? multiply(finalBone.matrix, multiply(invert(beforeBone.matrix), beforeMatrix))
       : beforeMatrix;
-    const local = multiply(invert(finalBone.matrix), multiply(desired, finalBone.matrix));
+    const local = multiply(invert(finalBone.matrix), multiply(desired, translate(finalBone.matrix[4], finalBone.matrix[5])));
     const parts = rigidParts(local, piece.rot);
     return {
       ...piece,
@@ -496,7 +496,7 @@ export function alignRigRestPose(project) {
     if (!boneEntry) return { ...piece };
     const beforeMatrix = pieceTransform(beforeWorld, beforeRest, piece.bone, piece.pos, piece.rot);
     const boneMatrix = boneEntry.matrix;
-    const local = multiply(invert(boneMatrix), multiply(beforeMatrix, boneMatrix));
+    const local = multiply(invert(boneMatrix), multiply(beforeMatrix, translate(boneMatrix[4], boneMatrix[5])));
     const parts = rigidParts(local, Number(piece.rot) || 0);
     return {
       ...piece,

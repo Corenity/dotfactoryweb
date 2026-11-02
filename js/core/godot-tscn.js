@@ -133,7 +133,7 @@ export function makeGodotTscn(project) {
   const bones = normalizeBones(project.bones), animations = normalizeAnimations(project.animations, bones);
   const paths = bonePaths(bones);
   const restBones = applyRestPose(bones, project.restPose).bones;
-  const restWorld = boneWorldTransforms(restBones.map(bone => ({ ...bone, angle: 90 })));
+  const restWorld = boneWorldTransforms(restBones);
   const animationEntries = Object.entries(animations);
   const extraPieces = (project.pieces || []).filter(piece => piece.slot === 'extra');
   const extraExtResources = [];
@@ -216,7 +216,7 @@ export function makeGodotTscn(project) {
       const pivot = restWorld.get(bone.name);
       const pos = sprite.pos || [0, 0];
       const rot = sprite.rot || 0;
-      const offset = [-Math.round(pivot.x), -Math.round(pivot.y)];
+      const offset = [-pivot.x, -pivot.y];
       sections.push(spriteText(sprite.slot, sprite.piece, paths.get(bone.name), pos, sprite.zIndex, sprite.textureId, rot, offset));
     }
   }
