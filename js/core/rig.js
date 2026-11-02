@@ -101,7 +101,7 @@ export function addBone(bones, { name, parent = null } = {}) {
   return [...safeBones, newBone];
 }
 
-export function removeBone({ bones, pieces = [], animations = null, restPose = null } = {}, boneName = '') {
+export function removeBone({ bones, pieces = [], animations = null, restPose = null, presetLayers = [] } = {}, boneName = '') {
   const safeBones = normalizeBones(bones);
   if (safeBones.length <= 1) {
     throw new Error('마지막 뼈는 지울 수 없습니다');
@@ -150,13 +150,14 @@ export function removeBone({ bones, pieces = [], animations = null, restPose = n
     }
   }
 
-  const fallbackBone = parentName || (newBones.find(b => !b.parent)?.name ?? newBones[0].name);
-  const newPieces = pieces.map(p => {
-    if (p.bone === boneName) {
-      return { ...p, bone: fallbackBone };
-    }
-    return { ...p };
-  });
+  // 지운 뼈에 붙은 그림은 함께 지우고, 그림이 하나도 남지 않은 그룹도 뺍니다(replaceSkeletonInRig와 같은 규칙).
+  const sourcePieces = Array.isArray(pieces) ? pieces : [];
+  const newPieces = sourcePieces.filter(p => p && p.bone !== boneName).map(p => ({ ...p }));
+  const remainingGroupKeys = new Set(newPieces.map(p => p.presetLayerKey).filter(Boolean));
+  const sourceLayers = Array.isArray(presetLayers) ? presetLayers : [];
+  const newPresetLayers = sourceLayers
+    .filter(layer => layer && remainingGroupKeys.has(layer.key))
+    .map(layer => ({ ...layer }));
 
   const restAppliedBones = applyRestPose(safeBones, restPose).bones;
   const restWorlds = boneWorldTransforms(restAppliedBones);
@@ -207,9 +208,12 @@ export function removeBone({ bones, pieces = [], animations = null, restPose = n
   return {
     bones: newBones,
     pieces: newPieces,
+    presetLayers: newPresetLayers,
     animations: newAnimations,
     restPose: newRestPose,
     reparentedChildren,
+    removedPieceCount: sourcePieces.length - newPieces.length,
+    removedGroupCount: sourceLayers.length - newPresetLayers.length,
   };
 }
 

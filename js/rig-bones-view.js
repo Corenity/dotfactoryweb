@@ -660,15 +660,20 @@ export function mountRigBones(app, model) {
             pieces: pieces(),
             animations: model.getAnimations?.(),
             restPose: model.getRestPose?.(),
+            presetLayers: model.getPresetLayers?.(),
           }, current.name);
 
           model.setBones(result.bones);
           if (model.setRestPose) model.setRestPose(result.restPose);
           if (model.setAnimations && result.animations) model.setAnimations(result.animations);
+          // 지운 뼈에 붙은 그림을 원래 그림 객체 배열에서 제자리로 빼고, 빈 그룹 목록을 반영합니다.
           const currentPieces = pieces();
-          for (let i = 0; i < currentPieces.length; i++) {
-            if (result.pieces[i]) currentPieces[i].bone = result.pieces[i].bone;
+          for (let i = currentPieces.length - 1; i >= 0; i--) {
+            if (currentPieces[i]?.bone === current.name) currentPieces.splice(i, 1);
           }
+          if (model.setPresetLayers) model.setPresetLayers(result.presetLayers);
+          selectedPieceIndex = null;
+          activePieceMenu = null;
 
           selected = result.bones.some(b => b.name === current.parent) ? current.parent : result.bones[0].name;
           notify();
@@ -677,6 +682,7 @@ export function mountRigBones(app, model) {
           model.commit?.(before);
 
           let message = `뼈 「${current.name}」을 지웠습니다`;
+          if (result.removedPieceCount > 0) message += ` (붙은 그림 ${result.removedPieceCount}개도 지움)`;
           if (isDefault) message += `. ${CURRENT_PROFILE.id} 고도 뼈와 달라집니다`;
           if (result.reparentedChildren && result.reparentedChildren.length > 0) {
             message += '. 자식 뼈의 움직임 키는 지금 값 그대로 둡니다(부모가 바뀌어 보이는 자리가 달라질 수 있습니다)';
