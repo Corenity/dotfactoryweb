@@ -1,5 +1,5 @@
 // 뼈대 단계 화면 — 뼈 나무, 위치·각도, 조각 연결·층과 미리보기를 다룹니다.
-import { boneLabel, boneAngleToDisplay, displayAngleToBone, normalizeBones, applyRestPose, resetBonesToDefaults, DEFAULT_BONES, removeBone, editRigBone } from './core/rig.js';
+import { boneLabel, boneAngleToDisplay, displayAngleToBone, normalizeBones, applyRestPose, resetBonesToDefaults, DEFAULT_BONES, removeBone, editRigBone, createRestPose } from './core/rig.js';
 import { CURRENT_PROFILE, currentCanvas } from './core/profile.js';
 import { boneWorldTransforms, composeRig, worldDeltaToLocal, worldDeltaToBone } from './core/rig-render.js';
 import { sortRigPiecesByLayers } from './core/preset-layers.js';
@@ -126,12 +126,18 @@ export function mountRigBones(app, model) {
     try {
       const isTransform = Object.hasOwn(change, 'pos') || Object.hasOwn(change, 'angle');
       if (isTransform) {
-        const source = { bones: baseState?.bones || bones(), pieces: baseState?.pieces || pieces(), restPose: model.getRestPose?.() };
+        // 끌기 중에는 rest가 매 순간 바뀌므로 끌기 시작 때 찍은 rest를 기준으로 씁니다.
+        const restPose = baseState ? (baseState.restPose || null) : model.getRestPose?.();
+        const source = { bones: baseState?.bones || bones(), pieces: baseState?.pieces || pieces(), restPose };
         const result = editRigBone(source, current.name, change, boneLinkEnabled);
-        model.setBones(result.bones); if (!boneLinkEnabled) model.setPieces(result.pieces);
+        model.setBones(result.bones);
+        model.setPieces(result.pieces);
+        if (result.restPose && model.setRestPose) model.setRestPose(result.restPose);
       } else {
         const candidate = bones().map(bone => bone.name === current.name ? { ...bone, pos: [...bone.pos], ...change } : { ...bone, pos: [...bone.pos] });
-        model.setBones(normalizeBones(candidate));
+        const nextBones = normalizeBones(candidate);
+        model.setBones(nextBones);
+        if (model.setRestPose) model.setRestPose(createRestPose(nextBones));
       }
       if (!quiet) notify();
       refreshControls();

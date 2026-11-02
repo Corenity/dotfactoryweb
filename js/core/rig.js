@@ -425,14 +425,14 @@ export function editRigBone({ bones, pieces = [], restPose = null } = {}, boneNa
     pos: piece.pos ? [...piece.pos] : [0, 0],
     rot: Number(piece.rot) || 0,
   }));
-  if (linked) return { bones: afterBones, pieces: copiedPieces };
 
   const beforeWorld = boneWorldTransforms(beforeBones);
   const afterWorld = boneWorldTransforms(afterBones);
-  const beforeRest = boneWorldTransforms(applyRestPose(beforeBones, restPose).bones);
-  const afterRest = boneWorldTransforms(applyRestPose(afterBones, restPose).bones);
+  const beforeRestBones = restPose ? applyRestPose(beforeBones, restPose).bones : beforeBones;
+  const beforeRest = boneWorldTransforms(beforeRestBones);
   const afterTarget = afterWorld.get(boneName);
-  const fixedBones = afterBones.map(bone => {
+
+  const fixedBones = linked ? afterBones : afterBones.map(bone => {
     if (bone.parent !== boneName) return bone;
     const local = multiply(invert(afterTarget.matrix), beforeWorld.get(bone.name).matrix);
     const parts = rigidParts(local, bone.angle - 90);
@@ -443,10 +443,19 @@ export function editRigBone({ bones, pieces = [], restPose = null } = {}, boneNa
     };
   });
 
+  const normalizedBones = normalizeBones(fixedBones);
+  // rest가 편집 뒤 뼈를 따라가므로 모든 그림의 pos·rot을 새 뼈 기준으로 다시 계산합니다.
+  // 링크 켜짐은 그 그림이 붙은 뼈의 월드 변화만큼 따라가고, 꺼짐은 편집 전 화면 자리를 지킵니다.
+  const finalWorld = boneWorldTransforms(normalizedBones);
   const fixedPieces = copiedPieces.map(piece => {
-    if (piece.bone !== boneName) return piece;
-    const beforeMatrix = pieceTransform(beforeWorld, beforeRest, boneName, piece.pos, piece.rot);
-    const local = multiply(invert(afterTarget.matrix), multiply(beforeMatrix, afterRest.get(boneName).matrix));
+    const beforeBone = beforeWorld.get(piece.bone);
+    const finalBone = finalWorld.get(piece.bone);
+    if (!beforeBone || !finalBone) return piece;
+    const beforeMatrix = pieceTransform(beforeWorld, beforeRest, piece.bone, piece.pos, piece.rot);
+    const desired = linked
+      ? multiply(finalBone.matrix, multiply(invert(beforeBone.matrix), beforeMatrix))
+      : beforeMatrix;
+    const local = multiply(invert(finalBone.matrix), multiply(desired, finalBone.matrix));
     const parts = rigidParts(local, piece.rot);
     return {
       ...piece,
@@ -454,7 +463,53 @@ export function editRigBone({ bones, pieces = [], restPose = null } = {}, boneNa
       rot: Math.round(parts.angle),
     };
   });
-  return { bones: normalizeBones(fixedBones), pieces: fixedPieces };
+  return { bones: normalizedBones, pieces: fixedPieces, restPose: createRestPose(normalizedBones) };
+}
+
+/**
+ * 옛 rig-1 작업 자료의 초기값(restPose)이 뼈와 다를 때, 차이를 그림 pos·rot으로 옮기고
+ * restPose를 현재 뼈와 같게 맞춥니다. 화면 결과(행렬)는 열기 전과 동일하게 유지됩니다.
+ */
+export function alignRigRestPose(project) {
+  if (!project || typeof project !== 'object') return project;
+  const bones = project.bones;
+  if (!Array.isArray(bones) || !bones.length) return project;
+  const rawRest = project.restPose;
+  if (!rawRest || typeof rawRest !== 'object') {
+    return { ...project, restPose: createRestPose(bones) };
+  }
+  const normRest = normalizeRestPose(rawRest);
+  const isDifferent = bones.some(bone => {
+    const entry = normRest[bone.name];
+    if (!entry) return true;
+    return entry.pos[0] !== bone.pos[0] || entry.pos[1] !== bone.pos[1] || entry.angle !== bone.angle;
+  });
+  if (!isDifferent) {
+    return { ...project, restPose: createRestPose(bones) };
+  }
+
+  const beforeWorld = boneWorldTransforms(bones);
+  const beforeRest = boneWorldTransforms(applyRestPose(bones, normRest).bones);
+  const pieces = Array.isArray(project.pieces) ? project.pieces : [];
+  const nextPieces = pieces.map(piece => {
+    const boneEntry = beforeWorld.get(piece.bone);
+    if (!boneEntry) return { ...piece };
+    const beforeMatrix = pieceTransform(beforeWorld, beforeRest, piece.bone, piece.pos, piece.rot);
+    const boneMatrix = boneEntry.matrix;
+    const local = multiply(invert(boneMatrix), multiply(beforeMatrix, boneMatrix));
+    const parts = rigidParts(local, Number(piece.rot) || 0);
+    return {
+      ...piece,
+      pos: parts.pos.map(Math.round),
+      rot: Math.round(parts.angle),
+    };
+  });
+
+  return {
+    ...project,
+    pieces: nextPieces,
+    restPose: createRestPose(bones),
+  };
 }
 
 function normalizeCanvas(value) {
@@ -510,7 +565,7 @@ export function toProject({ canvas = currentCanvas(), slot = 'bare', item = '맨
     pieces: normalizePieces(pieces, safeSlot, safeItem, safeBones),
     bones: safeBones,
     animations: normalizeAnimations(animations, safeBones),
-    restPose: normalizeRestPose(restPose),
+    restPose: restPose == null ? createRestPose(safeBones) : normalizeRestPose(restPose),
     presetLayers: Array.isArray(presetLayers) ? presetLayers.map(layer => ({
       key: String(layer.key || ''), id: String(layer.id || 'preset'),
       name: String(layer.name || '새 프리셋'), kind: String(layer.kind || 'bare'),

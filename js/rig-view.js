@@ -1,5 +1,5 @@
 // 뼈대·키잡기 화면 — 뼈, 붙인 그림, 움직임과 옛 작업 파일 호환을 다룹니다.
-import { toProject, parseProject, cloneDefaultBones, defaultAnimations, normalizeAnimations, addBone, isValidBoneName } from './core/rig.js';
+import { toProject, parseProject, cloneDefaultBones, defaultAnimations, normalizeAnimations, addBone, isValidBoneName, createRestPose, alignRigRestPose } from './core/rig.js';
 import { KEY, toHex } from './core/paint.js';
 import { pickFiles, readDataUrl, saveJson, baseName } from './io.js';
 import { RigHistory, cloneRigState } from './core/rig-history.js';
@@ -117,7 +117,7 @@ export function mountRig(app) {
   let [canvasWidth, canvasHeight] = CURRENT_PROFILE.canvas;
   let pieces = [];
   let bones = cloneDefaultBones();
-  let restPose = null;
+  let restPose = createRestPose(bones);
   let animations = defaultAnimations();
   let currentSlot = 'bare';
   let currentItem = '맨몸';
@@ -149,7 +149,7 @@ export function mountRig(app) {
       pieces,
       bones,
       animations,
-      restPose,
+      restPose: restPose || createRestPose(bones),
       visibilityMode,
     });
   }
@@ -387,8 +387,8 @@ export function mountRig(app) {
   bonesView = mountRigBones(app, {
     getBones: () => bones,
     setBones: value => { bones = value; },
-    getRestPose: () => restPose,
-    setRestPose: value => { restPose = value; },
+    getRestPose: () => restPose || createRestPose(bones),
+    setRestPose: value => { restPose = value || createRestPose(bones); },
     getAnimations: () => animations,
     setAnimations: value => { animations = value; },
     getPieces: () => pieces,
@@ -471,21 +471,22 @@ export function mountRig(app) {
 
   // 작업 열기와 자동 복원의 단일 통합 함수
   async function loadProjectData(proj, role = null, { keepAnimations = false, recordHistory = false } = {}) {
+    const aligned = alignRigRestPose(proj);
     const before = recordHistory ? snapshot() : null;
-    app.warnCanvas?.(proj.canvas, '뼈대 작업');
+    app.warnCanvas?.(aligned.canvas, '뼈대 작업');
     const loadedPieces = [];
-    for (const p of proj.pieces) {
+    for (const p of aligned.pieces) {
       const img = await readDataUrl(p.png);
       loadedPieces.push({ ...p, image: img });
     }
     const replacement = keepAnimations
       ? replaceRigProjectKeepingAnimations(
         { animations },
-        { ...proj, pieces: loadedPieces },
+        { ...aligned, pieces: loadedPieces },
         bonesView?.getSelectedBone?.(),
       )
       : null;
-    const loaded = replacement?.project || { ...proj, pieces: loadedPieces };
+    const loaded = replacement?.project || { ...aligned, pieces: loadedPieces };
 
     // 상태 일괄 교체
     canvasWidth = loaded.canvas[0];
@@ -494,7 +495,7 @@ export function mountRig(app) {
     currentItem = loaded.item;
     bones = loaded.bones;
     animations = loaded.animations;
-    restPose = loaded.restPose || null;
+    restPose = loaded.restPose || createRestPose(bones);
     const rawLayers = loaded.presetLayers || role?.presetLayers;
     const layerState = normalizeRigLayerState(rawLayers, loaded.pieces);
     const migrated = migrateLegacyLayersToDepth(layerState.layers, layerState.pieces);
@@ -574,7 +575,7 @@ export function mountRig(app) {
       pieces,
       bones,
       animations,
-      restPose,
+      restPose: restPose || createRestPose(bones),
       presetLayers,
     });
   }
@@ -711,7 +712,7 @@ export function mountRig(app) {
       canvas: [canvasWidth, canvasHeight],
       skeletonName,
       bones,
-      restPose,
+      restPose: restPose || createRestPose(bones),
     }),
     getMotionBasis: () => motionRig.bones.length ? ({
       canvas: [...motionRig.canvas],
