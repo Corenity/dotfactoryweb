@@ -113,12 +113,19 @@
         </div>
       </div>
       <div class="paint-workspace">
-        <nav class="paint-view-menu" aria-label="편집 보기 메뉴">
-          <button type="button" data-paint-view="original" aria-pressed="true">원본</button>
-          <button type="button" data-paint-view="compare" aria-pressed="false">비교</button>
-          <button type="button" data-paint-view="zoom" aria-pressed="false">줌</button>
-          <button type="button" data-paint-view="clean" aria-pressed="false">색정리</button>
-        </nav>
+        <aside class="paint-side" aria-label="편집 보기 메뉴와 줌">
+          <nav class="paint-view-menu" aria-label="편집 보기 메뉴">
+            <button type="button" data-paint-view="original" aria-pressed="true">원본</button>
+            <button type="button" data-paint-view="compare" aria-pressed="false">비교</button>
+            <button type="button" data-paint-view="clean" aria-pressed="false">색정리</button>
+          </nav>
+          <div class="paint-controls">
+            <button class="btn" id="paint-zoom-in" aria-label="크게 보기">+</button>
+            <span class="hint" id="paint-zoom"></span>
+            <button class="btn" id="paint-zoom-out" aria-label="작게 보기">−</button>
+            <button class="btn" id="paint-fit">맞춤</button>
+          </div>
+        </aside>
         <div class="stage" id="paint-stage">
           <canvas id="paint-canvas" class="pixels"></canvas>
           <p class="empty" id="paint-empty">축소한 그림을 보내거나 「열기」로 PNG 를 여세요.</p>
@@ -154,12 +161,6 @@
           <button class="btn small" data-move="0,-1" aria-label="대볼 그림 위로 한 칸 옮기기" disabled>↑</button>
           <button class="btn small" data-move="0,1" aria-label="대볼 그림 아래로 한 칸 옮기기" disabled>↓</button>
         </span>
-      </div>
-      <div class="row paint-controls paint-view-panel" data-paint-panel="zoom" hidden>
-        <button class="btn" id="paint-zoom-out" aria-label="작게 보기">−</button>
-        <span class="hint" id="paint-zoom"></span>
-        <button class="btn" id="paint-zoom-in" aria-label="크게 보기">+</button>
-        <button class="btn" id="paint-fit">맞춤</button>
       </div>
       <div class="row paint-view-panel" id="paint-clean-wrap" data-paint-panel="clean" hidden>
         <label class="inline" for="paint-clean-level">색 묶기<input id="paint-clean-level" type="range" min="1" max="15" value="5" step="1"></label>

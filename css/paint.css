@@ -86,7 +86,8 @@ input[type="color"] {
 }
 .paint-workspace { display: flex; flex: 1 1 0; width: 100%; min-width: 0; min-height: 160px; gap: 4px; box-sizing: border-box; }
 #paint .stage { flex: 1 1 0; width: 0; min-width: 0; height: auto; min-height: 0; }
-.paint-view-menu { display: flex; flex: 0 0 48px; flex-direction: column; gap: 4px; }
+.paint-side { display: flex; flex: 0 0 48px; width: 48px; flex-direction: column; gap: 4px; overflow-y: auto; overflow-x: hidden; }
+.paint-view-menu { display: flex; flex-direction: column; gap: 4px; width: 100%; }
 .paint-view-menu button {
   flex: 0 0 44px; height: 44px; padding: 2px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--panel); color: var(--muted); font: inherit; font-size: 12px;
@@ -108,9 +109,9 @@ input[type="color"] {
 .selection-actions .btn { min-height: 32px; height: 32px; padding: 0 7px; border-radius: 7px; font-size: 12px; }
 .selection-actions .selection-color { display: flex; align-items: center; gap: 3px; padding: 0 6px; }
 #paint-selection-color-chip { width: 13px; height: 13px; border: 1px solid #fff9; border-radius: 3px; }
-.paint-controls { flex-wrap: nowrap; gap: 4px; }
-.paint-controls .btn { min-width: 44px; height: 44px; padding: 0 7px; border-radius: 8px; }
-.paint-controls #paint-zoom { min-width: 34px; text-align: center; white-space: nowrap; }
+.paint-controls { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+.paint-controls .btn { flex: 0 0 44px; width: 100%; min-width: 44px; height: 44px; min-height: 44px; padding: 0 2px; border-radius: 8px; }
+.paint-controls #paint-zoom { min-width: 34px; min-height: 20px; line-height: 20px; text-align: center; white-space: nowrap; font-size: 12px; }
 
 .guide { padding: 4px; border: 1px solid transparent; border-radius: 10px; }
 .guide.is-target { border-color: var(--accent); background: #26304a; }
