@@ -217,6 +217,12 @@ export function mountPaint(app) {
     $('#paint-guide-pick').setAttribute('aria-expanded', 'false');
   }
 
+  function setPaintViewMode(mode) {
+    activeView = mode === 'compare' ? 'compare' : 'original';
+    closeGuideMenu();
+    render();
+  }
+
   function expectedGuideCanvas() {
     return image ? [image.width, image.height] : currentCanvas();
   }
@@ -491,15 +497,21 @@ export function mountPaint(app) {
     load(blank(width, height), '새 그림');
   });
   for (const b of document.querySelectorAll('[data-paint-view]')) b.addEventListener('click', () => {
-    activeView = b.dataset.paintView;
-    closeGuideMenu();
-    render();
+    setPaintViewMode(b.dataset.paintView);
   });
   $('#paint-guide-pick').addEventListener('click', () => {
     const menu = $('#paint-guide-menu');
-    menu.hidden = !menu.hidden;
-    $('#paint-guide-pick').setAttribute('aria-expanded', String(!menu.hidden));
+    const open = menu.hidden;
+    if (open) {
+      const rect = $('#paint-guide-pick').getBoundingClientRect();
+      const maxLeft = Math.max(12, window.innerWidth - 192);
+      menu.style.left = `${Math.round(Math.min(Math.max(12, rect.left), maxLeft))}px`;
+      menu.style.top = `${Math.round(rect.bottom + 4)}px`;
+    }
+    menu.hidden = !open;
+    $('#paint-guide-pick').setAttribute('aria-expanded', String(open));
   });
+  $('#paint-guide-row').addEventListener('scroll', closeGuideMenu);
   $('#paint-guide-drop').addEventListener('click', () => {
     clearGuides();
     closeGuideMenu();
@@ -546,7 +558,6 @@ export function mountPaint(app) {
     changed();
   });
   $('#paint-save').addEventListener('click', () => image && savePng(`${name}.png`, fillKey(image)));
-  $('#paint-to-assemble').addEventListener('click', () => image && app.addToAssemble(clone(image), name));
 
   $('#paint-clean-level').addEventListener('input', () => {
     $('#paint-clean-val').textContent = `${$('#paint-clean-level').value}%`;
