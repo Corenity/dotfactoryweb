@@ -2,7 +2,7 @@
 // 대볼 그림은 합치기와 같이 그림 위에 반쯤 비치게 여러 장 얹어 맞춰 보는 데만 쓰고, 내려받기 · 합치기에 더하기에는 넣지 않습니다.
 import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, isPointInside, dropColorToMine, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
 import { overlayGuides, guidesPixelAt, guideOpacity, moveGuide, GUIDE_OPACITY } from './core/assemble.js';
-import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName, desktopCanvasActive, mountDesktopCanvasPan, renderGuideList } from './io.js';
+import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName, mountDesktopCanvasPan, renderGuideList } from './io.js';
 import { selectRect, insideRect, lift, fillPiece, place } from './core/select.js';
 import { loadColors, saveColors } from './store.js';
 import { currentCanvas } from './core/profile.js';
@@ -14,12 +14,9 @@ const $ = sel => document.querySelector(sel);
 const ZOOM_STEPS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
 // 내 색 칸을 이만큼 누르고 있으면 그 색을 뺍니다.
 const LONG_PRESS_MS = 500;
-// 화면에 맞춘 그림 위아래에 남길 빈 곳(px)입니다.
-const FIT_PAD = 12;
 
 export function mountPaint(app) {
   const stage = $('#paint-stage');
-  const workspace = $('.paint-workspace');
   const canvas = $('#paint-canvas');
   const colorBtn = $('#paint-color-btn'), selectionColorBtn = $('#paint-selection-color'), colorPop = $('#paint-color-pop');
   let image = null, name = '그림', history = new History();
@@ -266,21 +263,13 @@ export function mountPaint(app) {
     })));
   }
 
-  // 맞춘 그림보다 그림판이 높으면 그림판을 그림 높이 + 위아래 FIT_PAD 로 줄여 빈 곳을 없앱니다.
-  // 한도는 단추 줄을 뺀 남는 높이(CSS 에서 늘어나는 그림판)이고, 줄일 때는 늘어나지 않게 고정합니다.
+  // 그림을 작업 영역 너비·높이에 맞춰 가운데에 배치합니다.
   function fit() {
     if (!image) return;
-    workspace.style.height = workspace.style.minHeight = workspace.style.flex = '';
     const w = stage.clientWidth, h = stage.clientHeight;
     if (!w || !h) return;
     fittedWidth = w;
     cell = Math.max(1, Math.floor(Math.min(w / image.width, h / image.height)));
-    const fitted = image.height * cell + FIT_PAD * 2;
-    if (!desktopCanvasActive() && fitted < h) {
-      workspace.style.height = `${fitted + workspace.offsetHeight - h}px`;
-      workspace.style.minHeight = '0';
-      workspace.style.flex = '0 0 auto';
-    }
     panX = Math.round((w - image.width * cell) / 2);
     panY = Math.round((stage.clientHeight - image.height * cell) / 2);
     render();

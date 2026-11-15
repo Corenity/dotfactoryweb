@@ -78,11 +78,14 @@ input[type="color"] {
   .stage.small canvas { max-width: none; transform-origin: center; }
 }
 
-/* 다듬기는 아이폰에서 스크롤 없이 한 화면에 담습니다. 화면을 주소창이 나와 있을 때의 높이(svh)에 맞추고
-   단추 줄을 뺀 나머지 높이를 그림판이 씁니다. 맞춤이 그림판을 그림 높이로 줄이면 남는 곳은 맨 아래로 갑니다. */
-#paint { gap: 8px; height: calc(100vh - var(--top-h, 61px) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+/* 다듬기는 아이폰에서 스크롤 없이 한 화면에 담습니다. 동적 뷰포트 높이(dvh)에 맞추고
+   단추 줄을 뺀 나머지 높이를 왼쪽 메뉴와 그림판이 끝까지 채웁니다. */
+#paint { gap: 8px; height: calc(100vh - var(--top-h, 61px) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); min-height: 0; }
 @supports (height: 100svh) {
   #paint { height: calc(100svh - var(--top-h, 61px) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+}
+@supports (height: 100dvh) {
+  #paint { height: calc(100dvh - var(--top-h, 61px) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 }
 .paint-workspace { display: flex; flex: 1 1 0; width: 100%; min-width: 0; min-height: 160px; gap: 6px; box-sizing: border-box; }
 .paint-main { display: flex; flex: 1 1 0; flex-direction: column; min-width: 0; min-height: 0; gap: 6px; }
@@ -97,6 +100,7 @@ input[type="color"] {
 .paint-view-panel {
   display: flex; flex: 1 1 0; flex-direction: column; gap: 6px;
   min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;
 }
 .paint-view-panel > * { flex-shrink: 0; }
 .paint-view-panel[hidden] { display: none; }
@@ -156,10 +160,14 @@ input[type="color"] {
 .paint-compare-row .arrows .btn { min-height: 28px; height: 28px; }
 #paint-clean-status { font-size: 11px; line-height: 1.3; word-break: keep-all; }
 .guide-list-wrap { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
-.paint-guide-list-wrap { flex: 1 1 auto; flex-direction: column; align-items: stretch; min-width: 0; min-height: 0; padding: 0; }
+.paint-guide-list-wrap { flex: 1 1 0; flex-direction: column; align-items: stretch; min-width: 0; min-height: 72px; padding: 0; }
 .guide-list-wrap[hidden], .guide-list[hidden] { display: none; }
 .guide-list { display: flex; flex: 1 1 0; flex-wrap: wrap; gap: 4px; min-width: 0; }
-.paint-guide-list { flex: 1 1 auto; flex-direction: column; flex-wrap: nowrap; min-height: 60px; max-height: none; overflow-y: auto; }
+.paint-guide-list {
+  flex: 1 1 0; flex-direction: column; flex-wrap: nowrap; min-height: 0; max-height: none;
+  overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain; touch-action: pan-y; padding-bottom: 4px;
+}
 .paint-guide-list .guide-item { width: 100%; flex-shrink: 0; justify-content: space-between; box-sizing: border-box; padding: 2px 2px 2px 6px; }
 .paint-guide-list .guide-item-select { flex: 1 1 0; min-width: 0; text-align: left; }
 .guide-item {
