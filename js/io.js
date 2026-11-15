@@ -224,3 +224,30 @@ export function pickFiles({ accept = 'image/*', multiple = false } = {}) {
 export function baseName(name) {
   return String(name || '그림').replace(/\.[^.]+$/, '');
 }
+
+/** 여러 장의 대볼 그림 목록과 선택·개별 빼기 단추를 DOM에 그립니다. */
+export function renderGuideList(listEl, guides, selectedIndex, onSelect, onRemove) {
+  if (!listEl) return;
+  listEl.replaceChildren();
+  for (let i = 0; i < guides.length; i++) {
+    const g = guides[i];
+    const item = document.createElement('div');
+    item.className = 'guide-item' + (i === selectedIndex ? ' is-selected' : '');
+    item.setAttribute('role', 'listitem');
+    const selectBtn = document.createElement('button');
+    selectBtn.type = 'button';
+    selectBtn.className = 'guide-item-select';
+    selectBtn.textContent = g.name || `대볼 그림 ${i + 1}`;
+    selectBtn.title = selectBtn.textContent;
+    selectBtn.setAttribute('aria-pressed', String(i === selectedIndex));
+    selectBtn.addEventListener('click', () => onSelect(i));
+    const dropBtn = document.createElement('button');
+    dropBtn.type = 'button';
+    dropBtn.className = 'btn small guide-item-drop';
+    dropBtn.textContent = '×';
+    dropBtn.setAttribute('aria-label', `${selectBtn.textContent} 빼기`);
+    dropBtn.addEventListener('click', () => onRemove(i));
+    item.append(selectBtn, dropBtn);
+    listEl.append(item);
+  }
+}

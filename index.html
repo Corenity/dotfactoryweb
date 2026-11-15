@@ -162,6 +162,10 @@
           <button class="btn small" data-move="0,1" aria-label="대볼 그림 아래로 한 칸 옮기기" disabled>↓</button>
         </span>
       </div>
+      <div class="row guide-list-wrap paint-view-panel" id="paint-guide-list-wrap" hidden>
+        <div class="guide-list" id="paint-guide-list" role="list" aria-label="대볼 그림 목록"></div>
+        <button class="btn small guide-clear-btn" id="paint-guide-drop" type="button" hidden>모두 빼기</button>
+      </div>
       <div class="row paint-view-panel" id="paint-clean-wrap" data-paint-panel="clean" hidden>
         <label class="inline" for="paint-clean-level">색 묶기<input id="paint-clean-level" type="range" min="1" max="15" value="5" step="1"></label>
         <span class="hint" id="paint-clean-val">5%</span>
@@ -271,6 +275,8 @@
               <button class="btn" data-slice-guide-move="-1,0" aria-label="대볼 그림 왼쪽으로 한 칸 옮기기" disabled>←</button>
               <button class="btn" data-slice-guide-move="1,0" aria-label="대볼 그림 오른쪽으로 한 칸 옮기기" disabled>→</button>
             </span>
+            <button class="btn" id="slice-guide-drop" type="button" hidden>모두 빼기</button>
+            <div class="guide-list slice-guide-list" id="slice-guide-list" role="list" aria-label="대볼 그림 목록"></div>
           </div>
         </aside>
         <div class="stage" id="rig-stage">
@@ -593,11 +599,17 @@
       </div>
       <div class="row guide">
         <span class="hint">대볼 그림</span>
-        <span class="guide-name" id="asm-guide-name">없음</span>
         <button class="btn small" id="asm-guide-pick">고르기</button>
-        <button class="btn small" id="asm-guide-drop" hidden>빼기</button>
+        <button class="btn small" id="asm-guide-drop" hidden>모두 빼기</button>
         <label class="inline guide-opacity">진하기<input type="range" id="asm-guide-opacity" min="0" max="100" step="10" value="50" disabled><span id="asm-guide-opacity-value">50%</span></label>
+        <span class="arrows" aria-label="대볼 그림 옮기기">
+          <button class="btn small" data-asm-guide-move="-1,0" aria-label="대볼 그림 왼쪽으로 한 칸 옮기기" disabled>←</button>
+          <button class="btn small" data-asm-guide-move="1,0" aria-label="대볼 그림 오른쪽으로 한 칸 옮기기" disabled>→</button>
+          <button class="btn small" data-asm-guide-move="0,-1" aria-label="대볼 그림 위로 한 칸 옮기기" disabled>↑</button>
+          <button class="btn small" data-asm-guide-move="0,1" aria-label="대볼 그림 아래로 한 칸 옮기기" disabled>↓</button>
+        </span>
       </div>
+      <div class="guide-list asm-guide-list" id="asm-guide-list" role="list" aria-label="대볼 그림 목록" hidden></div>
       <div class="stage small"><canvas id="asm-canvas" class="pixels"></canvas></div>
       <p class="hint">층 번호가 큰 그림이 위에 옵니다. ▲ ▼ 는 한 층씩 올리고 내리며, 가장 낮은 층은 1 입니다. 그림마다 진하기는 화면에서만 비치고, 합친 그림 내려받기는 늘 100% 입니다. 화살표는 한 칸씩 옮깁니다. 대볼 그림은 맨 위에 진하기만큼 비쳐 보이고, 합친 그림 내려받기에는 들어가지 않습니다.</p>
       <ol class="layers" id="asm-list"></ol>

@@ -1,7 +1,7 @@
 // 합치기 화면 — 그림 여러 장을 층 번호 · 보이기 · 칸 이동으로 겹쳐 보고 저장합니다.
-// 대볼 그림 한 장은 합친 그림 위에 반쯤 비치게 얹어 맞춰 보는 데만 쓰고, 합친 그림 내려받기에는 넣지 않습니다.
-import { compose, overlayGuide, guideOpacity, layerOpacity, GUIDE_OPACITY, canvasSizeFor, nextLayer, MIN_LAYER, clampLayer, toProject, parseProject } from './core/assemble.js';
-import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, saveJson, toPngDataUrl, baseName, desktopCanvasActive, mountDesktopCanvasPan } from './io.js';
+// 대볼 그림은 합친 그림 위에 반쯤 비치게 여러 장 얹어 맞춰 보는 데만 쓰고, 합친 그림 내려받기에는 넣지 않습니다.
+import { compose, overlayGuides, guideOpacity, moveGuide, layerOpacity, GUIDE_OPACITY, canvasSizeFor, nextLayer, MIN_LAYER, clampLayer, toProject, parseProject } from './core/assemble.js';
+import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, saveJson, toPngDataUrl, baseName, desktopCanvasActive, mountDesktopCanvasPan, renderGuideList } from './io.js';
 import { dropKey } from './core/paint.js';
 import { backdropToggle } from './backdrop.js';
 
@@ -9,8 +9,16 @@ const $ = sel => document.querySelector(sel);
 
 export function mountAssemble(app) {
   let items = [];
-  let guide = null; // { image, name, opacity }
+  let guides = []; // { image, name, opacity, dx, dy }[]
+  let selectedGuide = -1;
   let panX = 0, panY = 0;
+  const currentGuide = () => guides[selectedGuide] || null;
+  function addGuide(entry) { guides.push(entry); selectedGuide = guides.length - 1; }
+  function removeGuide(index) {
+    guides.splice(index, 1);
+    selectedGuide = guides.length ? Math.min(selectedGuide, guides.length - 1) : -1;
+  }
+  function clearGuides() { guides = []; selectedGuide = -1; }
   const canvas = $('#asm-canvas'), stage = canvas.parentElement;
   // 맨 아래에 초록을 깔아 보여 줍니다. 넣는 그림은 초록 칸을 투명으로 바꿔 받아 아래를 가리지 않습니다.
   const bg = backdropToggle($('#asm-clear'), render);
@@ -21,7 +29,7 @@ export function mountAssemble(app) {
   });
 
   // 대볼 그림도 그림판 크기에 넣어, 부위만 있을 때와 대볼 그림을 얹었을 때 판이 같게 합니다.
-  function size() { return canvasSizeFor(guide ? [...items, guide] : items); }
+  function size() { return canvasSizeFor([...items, ...guides]); }
 
   function render() {
     drawStage();
@@ -37,19 +45,29 @@ export function mountAssemble(app) {
     const availableHeight = desktop ? Math.max(1, (stage.clientHeight || 320) - 16) : Infinity;
     const scale = Math.max(1, Math.floor(Math.min(availableWidth / w, availableHeight / h)));
     const shown = compose(items, w, h, { fade: true });
-    drawPixels(canvas, guide ? overlayGuide(shown, guide.image, guide.opacity) : shown, scale, bg.backdrop);
+    drawPixels(canvas, guides.length ? overlayGuides(shown, guides) : shown, scale, bg.backdrop);
     canvas.style.transform = `translate(${panX}px, ${panY}px)`;
     $('#asm-size').textContent = items.length ? `${w}×${h} 칸 · 그림 ${items.length}장` : '그림을 더하세요';
   }
 
   function renderGuide() {
-    $('#asm-guide-name').textContent = guide ? guide.name : '없음';
-    $('#asm-guide-pick').textContent = guide ? '바꾸기' : '고르기';
-    $('#asm-guide-drop').hidden = !guide;
-    const opacity = guide ? guide.opacity : GUIDE_OPACITY;
+    $('#asm-guide-pick').textContent = '고르기';
+    $('#asm-guide-drop').hidden = !guides.length;
+    const active = currentGuide();
+    const opacity = active ? active.opacity : GUIDE_OPACITY;
     $('#asm-guide-opacity').value = String(Math.round(opacity * 100));
-    $('#asm-guide-opacity').disabled = !guide;
+    $('#asm-guide-opacity').disabled = !active;
     $('#asm-guide-opacity-value').textContent = `${Math.round(opacity * 100)}%`;
+    for (const b of document.querySelectorAll('[data-asm-guide-move]')) b.disabled = !active;
+    const listEl = $('#asm-guide-list');
+    if (listEl) listEl.hidden = !guides.length;
+    renderGuideList(
+      listEl,
+      guides,
+      selectedGuide,
+      i => { selectedGuide = i; renderGuide(); drawStage(); },
+      i => { removeGuide(i); changed(); },
+    );
   }
 
   function renderList() {
@@ -151,16 +169,28 @@ export function mountAssemble(app) {
     }
   });
   $('#asm-guide-pick').addEventListener('click', async () => {
-    const [file] = await pickFiles({ accept: 'image/png' });
-    if (!file) return;
-    try {
-      // 바꾸기로 다른 그림을 골라도 맞춰 둔 진하기는 그대로 둡니다.
-      guide = { image: dropKey(await readImageFile(file)), name: baseName(file.name), opacity: guide?.opacity ?? GUIDE_OPACITY };
-      changed();
-    } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
+    const files = await pickFiles({ accept: 'image/png', multiple: true });
+    let added = false;
+    for (const file of files) {
+      try {
+        addGuide({ image: dropKey(await readImageFile(file)), name: baseName(file.name), opacity: GUIDE_OPACITY, dx: 0, dy: 0 });
+        added = true;
+      } catch (err) { app.toast(`${file.name} 을 읽지 못했습니다`); }
+    }
+    if (added) changed();
   });
-  $('#asm-guide-drop').addEventListener('click', () => { guide = null; changed(); });
-  $('#asm-guide-opacity').addEventListener('input', () => { if (guide) { guide.opacity = guideOpacity($('#asm-guide-opacity').value / 100); changed(); } });
+  $('#asm-guide-drop').addEventListener('click', () => { clearGuides(); changed(); });
+  $('#asm-guide-opacity').addEventListener('input', () => {
+    const active = currentGuide();
+    if (active) { active.opacity = guideOpacity($('#asm-guide-opacity').value / 100); changed(); }
+  });
+  for (const b of document.querySelectorAll('[data-asm-guide-move]')) b.addEventListener('click', () => {
+    const active = currentGuide();
+    if (!active) return;
+    const [dx, dy] = b.dataset.asmGuideMove.split(',').map(Number);
+    guides[selectedGuide] = moveGuide(active, dx, dy);
+    changed();
+  });
   $('#asm-save-png').addEventListener('click', () => {
     if (!items.length) return;
     const [w, h] = size();
@@ -170,7 +200,7 @@ export function mountAssemble(app) {
   $('#asm-save-json').addEventListener('click', () => {
     if (!items.length) return;
     const [w, h] = size();
-    saveJson('합치기설정.json', toProject(items, w, h, toPngDataUrl, guide));
+    saveJson('합치기설정.json', toProject(items, w, h, toPngDataUrl, guides));
   });
   $('#asm-open').addEventListener('click', async () => {
     const [file] = await pickFiles({ accept: 'application/json,.json' });
@@ -189,8 +219,12 @@ export function mountAssemble(app) {
     app.warnCanvas?.(project.canvas, '합치기 설정');
     const loaded = [];
     for (const i of project.items) loaded.push({ ...i, image: dropKey(await readDataUrl(i.png)), png: undefined });
-    const g = project.guide;
-    guide = g ? { name: g.name, visible: g.visible, opacity: g.opacity, image: dropKey(await readDataUrl(g.png)) } : null;
+    const loadedGuides = [];
+    for (const g of project.guides) {
+      loadedGuides.push({ name: g.name, visible: g.visible, opacity: g.opacity, dx: g.dx || 0, dy: g.dy || 0, image: dropKey(await readDataUrl(g.png)) });
+    }
+    guides = loadedGuides;
+    selectedGuide = guides.length ? guides.length - 1 : -1;
     items = loaded;
     render();
   }
@@ -199,7 +233,7 @@ export function mountAssemble(app) {
   return {
     add,
     shown: render,
-    snapshot: () => (items.length || guide ? toProject(items, ...size(), toPngDataUrl, guide) : null),
+    snapshot: () => (items.length || guides.length ? toProject(items, ...size(), toPngDataUrl, guides) : null),
     restore,
   };
 }

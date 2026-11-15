@@ -69,15 +69,34 @@ function blendOver(out, d, src, s, ga) {
  */
 export function overlayGuide(base, guide, alpha = GUIDE_OPACITY, dx = 0, dy = 0) {
   const out = new Uint8ClampedArray(base.data);
+  blendGuideInto(out, base.width, base.height, guide, alpha, dx, dy);
+  return { width: base.width, height: base.height, data: out };
+}
+
+function blendGuideInto(out, width, height, guide, alpha = GUIDE_OPACITY, dx = 0, dy = 0) {
+  if (!guide || !alpha) return;
+  const ox = Math.trunc(Number(dx) || 0);
+  const oy = Math.trunc(Number(dy) || 0);
   for (let y = 0; y < guide.height; y++) {
-    const ty = y + dy;
-    if (ty < 0 || ty >= base.height) continue;
+    const ty = y + oy;
+    if (ty < 0 || ty >= height) continue;
     for (let x = 0; x < guide.width; x++) {
-      const tx = x + dx;
-      if (tx < 0 || tx >= base.width) continue;
+      const tx = x + ox;
+      if (tx < 0 || tx >= width) continue;
       const s = (y * guide.width + x) * 4;
-      blendOver(out, (ty * base.width + tx) * 4, guide.data, s, guide.data[s + 3] / 255 * alpha);
+      blendOver(out, (ty * width + tx) * 4, guide.data, s, guide.data[s + 3] / 255 * alpha);
     }
+  }
+}
+
+/** 여러 장의 대볼 그림을 순서대로(나중에 추가한 그림이 위) 합친 그림 위에 비치게 얹습니다. */
+export function overlayGuides(base, guides = []) {
+  const list = Array.isArray(guides) ? guides : guides ? [guides] : [];
+  if (!list.length) return base;
+  const out = new Uint8ClampedArray(base.data);
+  for (const g of list) {
+    if (!g?.image) continue;
+    blendGuideInto(out, base.width, base.height, g.image, guideOpacity(g.opacity), g.dx, g.dy);
   }
   return { width: base.width, height: base.height, data: out };
 }
@@ -88,6 +107,18 @@ export function guidePixelAt(guide, x, y, dx = 0, dy = 0) {
   if (gx < 0 || gy < 0 || gx >= guide.width || gy >= guide.height) return null;
   const s = (gy * guide.width + gx) * 4;
   return [guide.data[s], guide.data[s + 1], guide.data[s + 2], guide.data[s + 3]];
+}
+
+/** 여러 장의 대볼 그림 중 (x, y) 칸에서 가장 위에 겹친(투명하지 않은) 그림의 원래 색을 돌려줍니다. */
+export function guidesPixelAt(guides = [], x, y) {
+  if (!Array.isArray(guides)) return null;
+  for (let i = guides.length - 1; i >= 0; i--) {
+    const g = guides[i];
+    if (!g?.image) continue;
+    const px = guidePixelAt(g.image, x, y, Math.trunc(Number(g.dx) || 0), Math.trunc(Number(g.dy) || 0));
+    if (px && px[3] > 0) return px;
+  }
+  return null;
 }
 
 /** 대볼 그림을 지정한 칸 수만큼 옮긴 새 값을 만듭니다. 받은 값은 바꾸지 않습니다. */
@@ -122,15 +153,37 @@ export function nextLayer(items) {
 }
 
 /** 저장 파일(JSON) 내용입니다. 그림은 PNG data URL 로 같이 담아 파일 하나로 다시 열 수 있습니다. */
-// 대볼 그림(guide)은 조립할 부위(items)와 따로 담습니다. 읽는 쪽이 부위로 오해하지 않게 하려는 것입니다.
-export function toProject(items, width, height, pngOf, guide = null) {
+// 대볼 그림(guides)은 조립할 부위(items)와 따로 담습니다. 읽는 쪽이 부위로 오해하지 않게 하려는 것입니다.
+export function toProject(items, width, height, pngOf, guides = null) {
+  const guideList = (Array.isArray(guides) ? guides : guides ? [guides] : []).filter(g => g?.image);
   return {
     schema: SCHEMA,
     canvas: [width, height],
     // opacity 는 화면에서 비쳐 보이는 정도입니다. 내려받은 합친 그림에는 들어가지 않고, 고도에서 조립할 때 읽어 쓸 수 있게 담아 둡니다.
     items: items.map(i => ({ name: i.name, layer: i.layer, visible: i.visible !== false, dx: i.dx || 0, dy: i.dy || 0,
       opacity: layerOpacity(i.opacity), png: pngOf(i.image) })),
-    ...(guide ? { guide: { name: guide.name, visible: guide.visible !== false, opacity: guideOpacity(guide.opacity), png: pngOf(guide.image) } } : {}),
+    ...(guideList.length ? {
+      guides: guideList.map(g => ({
+        name: g.name,
+        visible: g.visible !== false,
+        opacity: guideOpacity(g.opacity),
+        dx: Math.trunc(Number(g.dx) || 0),
+        dy: Math.trunc(Number(g.dy) || 0),
+        png: pngOf(g.image),
+      })),
+    } : {}),
+  };
+}
+
+function parseGuideEntry(g, index = 0) {
+  if (typeof g?.png !== 'string' || !g.png.startsWith('data:image/png')) return null;
+  return {
+    name: String(g.name || (index ? `대볼 그림 ${index + 1}` : '대볼 그림')),
+    visible: true,
+    opacity: g.visible === false ? 0 : guideOpacity(g.opacity),
+    dx: Math.trunc(Number(g.dx) || 0),
+    dy: Math.trunc(Number(g.dy) || 0),
+    png: g.png,
   };
 }
 
@@ -138,6 +191,10 @@ export function toProject(items, width, height, pngOf, guide = null) {
 export function parseProject(json) {
   if (!json || json.schema !== SCHEMA || !Array.isArray(json.items)) throw new Error('도트 공장 웹 합치기 파일이 아닙니다');
   const [w, h] = Array.isArray(json.canvas) ? json.canvas : currentCanvas();
+  // 새 형식(guides 배열)과 옛 단일 형식(guide)을 모두 지원합니다.
+  const guides = Array.isArray(json.guides)
+    ? json.guides.map((g, idx) => parseGuideEntry(g, idx)).filter(Boolean)
+    : (json.guide ? [parseGuideEntry(json.guide, 0)].filter(Boolean) : []);
   return {
     canvas: [w, h],
     items: json.items.map((i, n) => {
@@ -145,10 +202,7 @@ export function parseProject(json) {
       return { name: String(i.name || `그림 ${n + 1}`), layer: clampLayer(i.layer), visible: i.visible !== false,
         dx: Math.trunc(Number(i.dx) || 0), dy: Math.trunc(Number(i.dy) || 0), opacity: layerOpacity(i.opacity), png: i.png };
     }),
-    // 대볼 그림이 없거나 그림이 깨진 옛 파일은 대볼 그림 없이 엽니다.
-    guide: typeof json.guide?.png === 'string' && json.guide.png.startsWith('data:image/png')
-      ? { name: String(json.guide.name || '대볼 그림'), visible: true,
-        opacity: json.guide.visible === false ? 0 : guideOpacity(json.guide.opacity), png: json.guide.png }
-      : null,
+    guides,
+    guide: guides[0] ?? null,
   };
 }

@@ -1,8 +1,8 @@
 // site/js/rig-slice-view.js — 자르기 그림판 뷰 모듈 (색 영역 오버레이 렌더링, 대볼 그림, 줌·이동, 붓/지우개)
 import { KEY, toHex, dropKey } from './core/paint.js';
-import { overlayGuide, GUIDE_OPACITY, guideOpacity, moveGuide } from './core/assemble.js';
+import { overlayGuides, GUIDE_OPACITY, guideOpacity, moveGuide } from './core/assemble.js';
 import { importRegionConfig, regionGuideImage } from './core/region-slice.js';
-import { pickFiles, readImageFile, baseName, mountDesktopCanvasPan, zoomAtAnchor } from './io.js';
+import { pickFiles, readImageFile, baseName, mountDesktopCanvasPan, zoomAtAnchor, renderGuideList } from './io.js';
 
 const $ = sel => document.querySelector(sel);
 
@@ -29,8 +29,16 @@ export function mountRigSlice(app, model) {
 
   let baseImage = model.getBaseImage();
   let [canvasWidth, canvasHeight] = model.getSize();
-  let guide = null; // { image, name, opacity, dx, dy, kind: 'image' | 'regions' }
+  let guides = []; // { image, name, opacity, dx, dy, kind: 'image' | 'regions' }[]
+  let selectedGuide = -1;
   let activeView = 'original';
+  const currentGuide = () => guides[selectedGuide] || null;
+  function addGuide(entry) { guides.push(entry); selectedGuide = guides.length - 1; }
+  function removeGuide(index) {
+    guides.splice(index, 1);
+    selectedGuide = guides.length ? Math.min(selectedGuide, guides.length - 1) : -1;
+  }
+  function clearGuides() { guides = []; selectedGuide = -1; }
   mountDesktopCanvasPan(stage, {
     readPan: () => ({ x: panX, y: panY }),
     writePan: (x, y) => { panX = Math.round(x); panY = Math.round(y); render(); },
@@ -44,7 +52,7 @@ export function mountRigSlice(app, model) {
     canvasHeight = h;
   }
 
-  const hasTarget = () => !!(baseImage || guide?.image);
+  const hasTarget = () => !!(baseImage || guides.some(g => g?.image));
 
   function fit() {
     if (!hasTarget()) return;
@@ -89,11 +97,9 @@ export function mountRigSlice(app, model) {
     ctx.fillStyle = toHex(KEY);
     ctx.fillRect(0, 0, baseCanvas.width, baseCanvas.height);
 
-    // 대볼 그림 합성: 원래 그림 위에 대볼 그림을 비치게 얹고, 그 위에 영역 색이 오도록 함
+    // 대볼 그림 합성: 원래 그림 위에 대볼 그림 여러 장을 비치게 얹고, 그 위에 영역 색이 오도록 함
     const targetImage = baseImage || { width: canvasWidth, height: canvasHeight, data: new Uint8ClampedArray(canvasWidth * canvasHeight * 4) };
-    const shown = (guide?.image)
-      ? overlayGuide(targetImage, guide.image, guide.opacity, guide.dx, guide.dy)
-      : targetImage;
+    const shown = guides.length ? overlayGuides(targetImage, guides) : targetImage;
 
     // 도트 렌더링
     const imgData = shown.data;
@@ -153,6 +159,7 @@ export function mountRigSlice(app, model) {
 
   function renderGuide() {
     const pickBtn = $('#slice-guide-pick');
+    const dropBtn = $('#slice-guide-drop');
     const opacityInput = $('#slice-guide-opacity');
     const opacityValEl = $('#slice-guide-opacity-value');
     for (const button of document.querySelectorAll('[data-slice-view]')) {
@@ -162,17 +169,25 @@ export function mountRigSlice(app, model) {
       panel.hidden = panel.dataset.slicePanel !== activeView;
     }
     if (pickBtn) {
-      pickBtn.textContent = guide ? '빼기' : '고르기';
+      pickBtn.textContent = '고르기';
       pickBtn.setAttribute('aria-expanded', 'false');
     }
-    if (guide) $('#slice-guide-menu').hidden = true;
-    const opacity = guide ? guide.opacity : GUIDE_OPACITY;
+    if (dropBtn) dropBtn.hidden = !guides.length;
+    const active = currentGuide();
+    const opacity = active ? active.opacity : GUIDE_OPACITY;
     if (opacityInput) {
       opacityInput.value = String(Math.round(opacity * 100));
-      opacityInput.disabled = !guide;
+      opacityInput.disabled = !active;
     }
     if (opacityValEl) opacityValEl.textContent = `${Math.round(opacity * 100)}%`;
-    for (const button of document.querySelectorAll('[data-slice-guide-move]')) button.disabled = !guide;
+    for (const button of document.querySelectorAll('[data-slice-guide-move]')) button.disabled = !active;
+    renderGuideList(
+      $('#slice-guide-list'),
+      guides,
+      selectedGuide,
+      i => { selectedGuide = i; renderGuide(); render(); },
+      i => { removeGuide(i); renderGuide(); render(); },
+    );
   }
 
   function closeGuideMenu() {
@@ -183,6 +198,7 @@ export function mountRigSlice(app, model) {
 
   function initGuide() {
     const pickBtn = $('#slice-guide-pick');
+    const dropBtn = $('#slice-guide-drop');
     const menuEl = $('#slice-guide-menu');
     const opacityInput = $('#slice-guide-opacity');
     if (!pickBtn || !menuEl) return;
@@ -196,15 +212,15 @@ export function mountRigSlice(app, model) {
     }
 
     pickBtn.addEventListener('click', () => {
-      if (guide) {
-        guide = null;
-        closeGuideMenu();
-        renderGuide();
-        render();
-        return;
-      }
       menuEl.hidden = !menuEl.hidden;
       pickBtn.setAttribute('aria-expanded', String(!menuEl.hidden));
+    });
+
+    dropBtn?.addEventListener('click', () => {
+      clearGuides();
+      closeGuideMenu();
+      renderGuide();
+      render();
     });
 
     for (const option of menuEl.querySelectorAll('[data-slice-guide-source]')) {
@@ -212,50 +228,61 @@ export function mountRigSlice(app, model) {
         closeGuideMenu();
         const source = option.dataset.sliceGuideSource;
         if (source === 'png') {
-          const [file] = await pickFiles({ accept: 'image/png' });
-          if (!file) return;
-          try {
-            const raw = await readImageFile(file);
-            guide = {
-              image: dropKey(raw),
-              name: baseName(file.name),
-              opacity: guide?.opacity ?? GUIDE_OPACITY,
-              dx: guide?.dx ?? 0,
-              dy: guide?.dy ?? 0,
-              kind: 'image',
-            };
+          const files = await pickFiles({ accept: 'image/png', multiple: true });
+          let added = false;
+          for (const file of files) {
+            try {
+              const raw = await readImageFile(file);
+              addGuide({
+                image: dropKey(raw),
+                name: baseName(file.name),
+                opacity: GUIDE_OPACITY,
+                dx: 0,
+                dy: 0,
+                kind: 'image',
+              });
+              added = true;
+            } catch {
+              app.toast(`${file.name} 을 읽지 못했습니다`);
+            }
+          }
+          if (added) {
             renderGuide();
             render();
-          } catch {
-            app.toast(`${file.name} 을 읽지 못했습니다`);
           }
           return;
         }
-        const [file] = await pickFiles({ accept: '.json,application/json' });
-        if (!file) return;
-        try {
-          const text = await file.text();
-          const expected = baseImage ? [baseImage.width, baseImage.height] : [canvasWidth, canvasHeight];
-          const state = importRegionConfig(JSON.parse(text), expected);
-          guide = {
-            image: regionGuideImage(state),
-            name: baseName(file.name),
-            opacity: guide?.opacity ?? GUIDE_OPACITY,
-            dx: guide?.dx ?? 0,
-            dy: guide?.dy ?? 0,
-            kind: 'regions',
-          };
+        const files = await pickFiles({ accept: '.json,application/json', multiple: true });
+        let added = false;
+        for (const file of files) {
+          try {
+            const text = await file.text();
+            const expected = baseImage ? [baseImage.width, baseImage.height] : [canvasWidth, canvasHeight];
+            const state = importRegionConfig(JSON.parse(text), expected);
+            addGuide({
+              image: regionGuideImage(state),
+              name: baseName(file.name),
+              opacity: GUIDE_OPACITY,
+              dx: 0,
+              dy: 0,
+              kind: 'regions',
+            });
+            added = true;
+          } catch (err) {
+            app.toast(err.message || '영역 설정을 불러오지 못했습니다');
+          }
+        }
+        if (added) {
           renderGuide();
           render();
-        } catch (err) {
-          app.toast(err.message || '영역 설정을 불러오지 못했습니다');
         }
       });
     }
 
     opacityInput?.addEventListener('input', () => {
-      if (guide) {
-        guide.opacity = guideOpacity(Number(opacityInput.value) / 100);
+      const active = currentGuide();
+      if (active) {
+        active.opacity = guideOpacity(Number(opacityInput.value) / 100);
         renderGuide();
         render();
       }
@@ -263,9 +290,10 @@ export function mountRigSlice(app, model) {
 
     for (const button of document.querySelectorAll('[data-slice-guide-move]')) {
       button.addEventListener('click', () => {
-        if (!guide) return;
+        const active = currentGuide();
+        if (!active) return;
         const [dx, dy] = button.dataset.sliceGuideMove.split(',').map(Number);
-        guide = moveGuide(guide, dx, dy);
+        guides[selectedGuide] = moveGuide(active, dx, dy);
         render();
       });
     }
@@ -361,6 +389,7 @@ export function mountRigSlice(app, model) {
     render,
     drawOverlay,
     sync,
-    getGuide: () => guide,
+    getGuide: currentGuide,
+    getGuides: () => guides,
   };
 }

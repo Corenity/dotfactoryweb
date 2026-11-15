@@ -144,6 +144,20 @@ input[type="color"] {
 .paint-compare-row .guide-opacity span { min-width: 31px; font-size: 12px; }
 .paint-compare-row .arrows { flex: 0 0 auto; gap: 2px; }
 .paint-compare-row .arrows .btn, .paint-move-row .arrows .btn { width: 44px; min-width: 44px; padding: 0; }
+.guide-list-wrap { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.guide-list-wrap[hidden], .guide-list[hidden] { display: none; }
+.guide-list { display: flex; flex: 1 1 0; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.guide-item {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
+  padding: 2px 4px 2px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+}
+.guide-item.is-selected { border-color: var(--accent); background: #26304a; }
+.guide-item-select {
+  border: 0; background: transparent; color: inherit; font: inherit; font-size: 12px;
+  padding: 2px 0; cursor: pointer; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.guide-item-drop { min-width: 24px; min-height: 24px; height: 24px; padding: 0 6px; font-size: 12px; }
+.guide-clear-btn { flex: 0 0 auto; white-space: nowrap; }
 
 .layers { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 
