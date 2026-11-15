@@ -204,9 +204,11 @@
 
 .slice-compare-panel {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
+  min-height: 0;
 }
 
 .slice-compare-panel .guide-picker,
@@ -217,8 +219,8 @@
 #slice-guide-pick,
 .slice-guide-arrows .btn {
   min-width: 36px;
-  min-height: 36px;
-  height: 36px;
+  min-height: 28px;
+  height: 28px;
   padding: 0 2px;
 }
 
@@ -238,6 +240,8 @@
 .slice-guide-opacity input[type="range"] {
   width: 100%;
   min-width: 0;
+  min-height: 20px;
+  height: 20px;
   margin: 0;
 }
 
@@ -249,21 +253,24 @@
 
 #slice-guide-drop {
   width: 100%;
-  min-height: 32px;
-  height: 32px;
+  min-height: 28px;
+  height: 28px;
   padding: 0 4px;
   font-size: 12px;
 }
 
 .slice-guide-list {
+  flex: 1 1 auto;
   flex-direction: column;
   flex-wrap: nowrap;
-  max-height: 140px;
+  min-height: 60px;
+  max-height: none;
   overflow-y: auto;
 }
 
 .slice-guide-list .guide-item {
   width: 100%;
+  flex-shrink: 0;
   justify-content: space-between;
   box-sizing: border-box;
   padding: 2px 2px 2px 6px;

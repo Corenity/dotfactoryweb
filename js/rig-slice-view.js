@@ -181,8 +181,10 @@ export function mountRigSlice(app, model) {
     }
     if (opacityValEl) opacityValEl.textContent = `${Math.round(opacity * 100)}%`;
     for (const button of document.querySelectorAll('[data-slice-guide-move]')) button.disabled = !active;
+    const listEl = $('#slice-guide-list');
+    if (listEl) listEl.hidden = !guides.length;
     renderGuideList(
-      $('#slice-guide-list'),
+      listEl,
       guides,
       selectedGuide,
       i => { selectedGuide = i; renderGuide(); render(); },

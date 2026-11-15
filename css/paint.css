@@ -84,19 +84,18 @@ input[type="color"] {
 @supports (height: 100svh) {
   #paint { height: calc(100svh - var(--top-h, 61px) - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
 }
-.paint-workspace { display: flex; flex: 1 1 0; width: 100%; min-width: 0; min-height: 160px; gap: 4px; box-sizing: border-box; }
+.paint-workspace { display: flex; flex: 1 1 0; width: 100%; min-width: 0; min-height: 160px; gap: 6px; box-sizing: border-box; }
 #paint .stage { flex: 1 1 0; width: 0; min-width: 0; height: auto; min-height: 0; }
-.paint-side { display: flex; flex: 0 0 48px; width: 48px; flex-direction: column; gap: 4px; overflow-y: auto; overflow-x: hidden; }
-.paint-view-menu { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+.paint-side { position: relative; display: flex; flex: 0 0 76px; width: 76px; flex-direction: column; gap: 4px; min-height: 0; min-width: 0; }
+.paint-view-menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; flex: 0 0 auto; width: 100%; }
 .paint-view-menu button {
-  flex: 0 0 44px; height: 44px; padding: 2px; border: 1px solid var(--line); border-radius: 8px;
+  min-width: 0; height: 36px; padding: 0 2px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--panel); color: var(--muted); font: inherit; font-size: 12px;
 }
+.paint-view-menu button[data-paint-view="clean"] { grid-column: 1 / -1; }
 .paint-view-menu button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
+.paint-view-panel { display: flex; flex: 1 1 auto; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
 .paint-view-panel[hidden] { display: none; }
-.paint-view-panel { flex-wrap: nowrap; min-height: 44px; gap: 4px; }
-.paint-view-panel .btn { min-height: 44px; }
-.paint-move-row .arrows { margin-left: auto; }
 
 /* 좌표와 선택 단추는 그림판 위에 겹쳐 띄워 줄 하나를 아낍니다. 좌표는 손가락 조작을 막지 않습니다. */
 .stage-pos {
@@ -109,9 +108,9 @@ input[type="color"] {
 .selection-actions .btn { min-height: 32px; height: 32px; padding: 0 7px; border-radius: 7px; font-size: 12px; }
 .selection-actions .selection-color { display: flex; align-items: center; gap: 3px; padding: 0 6px; }
 #paint-selection-color-chip { width: 13px; height: 13px; border: 1px solid #fff9; border-radius: 3px; }
-.paint-controls { display: flex; flex-direction: column; gap: 4px; width: 100%; }
-.paint-controls .btn { flex: 0 0 44px; width: 100%; min-width: 44px; height: 44px; min-height: 44px; padding: 0 2px; border-radius: 8px; }
-.paint-controls #paint-zoom { min-width: 34px; min-height: 20px; line-height: 20px; text-align: center; white-space: nowrap; font-size: 12px; }
+.paint-controls { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+.paint-controls .btn { min-width: 36px; min-height: 36px; height: 36px; padding: 0 8px; border-radius: 8px; font-size: 13px; flex-shrink: 0; }
+.paint-controls #paint-zoom { min-width: 34px; text-align: center; white-space: nowrap; font-size: 12px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
 
 .guide { padding: 4px; border: 1px solid transparent; border-radius: 10px; }
 .guide.is-target { border-color: var(--accent); background: #26304a; }
@@ -136,17 +135,28 @@ input[type="color"] {
 .paint-files .btn { flex: 1 1 0; min-width: 0; padding: 0 4px; font-size: 14px; white-space: nowrap; }
 .guide-opacity input[type="range"] { flex: 1; min-height: 44px; }
 .guide-opacity span { min-width: 3em; text-align: right; }
-.paint-compare-row { padding: 0; border: 0; }
-.paint-compare-row .guide-picker { flex: 0 0 auto; }
-.paint-compare-row #paint-guide-pick { min-width: 52px; padding: 0 6px; }
-.paint-compare-row .guide-opacity { flex: 1 1 0; min-width: 0; gap: 2px; }
-.paint-compare-row .guide-opacity input[type="range"] { min-width: 0; width: 100%; }
-.paint-compare-row .guide-opacity span { min-width: 31px; font-size: 12px; }
-.paint-compare-row .arrows { flex: 0 0 auto; gap: 2px; }
-.paint-compare-row .arrows .btn, .paint-move-row .arrows .btn { width: 44px; min-width: 44px; padding: 0; }
+.paint-compare-row { padding: 0; border: 0; gap: 4px; }
+.paint-compare-row .guide-picker, #paint-guide-pick { width: 100%; }
+#paint-guide-pick, #paint-guide-drop, #paint-clean-run {
+  width: 100%; min-width: 0; min-height: 36px; height: 36px; padding: 0 4px; font-size: 12px;
+}
+#paint-guide-pick, #paint-guide-drop { min-height: 28px; height: 28px; }
+.paint-guide-opacity, .paint-clean-opacity { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 12px; }
+.paint-guide-opacity > span, .paint-clean-opacity > span { display: flex; justify-content: space-between; }
+.paint-guide-opacity input[type="range"], .paint-clean-opacity input[type="range"] { width: 100%; min-width: 0; margin: 0; }
+.paint-guide-opacity input[type="range"] { min-height: 20px; height: 20px; }
+.paint-move-row .hint { font-size: 12px; }
+.paint-compare-row .arrows, .paint-move-row .arrows { display: grid; grid-template-columns: repeat(2, 36px); gap: 4px; }
+.paint-compare-row .arrows .btn, .paint-move-row .arrows .btn { width: 36px; min-width: 36px; min-height: 36px; height: 36px; padding: 0; }
+.paint-compare-row .arrows .btn { min-height: 28px; height: 28px; }
+#paint-clean-status { font-size: 11px; line-height: 1.3; word-break: keep-all; }
 .guide-list-wrap { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+.paint-guide-list-wrap { flex: 1 1 auto; flex-direction: column; align-items: stretch; min-width: 0; min-height: 0; padding: 0; }
 .guide-list-wrap[hidden], .guide-list[hidden] { display: none; }
 .guide-list { display: flex; flex: 1 1 0; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.paint-guide-list { flex: 1 1 auto; flex-direction: column; flex-wrap: nowrap; min-height: 60px; max-height: none; overflow-y: auto; }
+.paint-guide-list .guide-item { width: 100%; flex-shrink: 0; justify-content: space-between; box-sizing: border-box; padding: 2px 2px 2px 6px; }
+.paint-guide-list .guide-item-select { flex: 1 1 0; min-width: 0; text-align: left; }
 .guide-item {
   display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
   padding: 2px 4px 2px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel);

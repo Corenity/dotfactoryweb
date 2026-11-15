@@ -112,18 +112,52 @@
           </div>
         </div>
       </div>
+      <div class="paint-controls" aria-label="화면 확대 축소">
+        <button class="btn" id="paint-zoom-in" aria-label="크게 보기">+</button>
+        <span class="hint" id="paint-zoom"></span>
+        <button class="btn" id="paint-zoom-out" aria-label="작게 보기">−</button>
+        <button class="btn" id="paint-fit">맞춤</button>
+      </div>
       <div class="paint-workspace">
-        <aside class="paint-side" aria-label="편집 보기 메뉴와 줌">
+        <aside class="paint-side" aria-label="편집 보기 메뉴">
           <nav class="paint-view-menu" aria-label="편집 보기 메뉴">
             <button type="button" data-paint-view="original" aria-pressed="true">원본</button>
             <button type="button" data-paint-view="compare" aria-pressed="false">비교</button>
             <button type="button" data-paint-view="clean" aria-pressed="false">색정리</button>
           </nav>
-          <div class="paint-controls">
-            <button class="btn" id="paint-zoom-in" aria-label="크게 보기">+</button>
-            <span class="hint" id="paint-zoom"></span>
-            <button class="btn" id="paint-zoom-out" aria-label="작게 보기">−</button>
-            <button class="btn" id="paint-fit">맞춤</button>
+          <div class="paint-view-panel paint-move-row" data-paint-panel="original">
+            <span class="hint">그림 옮기기</span>
+            <span class="arrows">
+              <button class="btn small" data-move="-1,0" aria-label="왼쪽으로 한 칸 옮기기" disabled>←</button>
+              <button class="btn small" data-move="1,0" aria-label="오른쪽으로 한 칸 옮기기" disabled>→</button>
+              <button class="btn small" data-move="0,-1" aria-label="위로 한 칸 옮기기" disabled>↑</button>
+              <button class="btn small" data-move="0,1" aria-label="아래로 한 칸 옮기기" disabled>↓</button>
+            </span>
+          </div>
+          <div class="guide paint-view-panel paint-compare-row" id="paint-guide-row" data-paint-panel="compare" hidden>
+            <div class="guide-picker">
+              <button class="btn small" id="paint-guide-pick" type="button" aria-haspopup="menu" aria-expanded="false">고르기</button>
+              <div class="guide-picker-menu" id="paint-guide-menu" role="menu" aria-label="대볼 자료 고르기" hidden>
+                <button class="btn" type="button" role="menuitem" data-guide-source="png">PNG 그림</button>
+                <button class="btn" type="button" role="menuitem" data-guide-source="region-file">영역 설정 파일</button>
+              </div>
+            </div>
+            <label class="paint-guide-opacity"><span>진하기 <span id="paint-guide-opacity-value">50%</span></span><input type="range" id="paint-guide-opacity" min="0" max="100" step="10" value="50" aria-label="대볼 그림 진하기" disabled></label>
+            <span class="arrows">
+              <button class="btn small" data-move="-1,0" aria-label="대볼 그림 왼쪽으로 한 칸 옮기기" disabled>←</button>
+              <button class="btn small" data-move="1,0" aria-label="대볼 그림 오른쪽으로 한 칸 옮기기" disabled>→</button>
+              <button class="btn small" data-move="0,-1" aria-label="대볼 그림 위로 한 칸 옮기기" disabled>↑</button>
+              <button class="btn small" data-move="0,1" aria-label="대볼 그림 아래로 한 칸 옮기기" disabled>↓</button>
+            </span>
+            <button class="btn small guide-clear-btn" id="paint-guide-drop" type="button" hidden>모두 빼기</button>
+            <div class="guide-list-wrap paint-guide-list-wrap" id="paint-guide-list-wrap" hidden>
+              <div class="guide-list paint-guide-list" id="paint-guide-list" role="list" aria-label="대볼 그림 목록"></div>
+            </div>
+          </div>
+          <div class="paint-view-panel paint-clean-panel" id="paint-clean-wrap" data-paint-panel="clean" hidden>
+            <label class="paint-clean-opacity" for="paint-clean-level"><span>색 묶기 <span id="paint-clean-val">5%</span></span><input id="paint-clean-level" type="range" min="1" max="15" value="5" step="1"></label>
+            <button class="btn" id="paint-clean-run">색 정리</button>
+            <span class="status" id="paint-clean-status" aria-live="polite"></span>
           </div>
         </aside>
         <div class="stage" id="paint-stage">
@@ -136,41 +170,6 @@
             <button class="btn" id="paint-selection-erase">지우기</button>
           </span>
         </div>
-      </div>
-      <div class="row paint-view-panel paint-move-row" data-paint-panel="original">
-        <span class="hint">그림 옮기기</span>
-        <span class="arrows">
-          <button class="btn small" data-move="-1,0" aria-label="왼쪽으로 한 칸 옮기기" disabled>←</button>
-          <button class="btn small" data-move="1,0" aria-label="오른쪽으로 한 칸 옮기기" disabled>→</button>
-          <button class="btn small" data-move="0,-1" aria-label="위로 한 칸 옮기기" disabled>↑</button>
-          <button class="btn small" data-move="0,1" aria-label="아래로 한 칸 옮기기" disabled>↓</button>
-        </span>
-      </div>
-      <div class="row guide paint-view-panel paint-compare-row" id="paint-guide-row" data-paint-panel="compare" hidden>
-        <div class="guide-picker">
-          <button class="btn small" id="paint-guide-pick" type="button" aria-haspopup="menu" aria-expanded="false">고르기</button>
-          <div class="guide-picker-menu" id="paint-guide-menu" role="menu" aria-label="대볼 자료 고르기" hidden>
-            <button class="btn" type="button" role="menuitem" data-guide-source="png">PNG 그림</button>
-            <button class="btn" type="button" role="menuitem" data-guide-source="region-file">영역 설정 파일</button>
-          </div>
-        </div>
-        <label class="inline guide-opacity"><input type="range" id="paint-guide-opacity" min="0" max="100" step="10" value="50" aria-label="대볼 그림 진하기" disabled><span id="paint-guide-opacity-value">50%</span></label>
-        <span class="arrows">
-          <button class="btn small" data-move="-1,0" aria-label="대볼 그림 왼쪽으로 한 칸 옮기기" disabled>←</button>
-          <button class="btn small" data-move="1,0" aria-label="대볼 그림 오른쪽으로 한 칸 옮기기" disabled>→</button>
-          <button class="btn small" data-move="0,-1" aria-label="대볼 그림 위로 한 칸 옮기기" disabled>↑</button>
-          <button class="btn small" data-move="0,1" aria-label="대볼 그림 아래로 한 칸 옮기기" disabled>↓</button>
-        </span>
-      </div>
-      <div class="row guide-list-wrap paint-view-panel" id="paint-guide-list-wrap" hidden>
-        <div class="guide-list" id="paint-guide-list" role="list" aria-label="대볼 그림 목록"></div>
-        <button class="btn small guide-clear-btn" id="paint-guide-drop" type="button" hidden>모두 빼기</button>
-      </div>
-      <div class="row paint-view-panel" id="paint-clean-wrap" data-paint-panel="clean" hidden>
-        <label class="inline" for="paint-clean-level">색 묶기<input id="paint-clean-level" type="range" min="1" max="15" value="5" step="1"></label>
-        <span class="hint" id="paint-clean-val">5%</span>
-        <button class="btn" id="paint-clean-run">색 정리</button>
-        <span class="status" id="paint-clean-status" aria-live="polite"></span>
       </div>
       <div class="row paint-files">
         <button class="btn" id="paint-open" aria-label="PNG 열기">열기</button>
