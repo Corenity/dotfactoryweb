@@ -45,3 +45,20 @@ export function place(base, piece, x, y) {
   }
   return out;
 }
+
+/** 네모 영역을 왼쪽 위부터 잘라 새 그림으로 만듭니다. 선택이 없거나 크기가 없으면 원본 복제입니다. */
+export function cropRect(img, rect) {
+  if (!rect || rect.w <= 0 || rect.h <= 0) return clone(img);
+  const out = blank(rect.w, rect.h);
+  const xStart = Math.max(0, -rect.x), xEnd = Math.min(rect.w, img.width - rect.x);
+  if (xStart < xEnd) {
+    for (let py = 0; py < rect.h; py++) {
+      const sy = rect.y + py;
+      if (sy < 0 || sy >= img.height) continue;
+      const srcStart = (sy * img.width + (rect.x + xStart)) * 4;
+      const srcEnd = srcStart + (xEnd - xStart) * 4;
+      out.data.set(img.data.subarray(srcStart, srcEnd), (py * rect.w + xStart) * 4);
+    }
+  }
+  return out;
+}

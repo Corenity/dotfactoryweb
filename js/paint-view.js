@@ -3,7 +3,7 @@
 import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, isPointInside, dropColorToMine, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
 import { overlayGuides, guidesPixelAt, guideOpacity, moveGuide, GUIDE_OPACITY } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName, mountDesktopCanvasPan, renderGuideList } from './io.js';
-import { selectRect, insideRect, lift, fillPiece, place } from './core/select.js';
+import { selectRect, insideRect, lift, fillPiece, place, cropRect } from './core/select.js';
 import { loadColors, saveColors } from './store.js';
 import { currentCanvas } from './core/profile.js';
 import { importRegionConfig, regionGuideImage } from './core/region-slice.js';
@@ -547,6 +547,12 @@ export function mountPaint(app) {
     changed();
   });
   $('#paint-save').addEventListener('click', () => image && savePng(`${name}.png`, fillKey(image)));
+  $('#paint-save-selection').addEventListener('click', () => {
+    if (!image) return;
+    const target = sel ? cropRect(image, sel) : image;
+    const fileName = sel ? `${name}-selection.png` : `${name}.png`;
+    savePng(fileName, fillKey(target));
+  });
 
   $('#paint-clean-level').addEventListener('input', () => {
     $('#paint-clean-val').textContent = `${$('#paint-clean-level').value}%`;
