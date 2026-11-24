@@ -128,6 +128,15 @@
                 <button class="btn small" data-move="0,1" aria-label="아래로 한 칸 옮기기" disabled>↓</button>
               </span>
             </div>
+            <div class="paint-rotate-row">
+              <span class="hint">그림 회전</span>
+              <span class="paint-rot-steps">
+                <button class="btn small" id="paint-rot-minus15" type="button" title="-15°" aria-label="왼쪽으로 15도 회전" data-rotate-control disabled>-15°</button>
+                <button class="btn small" id="paint-rot-plus15" type="button" title="+15°" aria-label="오른쪽으로 15도 회전" data-rotate-control disabled>+15°</button>
+              </span>
+              <input type="range" id="paint-rot-slider" min="-180" max="180" step="1" value="0" aria-label="그림 회전 각도" data-rotate-control disabled>
+              <label class="paint-rot-angle"><input id="paint-rot-angle" type="number" min="-180" max="180" step="1" value="0" aria-label="회전 각도 입력" data-rotate-control disabled>°</label>
+            </div>
             <div class="paint-clean-panel" id="paint-clean-wrap">
               <label class="paint-clean-opacity" for="paint-clean-level"><span>색 묶기 <span id="paint-clean-val">5%</span></span><input id="paint-clean-level" type="range" min="1" max="15" value="5" step="1"></label>
               <button class="btn" id="paint-clean-run">색 정리</button>

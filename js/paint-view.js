@@ -1,6 +1,6 @@
 // 다듬기 화면 — 한 손가락으로 칠하고, 두 손가락으로 옮기고, + · − 단추로 확대 · 축소합니다.
 // 대볼 그림은 합치기와 같이 그림 위에 반쯤 비치게 여러 장 얹어 맞춰 보는 데만 쓰고, 내려받기 · 합치기에 더하기에는 넣지 않습니다.
-import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, isPointInside, dropColorToMine, forgetColor, shiftPixels, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
+import { blank, clone, getPixel, setPixel, floodFill, usedColors, rememberColor, isPointInside, dropColorToMine, forgetColor, shiftPixels, rotateImage, toHex, fromHex, History, KEY, dropKey, fillKey } from './core/paint.js';
 import { overlayGuides, guidesPixelAt, guideOpacity, moveGuide, GUIDE_OPACITY } from './core/assemble.js';
 import { drawPixels, pickFiles, readImageFile, readDataUrl, savePng, toPngDataUrl, baseName, mountDesktopCanvasPan, renderGuideList } from './io.js';
 import { selectRect, insideRect, lift, fillPiece, place, cropRect } from './core/select.js';
@@ -26,6 +26,7 @@ export function mountPaint(app) {
   let mine = loadColors(); // 내 색: 다른 색에서 고른 색. 그림을 바꿔도 남습니다.
   let tool = 'pen', cell = 8, panX = 0, panY = 0;
   let strokeBefore = null, last = null;
+  let rotDragBefore = null;
   // 선택: marquee 는 네모를 긋는 중({ from, rect }), sel 은 떼어 낸 칸({ x, y, w, h, base, piece, before, drag }).
   // 선택 중 image 는 늘 base 위에 piece 를 얹은 모습이라 내려받기 · 자동 보관은 보이는 그대로 담습니다.
   let marquee = null, sel = null;
@@ -65,10 +66,17 @@ export function mountPaint(app) {
   }
   function clearGuides() { guides = []; selectedGuide = -1; }
 
+  function resetRotateControls() {
+    rotDragBefore = null;
+    $('#paint-rot-slider').value = '0';
+    $('#paint-rot-angle').value = '0';
+  }
+
   function render() {
     renderGuide();
     renderSelectionBar();
     for (const b of document.querySelectorAll('[data-paint-panel="original"] [data-move]')) b.disabled = !image;
+    for (const el of document.querySelectorAll('[data-paint-panel="original"] [data-rotate-control]')) el.disabled = !image;
     for (const b of document.querySelectorAll('[data-paint-panel="compare"] [data-move]')) b.disabled = !image || !currentGuide();
     $('#paint-empty').hidden = !!image;
     canvas.hidden = !image;
@@ -472,8 +480,8 @@ export function mountPaint(app) {
   $('#paint-selection-fill').addEventListener('click', () => editSelection(color()));
   $('#paint-selection-erase').addEventListener('click', () => editSelection([0, 0, 0, 0]));
   // 선택 중에 되돌리면 먼저 내려놓으니, 옮긴 것 전체가 한 번에 되돌아갑니다.
-  $('#paint-undo').addEventListener('click', () => { dropSelection(); const prev = history.undo(image); if (prev) { image = prev; changed(); } });
-  $('#paint-redo').addEventListener('click', () => { dropSelection(); const next = history.redo(image); if (next) { image = next; changed(); } });
+  $('#paint-undo').addEventListener('click', () => { resetRotateControls(); dropSelection(); const prev = history.undo(image); if (prev) { image = prev; changed(); } });
+  $('#paint-redo').addEventListener('click', () => { resetRotateControls(); dropSelection(); const next = history.redo(image); if (next) { image = next; changed(); } });
   $('#paint-fit').addEventListener('click', fit);
   $('#paint-open').addEventListener('click', async () => {
     const [file] = await pickFiles({ accept: 'image/png' });
@@ -546,6 +554,38 @@ export function mountPaint(app) {
     image = next;
     changed();
   });
+  function applyRotate(deg) {
+    if (!image) { resetRotateControls(); return; }
+    const angle = Number(deg);
+    if (!Number.isFinite(angle)) { resetRotateControls(); return; }
+    dropSelection();
+    const before = rotDragBefore || clone(image);
+    const next = rotateImage(before, angle);
+    resetRotateControls();
+    if (!sameImage(before, next)) {
+      history.push(before);
+      image = next;
+      changed();
+    } else {
+      image = before;
+      render();
+    }
+  }
+  $('#paint-rot-slider').addEventListener('input', () => {
+    if (!image) return;
+    if (!rotDragBefore) {
+      dropSelection();
+      rotDragBefore = clone(image);
+    }
+    const deg = Number($('#paint-rot-slider').value) || 0;
+    $('#paint-rot-angle').value = String(deg);
+    image = rotateImage(rotDragBefore, deg);
+    render();
+  });
+  $('#paint-rot-slider').addEventListener('change', () => applyRotate($('#paint-rot-slider').value));
+  $('#paint-rot-angle').addEventListener('change', () => applyRotate($('#paint-rot-angle').value));
+  $('#paint-rot-minus15').addEventListener('click', () => applyRotate(-15));
+  $('#paint-rot-plus15').addEventListener('click', () => applyRotate(15));
   $('#paint-save').addEventListener('click', () => image && savePng(`${name}.png`, fillKey(image)));
   $('#paint-save-selection').addEventListener('click', () => {
     if (!image) return;
@@ -580,6 +620,7 @@ export function mountPaint(app) {
 
   // 어디서 온 그림이든 배경 초록 칸은 투명으로 바꿔 받습니다.
   function load(next, nextName) {
+    resetRotateControls();
     sel = marquee = null;
     image = dropKey(next);
     name = nextName || '그림';
@@ -624,7 +665,8 @@ export function mountPaint(app) {
       }
       guides = loadedGuides;
       selectedGuide = guides.length ? guides.length - 1 : -1;
-      if (!saved?.png) { render(); return; }
+      if (!saved?.png) { resetRotateControls(); render(); return; }
+      resetRotateControls();
       sel = marquee = null;
       image = dropKey(await readDataUrl(saved.png));
       name = saved.name || '그림';

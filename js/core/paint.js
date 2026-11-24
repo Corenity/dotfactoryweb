@@ -1,4 +1,5 @@
 // 다듬기 — 칸 색 바꾸기 · 채우기 · 쓴 색 모으기 · 되돌리기 기록입니다. 화면과 떼어 둡니다.
+import { rotateNearest } from './rig-render.js';
 
 export function blank(width, height) {
   return { width, height, data: new Uint8ClampedArray(width * height * 4) };
@@ -184,6 +185,13 @@ export function shiftPixels(img, dx, dy) {
     }
   }
   return out;
+}
+
+/** 그림 전체를 가운데 중심으로 degrees 만큼 최근접 회전한 새 그림입니다. 캔버스 크기는 그대로입니다. */
+export function rotateImage(img, degrees) {
+  const deg = Number(degrees);
+  if (!Number.isFinite(deg) || deg === 0) return clone(img);
+  return rotateNearest(img, (img.width - 1) / 2, (img.height - 1) / 2, deg);
 }
 
 /** 되돌리기 · 다시하기. 한 번의 붓질(손가락을 뗄 때까지)을 한 단계로 담습니다. */
